@@ -1,0 +1,938 @@
+/// FRENCH PO list
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// --------------------------------------READ INPUT TABLES-----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+import "/1. utilities/Modules/Global Parameters" as GP with
+  DcUnit
+  LinkLocationItemInspector
+  LinkHomeDashboard
+  ColorB
+
+
+const testStorage = ""
+const inputPath = "\{testStorage}/Clean/"
+
+// read "/Clean/AutoPartsItems.ion" as Items[Id unsafe] with
+//   "Sku" as Id : text
+//   "AutoPartsName" as Name : text
+//   "AutoPartsCategoryname" as Category : text
+//   SellPrice : number
+//   BuyPrice : number
+//   StockOnHand : number
+//   StockOnOrder : number
+//   LeadTime : number
+//   ImageUrl : text
+//   StartDate : date
+//   EndDate : date
+//   "AutoPartsSupplier" as Supplier : text
+//   IsClean : boolean
+//   Q30 : number
+//   Q90 : number
+//   Q365 : number
+//   MOQ : number
+//   LotMultiplier : number
+//   ReorderCycle : number
+
+read "/Clean/Items.ion" as Items[Id unsafe] with
+  "Sku" as Id : text
+  Name : text
+  Category : text
+  SellPrice : number
+  BuyPrice : number
+  StockOnHand : number
+  StockOnOrder : number
+  LeadTime : number
+  ImageUrl : text
+  StartDate : date
+  EndDate : date
+  Supplier : text
+  IsClean : boolean
+  Q30 : number
+  Q90 : number
+  Q365 : number
+  MOQ : number
+  LotMultiplier : number
+  ReorderCycle : number
+
+read "/Manual/TopItemsParameters.xlsx" as TopItemsParameters expect[Id] with
+  CategoryDisplayRank : number
+  Category : text
+  ItemDisplayRank : number
+  Ref : text
+  "Sku" as Id : text
+
+read "\{testStorage}Clean/Orders.ion" as Orders expect [Id, date] with
+  "Sku" as Id : text
+  "OrderDate" as date: date
+  Ref : text
+  Loc : text
+  Quantity : number
+  LokadNetAmount : number
+  OrderId : text
+  IsFirstOrder : boolean
+  HealthLog : text
+  IsClean : boolean
+
+read "/Clean/PO.ion" as PO expect[Id, date] with
+  "Sku" as Id : text
+  "OrderDate" as date: date
+  Loc : text
+  Ref : text
+  DeliveryDate : date
+  Quantity : number
+  Supplier : text
+  PONumber : text
+  IsInCatalog : boolean
+  IsClean : boolean
+  InputDate : date
+  InputPath : text
+
+read "/Clean/Stock.ion" as Stock expect[Id, date] with
+  "Sku" as Id : text
+  StockOnHand : number
+  StockOnOrder : number
+  "StockDate" as date: date
+  IsInCatalog : boolean
+  InputDate : date
+  InputPath : text
+
+read "\{inputPath}Forecast/Periodic/WeeklyFc.ion" as WeeklyFc expect[Id, date] with
+  "Sku" as Id : text
+  "Monday" as date: date
+  WOODemand : ranvar
+  SLTDemand : ranvar
+  TotalDemand : ranvar
+  IsPast : boolean
+
+///Read for comparison
+read "Clean/PurchaseResults/PORecommendations.ion" as PORecommendations expect[Id] with
+  Id : text
+  Margin : number
+  ExpectedROI : number
+  BuyPrice : number
+  OrderQuantity : number
+  InvestmentRequired : number
+  CurrentFR : number
+  FR : ranvar
+  NewFR : number
+  LastYearSales : number
+  SalesWeight : number
+  OverallFRContrib : number
+  SupplierLastYearSales : number
+  SupplierSalesWeight : number
+  SatisfiableDemand : ranvar
+  SatisfiedDemand : number
+  AvgDemandOnRLT : number
+  TotalDemandRLT : ranvar
+  TotalDemandRLTDisplay : ranvar
+
+read "Clean/PurchaseResults/DemandDistributions.ion" as DemandDistributions expect[Id] with
+  Id : text
+  SatisfiableDemand : ranvar
+  SatisfiedDemand : number
+  AvgDemandOnRLT : number
+  TotalDemandRLT : ranvar
+  TotalDemandRLTDisplay : ranvar
+  HoldingTime : zedfunc
+
+read "Clean/PurchaseResults/MicroDecisions.ion" as Grid expect[Id] with
+  Rank : number
+  "SKU" as Id : text
+  Name : text
+  Supplier : text
+  BuyPrice : number
+  SellPrice : number
+  Margin : number
+  StockOnHand : number
+  StockOnOrder : number
+  LotMultiplier : number
+  Q : number
+  Min : number
+  Max : number
+  SLT : number
+  RLT : number
+  SalesWeight : number
+  CurrentFR : number
+  FillRateDelta : number
+  CumFillrateDelta : number
+  C : number
+  Reward : number
+  Score : number
+  Investment : number
+  CategoryCurrentFR : number
+  CumCategoryFRGain : number
+  CumOverallFRGain : number
+  // IsEligible : boolean
+
+read "/Clean/PurchaseResults/TargetsPurchaseList.ion" as TargetsPORecommandations with
+  FRTarget : number
+  budgetTarget : number
+
+///Read for validation
+read "/Clean/Interface/DeletedSuppliers.ion" as DeletedSuppliers max 5k with
+  SupplierIdStr : text
+read "/Clean/Interface/InterfaceParameters.ion" as InterfaceParameters with
+  exportedAmount : number
+read "/Clean/Interface/SuppliersToCheck.ion" as SuppliersToCheck with
+  SupplierId : text
+  AmountToCheck : number
+read "/Clean/Interface/PurchasePerimeter.xlsx" as PurchasePerimeter with
+  Buyer : text
+
+
+read form with
+  agressivenessFactorCosmetic : number
+  agressivenessFactorMedicalSupplies : number
+  agressivenessFactorDrugs : number
+  FRTarget : number
+  budgetTarget : number
+  resetDashboard : boolean
+  supplierReintegrate : text
+  moveAll : boolean
+  exportAll : boolean
+  BuyerToMoveOrders : text
+  resetParams : boolean
+
+read upload "ExportSuppliers" as ExportSuppliers min 0 with
+  "Fournisseur" as Supplier : text
+  "Export" as IsToExport : boolean
+  "Supprimer" as IsToDelete : boolean
+  "Migrer" as IsToMove : boolean
+
+read upload "PrioritaryValidation" as Validation min 0 expect[Id] with
+  "Sku" as Id : text
+  "Validation ?" as Validated : boolean
+  // FinalQty : number
+  "Quantité Finale" as FinalQty : number
+
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// ------------------------------------------SETUP-------------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+show tabs "" a3h3 with
+  "Results" as "Résultats"
+  "Validation" as "Validation recommandations achat"
+  "Comparison" as "Comparaison"
+  "Parameters" as "Paramètres"
+  "Hidden" {tabDisplay: "false"}
+
+///Editable body------------------------------------------------------------------------------------
+
+show logo "" a1
+show markdown "Suggestions achat" b1c1 with """
+  ### **Suggestions achat**
+"""
+
+show markdown "" a2f2 with """
+  __ Cet écran recommande les achat à faire ce jour, sur la base de l'approche Lokad d'optimisation probabiliste de maximisation du retour sur investissement
+  __Documentation complète ci-dessous__
+"""
+show label "" a2h2 9b9b9b
+
+show markdown "Overall view" a17h45 {tileTab: "Results"} with  """
+### Documentation
+
+__Taux de couverture__: Taux de couverture globale actuel (stock sur étagère et en commande), i.e. la proportion de demande
+déjà couverte par le stock actuellement sur étagère et en commande
+
+__Nouveau Taux de couverture__: Taux de couverture globale (stock sur étagère et en commande) après recommandation d'achat, i.e. proportion de la demande
+qui sera couverte après achat du jour
+
+__Investissement total__: Investissement total proposé en USD
+
+__Investissement recommandé par fournisseur__: Investissement total recommandé en USD, par fournisseur
+
+__Recommandation d'achat tout fournisseur: Toutes les references a acheter, et indicateurs principaux pour comprendre la Recommandation d'achat
+
+Sku: Code reference
+
+Nom: Nom reference
+
+Categorie: Category reference
+
+Fournisseur: Fournisseur reference
+
+Délai approvisionnement: Délai d'approvisionnement fournisseurs en jours
+
+Prix achat: Prix achat fournisseur, brut
+
+Prix vente: Prix vente brut
+
+Marge: Marge brut, i.e. difference entre prix vente et prix achat
+
+Stock Etagere: Stock actuellement sur etagère
+
+Stock Commande: Stock actuellement en commande, i.e. unités achetées mais pas encore livrées
+
+Demande Moyenne approvisionnement: Demande moyenne prévue sur le prochain délai d'approvisionnement
+
+Demande Moyenne Couverture: Demande moyenne prévue sur la prochaine fenêtre de responsabilité (FR), i.e. un cycle de réapprovisionnement
+
+Demande Moyenne Totale: Demande moyenne prévue sur le prochain délai d'approvisionnement + fenêtre de responsabilité (FR)
+
+Reco Achat: Recommandation d'achat pour couvrir la prochaine fenêtre de responsabilité
+
+Investissement: Investissement associé à la recommandation d'achat
+
+Contrib. couverture globale: Contribution de cette référence au taux de couverture globale
+
+__Categorie x Reco achat__: Toutes les references d'une Categorie x a acheter et indicateurs clés pour comprendre la recommandation d'achat. La categorie x peut être sélectionnée
+en haut à droite du dashboard
+
+__Toutes micro decisions par fournisseur__: toutes les unités à acheté pour chaque référence, priorisée par ordre décroissant de retour sur investissement
+
+Rang: Rang de toutes les unités de toutes les references par ordre décroissant de retour sur investissement (Plus le rang de l'unité est bas, plus son retour sur Investissement est élevé)
+
+Δ couverture : Taux de couverture additional généré par la micro decision d'achat de cette unité précise
+
+Marge attendue: Marge brute attendue pour cette unité
+
+Couverture de rupture attendue: Couverture de rupture réalisable attendue pour cette unité
+
+Coûts attendus: Couts (Logistique et trésorerie) pour cette unités
+
+Gain total: Gain financier total egal à: (Marge attendue + Couverture de rupture attendue) - Coûts attendus
+
+Retour sur Investissement: Retour sur Investissement. Egal au Gain total / prix achat
+
+Investissement cumulé.: Investissement nécessaire pour acheter le panier total jusqu'à cette unité
+
+Acheté?: Pour une reference donnée, toutes les unités recommandées à l'achat auront "yes"
+
+__Categorie x micro decisions__: Toutes les unités de la Categorie x à acheter priorisées par ordre décroissant de retour sur investissement
+
+__Pareto au fournisseur__: Représente l'actuel et le nouveau Taux de couverture pour chaque fournisseur par ordre décroissant de proportion de Chiffre d'affaire.
+La proportion cumulative de chiffre d'affaire est affichée par une ligne noire.
+
+__Pareto à la référence (40 meilleurs best-sellers)__: Représente l'actuel et le nouveau Taux de couverture pour les best-sellers les plus performants par ordre décroissant de proportion de Chiffre d'affaire.
+La proportion cumulative de chiffre d'affaire est affichée par une ligne noire.
+"""
+
+show label "Prochain" h1                    {href: "https://go.lokad.com/home" ; hrefAspect: white ; textAlign: center}
+show label "Précédent" g1                    {hrefAspect: white ; textAlign: center ; href: #("https://go.lokad.com/d/68020/")}
+
+show label "https://go.lokad.com/d/68018/ Configuration fournisseur & réseau" g2h2                                                  {labelIcon: "container" ; textAlign: center ; hrefAspect: white ; tileColor: #(ColorB)}
+
+show label "Comparaison avec la stratégie Min/Max" a5c5 f5ca91               {href: "https://go.lokad.com/d/68014/" ; labelIcon: "histogram" ; hrefAspect: white ; textAlign: center ; textBold: "true" ; tileTab: "Results"}
+
+
+oend = max(WeeklyFc.date) when(WeeklyFc.IsPast)
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///---------------------------------------PREPROCESS----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+keep where Items.IsClean
+
+inspectorId = LinkLocationItemInspector
+selectedTab = concat("&t=", "Info")
+Items.hRefUrlRaw = sliceSearchUrl(inspectorId, Items.Id)
+Items.hRefUrl = concat(Items.hRefUrlRaw, selectedTab)
+Items.Url = replace(Items.hRefUrl , "~" , "https://go.lokad.com" )
+
+Items.CategoryDisplayRank = same(TopItemsParameters.CategoryDisplayRank)
+                            by TopItemsParameters.Category
+                            at Items.Category
+
+Items.ItemDisplayRank = same(TopItemsParameters.ItemDisplayRank)
+
+Items.IsTopItem = any(TopItemsParameters.*)
+
+Items.WOODemand = same(WeeklyFc.WOODemand)
+Items.SLTDemand = same(WeeklyFc.SLTDemand)
+Items.TotalDemand = same(WeeklyFc.TotalDemand)
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///---------------------------------PURCHASE RecommandationS--------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///Agressiveness factor input
+table Categories [CategoryName] = by [Items.Category]
+
+show markdown "" c7d8 {tileTab: "Parameters"} with """
+  Le paramètre `agressivité` permets l'utilisateur d'ajuster l'aggressivité de couverture de stock par
+  categorie. Elle s'échelonne de 0 to 5, 5 étant la plus aggressive.
+"""
+
+show form "Ré-initialiser paramètres" g4h5 {formButton: "Run" ; tileTab: "Parameters"} with
+  false as "Ré-initialiser paramètres?" form:"resetParams"
+
+show markdown "" a7b8 {tileTab: "Parameters"} with """
+  Le `Taux de couverture` est la fraction de demande absorbée par le stock immédiatement disponible. Cet paramétrage fixe la cible a atteindre pour l'optimiseur d'achats.
+"""
+show label "Vers Documentation Taux de couverture" a9b9                                 {tileTab: "Parameters" ; href: "https://go.lokad.com/d/68036/" ; hrefAspect: white ; textAlign: center}
+
+
+
+FRTarget = if resetParams then 95 else FRTarget
+budgetTarget = if resetParams then 160k else budgetTarget
+agressivenessFactorCosmetic = if resetParams then 5 else agressivenessFactorCosmetic
+agressivenessFactorMedicalSupplies = if resetParams then 3 else agressivenessFactorMedicalSupplies
+agressivenessFactorDrugs = if resetParams then 4 else agressivenessFactorDrugs
+
+show form "Configuration paramètre agressivité (0 - 5)" c4d6        {formButton: "Run" ; tileTab: "Parameters"} with
+  agressivenessFactorCosmetic as "Cosmetic" //single(Categories.AgressivenessFactorIni) when(CategoryName == "Cosmetic") as "Cosmetic" form:"agressivenessFactorCosmetic"
+  agressivenessFactorMedicalSupplies as "Medical Supplies"  //single(Categories.AgressivenessFactorIni) when(CategoryName == "Medical Supplies") as "Medical Supplies" form:"agressivenessFactorMedicalSupplies"
+  agressivenessFactorDrugs as "Drugs" //single(Categories.AgressivenessFactorIni) when(CategoryName == "Drugs") as "Drugs" form:"agressivenessFactorDrugs"
+
+show form "Cibles optimisation" a4b6 {tileTab: "Parameters" ; formButton: "Run" ; fieldColor: #D5ECBC}  with
+  FRTarget as "Cible taux de couverture (0-100%)"
+  budgetTarget as "Budget maximum ($)"
+
+FRTarget = min(max(FRTarget/100,0),1)
+
+// Categories.AgressivenessFactorIni = match Categories.CategoryName with
+//   "Wheel & tyre accessories" ->  min(max(agressivenessFactorCosmetic, 0), 5)
+//   "Car Mats" ->  min(max(agressivenessFactorMedicalSupplies, 0), 5)
+//   "Winter Accessories" ->  min(max(agressivenessFactorMedicalSupplies, 0), 5)
+//   "Charging Accessories" ->  min(max(agressivenessFactorDrugs, 0), 5)
+//   "Brakes" ->  min(max(agressivenessFactorDrugs, 0), 5)
+
+Categories.AgressivenessFactorIni = match Categories.CategoryName with
+  "Cosmetic" ->  min(max(agressivenessFactorCosmetic, 0), 5)
+  "Medical Supplies" ->  min(max(agressivenessFactorMedicalSupplies, 0), 5)
+  "Medical Patient Care" ->  min(max(agressivenessFactorMedicalSupplies, 0), 5)
+  "Drugs" ->  min(max(agressivenessFactorDrugs, 0), 5)
+
+Items.AgressivenessFactor = Categories.AgressivenessFactorIni/5 //between 0 and 1
+
+///Economic parameters
+//Margin
+Items.M = Items.SellPrice - Items.BuyPrice
+
+//OOS penalty
+Items.S = - Items.AgressivenessFactor * Items.M
+
+//Carrying cost
+carryingCost = 0.2 // % per-period carrying cost relative to purchase price
+Items.C = carryingCost * Items.BuyPrice * 7 / 365
+
+Items.ReorderCycleWeeks = ceiling(Items.ReorderCycle / 7)
+Items.SupplierLTWeeks = ceiling(Items.LeadTime / 7)
+Items.TotalLTWeeks = Items.SupplierLTWeeks + Items.ReorderCycleWeeks
+
+show table "Parametrès économiques" a28 write:"Clean/PurchaseResults/EconomicParameters.ion" {tileTab: "CategoryView"} with
+  Items.Id
+  Items.Category
+
+  Items.SellPrice
+  Items.BuyPrice
+
+  Items.M
+  Items.S
+  Items.C
+  carryingCost
+
+  Categories.AgressivenessFactorIni
+  Items.TotalLTWeeks
+
+write Categories as "Clean/PurchaseResults/EconomicParametersCategories.ion" with
+  CategoryName = Categories.CategoryName
+  AgressivenessFactor = Categories.AgressivenessFactorIni
+
+write Scalar as "Clean/PurchaseResults/TargetsPurchaseList.ion" with
+  FRTarget = Scalar.FRTarget
+  budgetTarget  = Scalar.budgetTarget
+
+
+// Items.CategoryCurrentFR = same(Grid.CategoryCurrentFR)
+// Items.CategoryFRTarget = (86 + Items.AgressivenessFactor * 12) / 100
+
+///Distributions
+Items.AvgDemandOnRLT = single(DemandDistributions.AvgDemandOnRLT)
+Items.SatisfiableDemand = single(DemandDistributions.SatisfiableDemand)
+Items.SatisfiedDemand = single(DemandDistributions.SatisfiedDemand)
+Items.TotalDemandRLT = single(DemandDistributions.TotalDemandRLT)
+Items.TotalDemandRLTDisplay = single(DemandDistributions.TotalDemandRLTDisplay)
+Items.HoldingTime = single(DemandDistributions.HoldingTime)
+
+Items.FR = fillrate(Items.TotalDemandRLT)
+Items.CurrentFR = int(Items.FR, 0, Items.SatisfiedDemand)
+
+///Score
+Items.SellThrough = (1 - cdf(Items.SatisfiableDemand + 1)) * uniform.right(1) //values in negative are not relevant
+
+Items.RwdM = Items.SellThrough * Items.M
+Items.RwdS = - Items.SellThrough * Items.S
+Items.RwdC = Items.HoldingTime * Items.C
+
+Items.Reward = Items.RwdM + Items.RwdS - Items.RwdC
+
+Grid.M = int(Items.RwdM, Grid.Min, Grid.Max)
+Grid.S = int(Items.RwdS, Grid.Min, Grid.Max)
+Grid.C = int(Items.RwdC, Grid.Min, Grid.Max)
+Grid.Reward = int(Items.Reward, Grid.Min, Grid.Max)
+
+Grid.Cost = Grid.Q * Items.BuyPrice
+
+Grid.Score = Grid.Reward /. Grid.Cost
+
+
+///Eligible decision
+    ///Purchase decision
+    //3 categories agressiveness factors = 1-1-1 --> 87% overall Taux de couverture
+    //3 categories agressiveness factors = 3-4-5 --> 92% overall Taux de couverture
+    //3 categories agressiveness factors = 5-5-5 --> 99% overall Taux de couverture
+where date >= oend - 365 and date <= oend
+  Items.LastYearSales = sum(Orders.LokadNetAmount)
+  lastYearOverallSales = sum(Orders.LokadNetAmount)
+  Items.SalesWeight = Items.LastYearSales / lastYearOverallSales
+  currentFR = sum(Items.CurrentFR * Items.SalesWeight)
+  Items.SupplierLastYearSales = sum(Orders.LokadNetAmount) by Items.Supplier at Items.Supplier
+
+  Items.SupplierSalesWeight = Items.LastYearSales / Items.SupplierLastYearSales
+
+Grid.CumInvest = 0
+Grid.IsEligible = false
+where Grid.Min > 0
+//Ranking potential purchases accoring to the score
+  Grid.Rank = rank(Grid.Score, Id, -Grid.Max)
+
+  Grid.CumInvest = sum(Grid.Cost) scan Grid.Rank
+  Grid.CumFillrateDelta = sum(Grid.FillRateDelta) by Items.Id scan Grid.Rank
+
+  Grid.OverallFRGain = Grid.FillRateDelta * Items.SalesWeight
+  Grid.CumOverallFRGain = sum(Grid.OverallFRGain) scan Grid.Rank
+
+  Grid.IsEligible = FRTarget - currentFR > 0 and
+                    Grid.CumOverallFRGain <= FRTarget - currentFR and
+                    Grid.CumInvest < budgetTarget
+  ///Basile: classic global FRTarget instead of target that is function of agressivity at category level. Asked by Fabian and Swann on 31/01/2024
+  // Grid.IsEligible = Items.CategoryFRTarget - Items.CategoryCurrentFR > 0 and
+  //                   Grid.CumCategoryFRGain <= Items.CategoryFRTarget - Items.CategoryCurrentFR
+
+  where Grid.IsEligible
+    Items.OrderQuantity = sum(Grid.Q)
+    Items.ExpectedROI = sum(Grid.Reward) / sum(Grid.Investment)
+
+
+///Final purchase reporting
+Items.FR = same(PORecommendations.FR)
+Items.SatisfiedDemand = same(DemandDistributions.SatisfiedDemand)
+Items.NewFR = min(int(Items.FR, 0, Items.SatisfiedDemand + Items.OrderQuantity), max(Items.CurrentFR,0.999))
+
+Items.InvestmentRequired = Items.OrderQuantity * Items.BuyPrice
+
+investmentRequired = sum(Items.InvestmentRequired)
+show scalar "Investissements totaux" c4 {textBold: "true" ; textAlign: center ; tileTab: "Results"} with
+  investmentRequired as "" {unit: #(DcUnit)}
+
+show scalar "Taux de couverture actuel" a4 {textBold: "true" ; textAlign: center ; tileTab: "Results"} with
+  currentFR as "" {numbers: percent}
+
+achievedFR = sum(Items.NewFR * Items.SalesWeight)
+show scalar "Nouveau taux de couverture" b4 449d44 {textBold: "true" ; textAlign: center ; tileTab: "Results"} with
+  achievedFR as "" {numbers: percent}
+
+table Slices [slice] = slice by [-Items.SupplierLastYearSales, Items.Supplier] title: Items.Supplier
+
+Items.Rank = rankrev () scan Items.ExpectedROI
+where Items.OrderQuantity > 0
+  show table "Recommandation d'achat tous fournisseurs" d4f7 {tileTab: "Results"} with
+    Items.Id as "Sku" {href: #[Items.Url]}
+    Items.Category as "Categorie"
+    Items.Supplier as "Fournisseur"
+    Items.OrderQuantity as "Reco Achat" {unit: " units" ; cellBackground: #d1d1d1 ; textColor: #C7180F}
+    Items.LeadTime as "Délai approvisionnement"
+    Items.BuyPrice as "Prix achat" {unit: #(DcUnit)}
+    Items.M as "Marge" {unit: #(DcUnit)}
+    Items.StockOnHand as "Stock Etagere"
+    Items.StockOnOrder as "Stock Commande"
+    Items.ExpectedROI {numbers: percent}
+    mean(Items.SLTDemand) as "Demande Moyenne approvisionnement"
+    mean(Items.WOODemand) as "Demande Moyenne Couverture"
+    mean(Items.TotalDemand) as "Demande Moyenne Totale"
+
+    Items.InvestmentRequired as "Investissement" {unit: #(DcUnit)}
+    Items.CurrentFR as "Couverture actuelle" {numbers: percent}
+    Items.NewFR as "Nouvelle couverture" {numbers: percent}
+    Items.SalesWeight * Items.NewFR as "Contribution couverture globale" {numbers: percent}
+    Items.Rank
+    order by Items.Rank
+
+  show barchart "Investissement recommandé par fournisseur" a6c7 ec9539 {tileTab: "Results"} with
+    sum(Items.InvestmentRequired) {unit: #(DcUnit)}
+    group by Items.Supplier
+    order by sum(Items.InvestmentRequired) desc
+
+  show label "" a16h16 9b9b9b {tileTab: "Results"}
+
+  show table same("\{Items.Supplier} Recommandation achat") by slice g4h7 slices:slice {tileTab: "Results"} with
+    // "🔎" as "Inspect" {columnReadOnly: "true" ; columnWidth: 2 ; href: #[Items.Url]}
+    Items.Id as "Sku" {href: #[Items.Url]}
+    //Items.Supplier as "Fournisseur"
+    Items.LeadTime as "Délai approvisionnement"
+    Items.OrderQuantity as "Reco Achat" {unit: " units" ; cellBackground: #d1d1d1 ; textColor: #C7180F}
+    Items.BuyPrice as "Prix achat" {unit: #(DcUnit)}
+    Items.StockOnHand as "Stock Etagere"
+    Items.StockOnOrder as "Stock Commande"
+    Items.InvestmentRequired as "Investissement" {unit: #(DcUnit)}
+    Items.CurrentFR as "Couverture actuelle" {numbers: percent}
+    Items.NewFR as "Nouvelle couverture" {numbers: percent}
+    Items.SalesWeight * Items.NewFR as "Contribution couverture globale" {numbers: percent}
+    order by not Items.IsTopItem, Items.CategoryDisplayRank, - Items.InvestmentRequired
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///---------------------------------Export list-----------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+write Items as "Clean/PurchaseResults/PORecommendations.ion" with
+  Id = Items.Id
+  BuyPrice = Items.BuyPrice
+  SellPrice = Items.SellPrice
+  Margin = Items.M
+  ExpectedROI = Items.ExpectedROI
+  OrderQuantity = Items.OrderQuantity
+  InvestmentRequired = Items.InvestmentRequired
+  FR = Items.FR
+  CurrentFR = min(Items.CurrentFR,0.999) //as new FR is capped to 99.9% we cap curretn FR as well to stay coherent
+  NewFR = Items.NewFR
+  LastYearSales = Items.LastYearSales
+  SalesWeight = Items.SalesWeight
+  OverallFRContrib = Items.SalesWeight * Items.NewFR
+  SupplierLastYearSales = Items.SupplierLastYearSales
+  SupplierSalesWeight = Items.SupplierSalesWeight
+  AvgDemandOnRLT = Items.AvgDemandOnRLT
+  SatisfiableDemand = Items.SatisfiableDemand
+  SatisfiedDemand = Items.SatisfiedDemand
+  TotalDemandRLT = Items.TotalDemandRLT
+  TotalDemandRLTDisplay = Items.TotalDemandRLTDisplay
+  order by Items.ExpectedROI desc
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///--------------------------------------MICRO DECISIONS------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Grid.PreviousId = same(Grid.Id) by Grid.Rank at [Grid.Rank - 1]
+Grid.IdChangeRank = if Grid.Rank == 1 or Grid.Id != Grid.PreviousId then 1 else 0
+Grid.CumIdChangeRank = sum(Grid.IdChangeRank) scan Grid.Rank
+Grid.CellColor = if Grid.CumIdChangeRank mod 2 == 0 then "#ffebab" else "#f2f2f2"
+
+///Display
+show table "Toutes micro decisions par fournisseur" d8f10 {tileTab: "Results"} with
+  // "🔎" as "Inspect" {columnReadOnly: "true" ; columnWidth: 2 ; href: #[Items.Url] ; cellBackground: #[Grid.CellColor]}
+  Grid.Rank as "Rang" {cellBackground: #[Grid.CellColor] ; href: #[Items.Url]}
+  Items.Id as "Sku" {cellBackground: #[Grid.CellColor]}
+  Items.Name as "Nom" {cellBackground: #[Grid.CellColor]}
+  Items.Supplier as "Fournisseur" {cellBackground: #[Grid.CellColor]}
+
+  ///Prices
+  Grid.BuyPrice as "Prix achat" {unit: #(DcUnit) ; cellBackground: #[Grid.CellColor]}
+  Grid.SellPrice as "Prix vente" {unit: #(DcUnit) ; cellBackground: #[Grid.CellColor]}
+  Grid.Margin as "Marge Brute" {unit: #(DcUnit) ; cellBackground: #[Grid.CellColor]}
+
+  ///Stocks
+  Grid.StockOnHand as "Stock Etagere" {cellBackground: #[Grid.CellColor]}
+  Grid.StockOnOrder as "Stock Commande" {cellBackground: #[Grid.CellColor]}
+
+  ///Grid attributes
+  Grid.LotMultiplier as "Lot achat" {cellBackground: #[Grid.CellColor]}
+  Grid.Q as "Quantité" {cellBackground: #[Grid.CellColor]}
+  Grid.Max as "Panier" {cellBackground: #[Grid.CellColor]}
+  Items.LeadTime as "Délai approvisionnement" {cellBackground: #[Grid.CellColor]}
+
+  ///Taux de couverture
+  Grid.CurrentFR as "Couverture actuelle" {numbers: percent ; cellBackground: #[Grid.CellColor]}
+  Grid.FillRateDelta as "Δ couverture" {numbers: percent ; cellBackground: #[Grid.CellColor]}
+  Grid.CurrentFR + Grid.CumFillrateDelta as "Nouvelle couverture" {numbers: percent ; cellBackground: #[Grid.CellColor]}
+
+  ///Reward
+  Items.M as "Marge attendue" {value { minPrecision: 4 } ; cellBackground: #[Grid.CellColor] ; unit: #(DcUnit)}
+  Items.S as "Couverture de rupture attendue" {value { minPrecision: 4 } ; cellBackground: #[Grid.CellColor] ; unit: #(DcUnit)}
+  Grid.C as "Coûts attendus" {value { minPrecision: 4 } ; cellBackground: #[Grid.CellColor] ; unit: #(DcUnit)}
+  Grid.Reward as "Gain total" {textColor: #C7180F ; value { minPrecision: 4 } ; cellBackground: #[Grid.CellColor] ; unit: #(DcUnit)}
+  Grid.Score as "Retour sur Investissement" {textColor: #C7180F ; value { minPrecision: 4 ; precision: 4 } ; cellBackground: #[Grid.CellColor]}
+
+  ///Investissement
+  // Grid.Investissement as "Investissement" {unit: #(DcUnit)}
+  Grid.CumInvest as "Investissement cumulé." {unit: #(DcUnit) ; cellBackground: #[Grid.CellColor]}
+  if Grid.IsEligible then "Yes" else "No" as "Acheté?" {cellBackground: #[Grid.CellColor]}
+
+  order by Grid.Rank
+
+Grid.SupplierRank = rankrev () by Items.Supplier scan -Grid.Score
+Grid.PreviousSliceId = same(Grid.Id) by [Items.Supplier, Grid.SupplierRank] at [Items.Supplier, Grid.SupplierRank - 1]
+Grid.SliceIdChangeRank = if Grid.SupplierRank == 1 or Grid.Id != Grid.PreviousSliceId then 1 else 0
+Grid.CumSliceIdChangeRank = sum(Grid.SliceIdChangeRank) by Items.Supplier scan Grid.SupplierRank
+Grid.SliceCellColor = if Grid.CumSliceIdChangeRank mod 2 == 0 then "#f2f2f2" else "#ffebab"
+
+Grid.slice = Items.slice
+show table same("\{Items.Supplier} micro decisions") by slice g8h10 slices:slice {tileTab: "Results"} with
+  // "🔎" as "Inspect" {columnReadOnly: "true" ; columnWidth: 2 ; href: #[Items.Url] ; cellBackground: #[Grid.SliceCellColor]}
+  Grid.Rank as "Rang" {cellBackground: #[Grid.SliceCellColor] ; href: #[Items.Url]}
+  Items.Id as "Sku" {cellBackground: #[Grid.SliceCellColor]}
+  Items.Name as "Nom" {cellBackground: #[Grid.SliceCellColor]}
+  Items.Supplier as "Fournisseur" {cellBackground: #[Grid.SliceCellColor]}
+
+  ///Prices
+  Grid.BuyPrice as "Prix achat" {unit: #(DcUnit) ; cellBackground: #[Grid.SliceCellColor]}
+  Grid.SellPrice as "Prix vente" {unit: #(DcUnit) ; cellBackground: #[Grid.SliceCellColor]}
+  Grid.Margin as "Marge Brute" {unit: #(DcUnit) ; cellBackground: #[Grid.SliceCellColor]}
+
+  ///Stocks
+  Grid.StockOnHand as "Stock Etagere" {cellBackground: #[Grid.SliceCellColor]}
+  Grid.StockOnOrder as "Stock Commande" {cellBackground: #[Grid.SliceCellColor]}
+
+  ///Grid attributes
+  Grid.LotMultiplier as "Lot achat" {cellBackground: #[Grid.SliceCellColor]}
+  Grid.Q as "Quantité" {cellBackground: #[Grid.SliceCellColor]}
+  Grid.Max as "Panier" {cellBackground: #[Grid.SliceCellColor]}
+  Items.LeadTime as "Délai approvisionnement" {cellBackground: #[Grid.SliceCellColor]}
+
+  ///Taux de couverture
+  Grid.CurrentFR as "Couverture actuelle" {numbers: percent ; cellBackground: #[Grid.SliceCellColor]}
+  Grid.FillRateDelta as "Δ couverture" {numbers: percent ; cellBackground: #[Grid.SliceCellColor]}
+  Grid.CurrentFR + Grid.CumFillrateDelta as "New Fillrate" {numbers: percent ; cellBackground: #[Grid.SliceCellColor]}
+
+  ///Reward
+  Items.M as "Marge attendue" {value { minPrecision: 4 } ; unit: #(DcUnit) ; cellBackground: #[Grid.SliceCellColor]}
+  Items.S as "Couverture de rupture attendue" {value { minPrecision: 4 } ; unit: #(DcUnit) ; cellBackground: #[Grid.SliceCellColor]}
+  Grid.C as "Coûts attendus" {value { minPrecision: 4 } ; unit: #(DcUnit) ; cellBackground: #[Grid.SliceCellColor]}
+  Grid.Reward as "Gain total" {textColor: #C7180F ; value { minPrecision: 4 } ; unit: #(DcUnit) ; cellBackground: #[Grid.SliceCellColor]}
+  Grid.Score as "Retour sur Investissement" {textColor: #C7180F ; value { minPrecision: 4 ; precision: 4 } ; cellBackground: #[Grid.SliceCellColor]}
+
+  ///Investissement
+  // Grid.Investissement as "Investissement" {unit: #(DcUnit)}
+  Grid.CumInvest as "Investissement cumulé." {unit: #(DcUnit) ; cellBackground: #[Grid.SliceCellColor]}
+  if Grid.IsEligible then "Yes" else "No" as "Acheté?" {cellBackground: #[Grid.SliceCellColor]}
+
+  order by Grid.Rank
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///----------------------------------------PARETO-------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+lastYearOverallSales = sum(Items.LastYearSales)
+
+Items.CumSupplierLastYearSales = -1
+where argwhichever() by Items.Supplier
+  Items.CumSupplierLastYearSales = sum(Items.SupplierLastYearSales) scan - Items.SupplierLastYearSales
+Items.CumSupplierLastYearSales = same(Items.CumSupplierLastYearSales)
+                                 when(Items.CumSupplierLastYearSales != -1)
+                                 by Items.Supplier
+
+show chart "Pareto au fournisseur" a8c10 {tileTab: "Results" ; vaxis { left { axisMin: "min" ; axisMax: "max" ; numbers: percent } }} with
+  haxis by Items.Supplier
+    order by [(-sum(Items.SalesWeight))]
+  plot by Items.Supplier
+    sum(Items.NewFR * Items.SupplierSalesWeight) as "Taux de couverture atteint" {numbers: percent ; seriesType: bar ; color: #fdc488}
+    sum(Items.CurrentFR * Items.SupplierSalesWeight) as "Taux de couverture actuel" {numbers: percent ; seriesType: bar ; color: #ec9539}
+    same(Items.CumSupplierLastYearSales / lastYearOverallSales) as "% Ventes" {numbers: percent ; unit: " Ventes totales" ; seriesPattern: dotted}
+
+
+Items.CumLastYearSales = sum(Items.LastYearSales) scan - Items.LastYearSales
+Items.BestSellerRank = rankrev () scan -Items.CumLastYearSales
+bestSellerDisplayNb = 40
+where (Items.BestSellerRank <= bestSellerDisplayNb) into Items
+  show chart "Pareto à la référence (\{bestSellerDisplayNb} meilleurs best-sellers)" a11h15 {tileTab: "Results" ; vaxis { left { axisMin: "min" ; axisMax: "max" ; numbers: percent } }} with
+    haxis by Id
+      order by [(Items.CumLastYearSales)]
+    plot by Id
+      Items.NewFR as "Taux de couverture atteint" {numbers: percent ; seriesType: bar ; color: #fdc488}
+      Items.CurrentFR as "Taux de couverture actuel" {numbers: percent ; seriesType: bar ; color: #ec9539}
+      Items.CumLastYearSales / lastYearOverallSales as "% Ventes" {numbers: percent ; unit: " Ventes totales" ; seriesPattern: dotted}
+
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///-----------------------------Investissement in function of FR--------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Grid.NewFR = Grid.CumOverallFRGain + currentFR
+Grid.IsFirstLine = Grid.NewFR == min(Grid.NewFR) by 1
+Grid.IsRelevantForPlot = (not Grid.IsFirstLine) and Grid.CumOverallFRGain > 0 and Grid.NewFR == min(Grid.NewFR) by floor(1000*Grid.NewFR) //keep 10 values per FR point
+
+table PlotInvestment = with
+  [|as FR, as Investissement|]
+  [|currentFR,0|]
+  where Grid.IsRelevantForPlot
+    [|Grid.NewFR,Grid.CumInvest|]
+
+show chart "Investissement par cibles de Taux de couverture" e5h7 ec9539 {numbers: simple ; tileTab: "Comparison" ; haxis { numbers: percent ; unit: "" } ; unit: #(DcUnit)} with
+  plotxy PlotInvestment.FR as "Cible taux de couverture"
+    PlotInvestment.Investissement as "Investissement"
+    order by PlotInvestment.FR
+
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///-----------------------------Comparison with previous simulation-------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+show markdown "" a4h4 {tileTab: "Comparison"} with """
+  Cet onglet compare les résultats des 2 dernières simulations
+  Il permet d'évaluer l'impact d'un changement de paramètres
+"""
+previousColor = "#B6E6F5"
+newColor = "#BDF5B6"
+
+previousFRTarget = single(TargetsPORecommandations.FRTarget)
+previousBudgetTarget = single(TargetsPORecommandations.budgetTarget)
+previousAchievedFR = sum(PORecommendations.SalesWeight * PORecommendations.NewFR)
+previousCurrentFR = sum(PORecommendations.SalesWeight * PORecommendations.CurrentFR)
+previousInvestmentRequired = sum(PORecommendations.InvestmentRequired)
+
+show scalar "Différence Couvertures atteintes" c6 ec9539 {tileTab: "Comparison" ; textBold: "true" ; tileTooltipText: "Différence = Nouvelle couverture atteinte - Couverture atteinte précédente"} with achievedFR - previousAchievedFR {numbers: percent}
+show scalar "Différence Investissement" c5 ec9539 {tileTab: "Comparison" ; textBold: "true" ; tileTooltipText: "Différence = Nouvel investissement - Investissement précédente"} with round(investmentRequired - previousInvestmentRequired,0) {numbers: simple ; unit: #(DcUnit)}
+
+isFRTargetHighlighted = min(Grid.NewFR) when(not Grid.IsEligible and Grid.Min > 0) > FRTarget
+isBudgetTargetHighlighted = min(Grid.CumInvest) when(not Grid.IsEligible and Grid.Min > 0) > budgetTarget
+
+tooltip = "La métrique mise en lumière est la contrainte de cette simulation"
+show summary "Nouvelles cibles" a5b5 {tileTab: "Comparison" ; backgroundColor: #(newColor) ; tileTooltipText: #(tooltip)} with
+  FRTarget as "Cible taux de couverture" {numbers: percent ; value { textColor: #(if isFRTargetHighlighted then "ec9539" else "") ; textBold: #(isFRTargetHighlighted) }}
+  budgetTarget as "Cible budget" {numbers: simple ; unit: #(DcUnit) ; value { textColor: #(if isBudgetTargetHighlighted then "ec9539" else "") ; textBold: #(isBudgetTargetHighlighted) }}
+
+show summary "Cible précédente" a6b6 {tileTab: "Comparison" ; backgroundColor: #(previousColor)} with
+  previousFRTarget as "Cible taux de couverture" {numbers: percent}
+  previousBudgetTarget as "Cible budget" {numbers: simple ; unit: #(DcUnit)}
+
+Items.PreviousOrderQuantity = single(PORecommendations.OrderQuantity)
+Items.DeltaOrderQuantity = Items.OrderQuantity - Items.PreviousOrderQuantity
+
+where Items.PreviousOrderQuantity != Items.OrderQuantity
+  show table "Nouvealle vs précédente simulation" a9h12 {tileTab: "Comparison" ; tileTooltipText: "Tous les produits dont la recommandation d'achat a changé comparés à la précédente simulation"} with
+    Items.Id as "Sku" {href: #[Items.Url]}
+    Items.DeltaOrderQuantity as "Différence Quantité recommandée" {columnTooltipText: "Différence = Nouvelle quantité recommandée - Quantité recommandée précédente" ; cellBackground: #d1d1d1 ; textColor: #C7180F}
+    Items.Category as "Categorie"
+    Items.Supplier as "Fournisseur"
+    Items.LeadTime as "Délai approvisionnement"
+    Items.BuyPrice as "Prix achat" {unit: #(DcUnit)}
+    Items.M as "Marge" {unit: #(DcUnit)}
+    Items.StockOnHand as "Stock Etagere"
+    Items.StockOnOrder as "Stock Commande"
+    Items.OrderQuantity as "Nouvelle Reco Achat" {unit: " units" ; textColor: #C7180F ; cellBackground: #(newColor)}
+    Items.InvestmentRequired as "Nouvel Investissement" {unit: #(DcUnit) ; cellBackground: #(newColor)}
+    Items.CurrentFR as "Nouveau taux de couverture actuel" {numbers: percent ; cellBackground: #(newColor)}
+    Items.NewFR as "Nouvelle taux de couverture atteint" {numbers: percent ; cellBackground: #(newColor)}
+    Items.SalesWeight * Items.NewFR as "Nouvelle Contrib. couverture globale" {numbers: percent ; cellBackground: #(newColor)}
+    PORecommendations.OrderQuantity as "Précédente Reco Achat" {unit: " units" ; textColor: #C7180F ; cellBackground: #(previousColor)}
+    PORecommendations.InvestmentRequired as "Précédent Investissement" {unit: #(DcUnit) ; cellBackground: #(previousColor)}
+    PORecommendations.CurrentFR as "Précédent taux de couverture actuel" {numbers: percent ; cellBackground: #(previousColor)}
+    PORecommendations.NewFR as "Précédent taux de couverture atteint" {numbers: percent ; cellBackground: #(previousColor)}
+    PORecommendations.SalesWeight * PORecommendations.NewFR as "Précédente Contrib. couverture globale" {numbers: percent ; cellBackground: #(previousColor)}
+    order by abs(Items.DeltaOrderQuantity) desc
+
+///Validation
+currentTab = "Validation"
+
+formButton = "Update"
+show form "" e7f7 {backgroundColor: #f2f2fa ; formButton: #(formButton) ; tileTab: #(currentTab)}
+show form "" a15c15 {tileTab: #(currentTab)} with
+  false as "Ré-initialiser dashboard [DEMO] ?" form : "resetDashboard"
+
+// Retinitialize booleans for the demo
+exportAll = exportAll and not resetDashboard
+moveAll = moveAll and not resetDashboard
+
+
+table Suppliers = by Items.Supplier
+
+Suppliers.Supplier = same(Items.Supplier)
+Suppliers.TotalQuantityPurchased = sum(Items.OrderQuantity) by Items.Supplier at Suppliers.Supplier
+Suppliers.TotalAmountPurchased = sum(Items.InvestmentRequired) by Items.Supplier at Suppliers.Supplier
+
+Suppliers.IsExportedAndDeleted = same(ExportSuppliers.IsToExport and ExportSuppliers.IsToDelete) by ExportSuppliers.Supplier at Suppliers.Supplier or
+                                 same(ExportSuppliers.IsToMove and ExportSuppliers.IsToDelete) by ExportSuppliers.Supplier at Suppliers.Supplier or
+                                 same(ExportSuppliers.IsToExport and ExportSuppliers.IsToMove) by ExportSuppliers.Supplier at Suppliers.Supplier
+
+//## Supplier Export
+Suppliers.IsAlreadyExported = (not(Suppliers.Supplier in ExportSuppliers.Supplier) and Suppliers.Supplier != supplierReintegrate)
+                              and not resetDashboard // Has been exported/deleted in a previous run
+Suppliers.IsSupplierToExport = (same(ExportSuppliers.IsToExport)  by ExportSuppliers.Supplier at Suppliers.Supplier or (exportAll and not moveAll and not Suppliers.IsAlreadyExported))
+                                and not resetDashboard  and not Suppliers.IsExportedAndDeleted
+Suppliers.IsSupplierToDelete = (same(ExportSuppliers.IsToDelete)  by ExportSuppliers.Supplier at Suppliers.Supplier) and not resetDashboard  and not Suppliers.IsExportedAndDeleted
+Suppliers.IsSupplierToMove   = (same(ExportSuppliers.IsToMove)  by ExportSuppliers.Supplier at Suppliers.Supplier or (moveAll and not exportAll and not Suppliers.IsAlreadyExported)) and not resetDashboard  and not Suppliers.IsExportedAndDeleted
+
+Suppliers.IsValidationPending = not Suppliers.IsSupplierToExport and not Suppliers.IsSupplierToDelete and not Suppliers.IsSupplierToMove and not Suppliers.IsAlreadyExported
+
+show summary "Indicateurs globaux" a4d4 {textAlign: left ; backgroundColor: #(GP.ColorAlight) ; tileTab: #(currentTab)} with
+  sum(Suppliers.TotalQuantityPurchased) as "Quantité recommandée totale" {textBold: "true" ; unit: #(GP.pcsUnit)}
+  sum(Suppliers.TotalQuantityPurchased) when Suppliers.IsValidationPending as "Quantité restant à valider" {textBold: "true" ; unit: #(GP.pcsUnit)}
+  sum(Suppliers.TotalAmountPurchased) when Suppliers.IsValidationPending as "Montant restant à valider" {textBold: "true" ; unit: #(GP.DcUnit)}
+  count(Suppliers.IsValidationPending) when (Suppliers.TotalQuantityPurchased > 0) as "# fournisseurs à valider" {textBold: "true"}
+
+
+Items.ChangedQty =single(Validation.FinalQty)
+Items.FinalQty = if (Items.ChangedQty > 0 and not resetDashboard) then Items.ChangedQty else Items.OrderQuantity
+
+Items.Validated =  (single(Validation.Validated) or resetDashboard)
+Items.IsToExport = Items.Validated and Suppliers.IsSupplierToExport
+
+labelboxdisplay = if any(Items.IsToExport) then "fixed" else "hidden"
+show label "https://go.lokad.com/DEMO/gateway/BigFiles/Browse/Download?hash=CB8060E2BF3726438529D2919C33EE3E&path=%2FImages%2Flogos&name=GreenPO.png" d13 {tileTab: #(currentTab) ; tilePlacement: #(labelboxdisplay)}
+
+where Items.IsToExport
+  show table "Recommandations d'achat déjà validées" a13c13 {backgroundColor: #(GP.blue) ; tileTab: #(currentTab)} with
+    Items.Id
+    Items.Supplier
+    Items.StockOnHand as "Stock Etagere"
+    Items.StockOnOrder as "Stock Commande"
+    Items.FinalQty as "Quantité Finale"
+    Items.CurrentFR as "Couverture actuelle"
+    Items.NewFR as "Couverture atteinte"
+
+///##--------------------------- [ EDITABLE SET-UP ] -------------------------------------
+table NewDeletedSuppliers max 500 = with
+  [|as SupplierIdStr |]
+  where DeletedSuppliers.SupplierIdStr != supplierReintegrate or DeletedSuppliers.SupplierIdStr == ""
+    [|DeletedSuppliers.SupplierIdStr|]
+  where Suppliers.IsSupplierToDelete
+    [|Suppliers.Supplier|]
+
+keep where not (Suppliers.IsSupplierToExport or Suppliers.IsSupplierToDelete or Suppliers.IsSupplierToMove or Suppliers.IsAlreadyExported)
+
+///##------------------------------- [ EXPORT ] -----------------------------------------
+
+Suppliers.CellColor = if Suppliers.IsSupplierToExport then GP.colorSkyBlue else
+                      if Suppliers.IsSupplierToMove   then GP.colorSkyBlue else
+                      if Suppliers.IsSupplierToDelete then "red" else
+                      if Suppliers.IsExportedAndDeleted then "red" else "white"
+
+Suppliers.CellColor = if (Suppliers.IsSupplierToExport and Suppliers.IsSupplierToMove) or
+                         (Suppliers.IsSupplierToExport and Suppliers.IsSupplierToDelete) or
+                         (Suppliers.IsSupplierToMove and Suppliers.IsSupplierToDelete) then GP.ColorA else Suppliers.CellColor
+
+show table "Fournisseurs à couvrir" a5d7 editable: "ExportSuppliers" {tileTab: #(currentTab)} with
+  Suppliers.Supplier as "Fournisseur"
+  Suppliers.TotalQuantityPurchased as "Quantité totale" {unit: #(GP.pcsUnit)}
+  Suppliers.TotalAmountPurchased as "Montant total" {unit: #(DcUnit)}
+  Suppliers.IsSupplierToExport as "Export" {cellBackground: #[Suppliers.CellColor]}
+  Suppliers.IsSupplierToDelete as "Supprimer" {cellBackground: #[Suppliers.CellColor]}
+  Suppliers.IsSupplierToMove   as "Migrer" {cellBackground: #[Suppliers.CellColor]}
+  order by Suppliers.TotalAmountPurchased  desc
+
+///## Suppliers Orders Moves
+table BuyerList max 100  = by PurchasePerimeter.Buyer
+BuyerList.Buyer = same(PurchasePerimeter.Buyer)
+
+show form " " e5f6 {backgroundColor: #f2f2fa ; tileTab: #(currentTab)} with
+  "" as "Exporter à un autre Acheteur" form:"BuyerToMoveOrders" {fieldType: dropdown ; fieldChoices: #(BuyerList.Buyer)}
+  "" as "Reintégrer à un fournisseur" form:"supplierReintegrate" {fieldType: dropdown ; fieldChoices: #(NewDeletedSuppliers.SupplierIdStr)}
+
+show form "Exporter toutes suggestions" e4f4 {backgroundColor: #f2f2fa ; tileTab: #(currentTab)} with
+  exportAll as "Vers fournisseurs"
+
+///Détail des suggestions
+
+where Items.OrderQuantity > 0
+  show table "Toutes Recommandations fournisseurs" a8f12 editable: "PrioritaryValidation" {tileTab: #(currentTab)} with
+    Items.Id as "Sku" {href: #[Items.Url]}
+    Items.Name as "Nom"
+    Items.Category as "Categorie"
+    Items.Supplier as "Fournisseur"
+    Items.StockOnHand as "Stock Etagère" {unit: #(GP.pcsUnit)}
+    Items.StockOnOrder as "Stock en Commande" {unit: #(GP.pcsUnit)}
+    Items.Q30  {columnTooltipText: "Quantité Vendue sur les 30 derniers jours" ; unit: #(GP.pcsUnit)}
+    Items.Q90  {columnTooltipText: "Quantité Vendue sur les 90 derniers jours" ; unit: #(GP.pcsUnit)}
+    Items.Q365  {columnTooltipText: "Quantité Vendue sur les 365 derniers jours" ; unit: #(GP.pcsUnit)}
+    Items.OrderQuantity as "Recommandation Achat" {unit: " units" ; cellBackground: #d1d1d1 ; textColor: #C7180F}
+    Items.FinalQty as "Quantité Finale"
+    Items.Validated as "Validation ?"
+    Items.InvestmentRequired as "Investissement" {unit: #(DcUnit)}
+    Items.CurrentFR as "Couverture actuelle" {numbers: percent}
+    Items.NewFR as "Nouvelle couverture" {numbers: percent}
+    Items.SellPrice {unit: #(GP.DcUnit)}
+    Items.BuyPrice {unit: #(GP.DcUnit)}
+    Items.MOQ
+    Items.LotMultiplier
+    order by not Items.IsTopItem, Items.CategoryDisplayRank, - Items.InvestmentRequired

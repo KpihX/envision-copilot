@@ -1,0 +1,344 @@
+/// input: /clean/
+import "/1. utilities/Modules/Global Parameters" as GP with
+  DcUnit
+  ColorA
+  ColorAlight
+  ColorBlight
+  LinkLocationItemInspector
+  LinkHomeDashboard
+
+const inputFolder = "/Clean/"
+const path = "/Clean/Reporting/"
+
+read "\{inputFolder}Items.ion" as Items[Id unsafe] with
+  Name : text
+  "Sku" as Id : text
+  StockOnHand : number
+  BackOrder : number
+  StockOnOrder : number
+  Ref : text
+  BuyPrice : number
+  SellPrice : number
+  Leadtime : number
+  ReorderCycle : number
+
+read "\{inputFolder}Orders.ion" as Orders expect [Id, date] with
+  "Sku" as Id : text
+  "OrderDate" as date: date
+  Quantity : number
+  "LokadNetAmount" as NetAmount : number
+  IsClean : boolean
+
+read "/\{inputFolder}Stock.ion" as Stock expect [Id, date] with
+  "StockDate" as date: date
+  "SKU" as Id : text
+  StockOnHand : number
+  StockOnOrder : number
+  // CostPrice : number
+  // const(false) as IsLegacy
+
+read "\{inputFolder}Forecast/Periodic/WeeklyFc.ion" as WeeklyFc expect[Id, date] with
+  "Sku" as Id : text
+  "Monday" as date: date
+  TotalDemand : ranvar
+
+read "/\{inputFolder}PO.ion" as PO expect [Id, date] with
+  "Sku" as Id : text
+  "OrderDate" as date: date
+  Loc : text
+  Ref : text
+  DeliveryDate : date
+  Quantity : number
+  Supplier : text
+  PONumber : text
+  IsInCatalog : boolean
+  IsClean : boolean
+  InputDate : date
+  InputPath : text
+
+read form with
+  GroupByMonth : boolean
+  LineHorizon : number
+
+table ItemsWeek = cross(Items, Week)
+
+keep where Orders.IsClean
+
+///------------------------------------- [ SETUP COLORS ] ---------------------------------------
+
+Stock.IsLegacy = year(Stock.date) < 2017
+
+mainColor = ColorA
+
+linechartAlight = ColorAlight
+linechartA = ColorA
+
+
+linechartBlight = ColorBlight
+
+passiveColor1 = "#E4E5E6"
+passiveColor2 = "#F1F1F1"
+
+show markdown "Documentation" a20h34 with
+  """
+  ### Documentation
+
+  __Catalog Overview__
+
+  "# Skus": number of references
+
+  "# Skus StockOut": number of references out of stock
+
+  "# Skus In Stock": number of references in stock
+
+  __Stock On Hand__: amount of stock physically on shelf
+
+  __Reserved Stock__: amount of stock on shelf but already committed to an order
+
+  __Stock on Order__: amount of stock purchased but not received yet
+
+  __Items by Stock Value__: list of all references and their levels of stock
+
+  Sku: reference code
+
+  Name: reference name
+
+  Stock on Hand: units of stock physically on shelf
+
+  Value on Hand: amount of stock physically on shelf
+
+  Reserved: units of stock on shelf but already committed to an order
+
+  Value Reserved: amount of stock on shelf but already committed to an order
+
+  Stock on Order: units of stock purchased but not received yet
+
+  Value on Order: amount of stock purchased but not received yet
+
+  BuyPrice: gross buy price in dollars
+
+  SellPrice: gross sell price in dollars
+
+  Qty365: quantity sold last 365 days
+
+  __Stock History__: weekly stock on hand and stock on order value evolution
+
+  __Stock History by Week__: weekly stock on hand and stock on order value evolution
+
+  __Skus StockOut__: number of references out of stock
+
+  __Last Week Stock outs estimated loss__: last week average estimated missed turnover due to stock outs
+
+  __Stock Out Items__: list of all references out of stock
+
+  Same columns as in Items by Stock Value
+
+  __Stock outs evolution__: weekly proportion of references out of stock and average estimated missed turnover due to stock outs
+
+  __Skus Overstocked__: number of references overstocked. A reference is considered overstocked if its total stock value (stock on hand + on order)
+  exceeds its maximum demand scenario on the next supplier leadtime + reorder cycle period
+
+  __Overstock__: overstock amount across all references
+
+  __Overstocked Items__: list of all references overstocked
+
+  __Top x items overstocked__: list of top x items overstocked by decreasing amount of overstock
+
+  """
+
+
+
+/// ------------------------------------- [ PRE-CALCULATION ] -----------------------------------
+
+/// ------------------------------------- [ CALCULATE STOCK AGE ] ----------------------------------
+PO.ArrvialDate = min(PO.DeliveryDate, today())
+PO.ArrivedQty = if PO.DeliveryDate < today() then PO.Quantity else 0
+PO.Unsold = fifo(max(Items.StockOnHand,0), PO.DeliveryDate, PO.ArrivedQty)
+PO.Age = (today() - PO.DeliveryDate) // age in days
+Items.Age = sum(PO.Unsold * PO.Age) /. sum(PO.Unsold)
+
+Items.StockAge =  Items.Age  //same(Ap.Age)
+
+oend = max(Orders.date)
+Items.Qty365 = sum(Orders.Quantity) when (Orders.date > oend - 365)
+
+/// ------------------------------------ [ SETUP-Global Parameters ] -------------------------------
+qUnit = " Pcs" // unit for item quantity
+
+/// --------------------------------------- [ SETUP-Parameters ] -----------------------------------
+
+@{ dashButton: ""}
+
+keep where date >= oend - 365
+
+timeGrpFormat = if GroupByMonth then "MM/yyyy" else "dd/MM/yyyy"
+timeGrpName = if GroupByMonth then "Month" else "Week"
+
+inspectorId = LinkLocationItemInspector
+selectedTab = concat("&t=", "Info")
+Items.hRefUrlRaw = sliceSearchUrl(inspectorId, Items.Id)
+Items.hRefUrl = concat(Items.hRefUrlRaw, selectedTab)
+
+Items.Url = replace(Items.hRefUrl , "~" , "https://go.lokad.com" )
+
+/// ---------------------------------------- [ HEADLINE ] ---------------------------------------
+
+show logo "" a1
+
+show markdown "Stock Analysis" b1c1 with """
+  ### **Stock Analysis**
+"""
+
+show label "To home" h1                      {href: #("https://go.lokad.com/d/\{LinkHomeDashboard}/"); hrefAspect: white ; textAlign: center}
+
+show markdown "" b2e2 black with """
+ __This provides an overview over stock developments__
+"""
+
+show label "" a2h2 9b9b9b
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///------------------------------------------TOTAL OVERVIEW-----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Items.TotalStock = Items.StockOnHand + Items.StockOnOrder
+
+show scalar "Stock On Hand" b3                    {textAlign: center ; numbers: simple ; textBold: "true" ; unit: #(DcUnit) ; tileColor: #(mainColor)} with sum(Items.BuyPrice * Items.StockOnHand) as "Stock on Hand" {value { textBold: "true" }}
+show scalar "Reserved Stock" b4                    {textAlign: center ; numbers: simple ; textBold: "true" ; unit: #(DcUnit) ; tileColor: #(mainColor)} with sum(Items.BuyPrice * Items.BackOrder) as "Reserved Stock"
+show scalar "Stock on Order" b5                    {textAlign: center ; numbers: simple ; textBold: "true" ; unit: #(DcUnit) ; tileColor: #(mainColor)} with sum(Items.BuyPrice * Items.StockOnOrder) as "Stock on Order"
+
+itemsTotalValue = sum(Items.BuyPrice * Items.StockOnHand)
+Items.ValueWeight = (Items.BuyPrice * Items.StockOnHand) / itemsTotalValue
+
+weightedStockAge = sum(Items.StockAge * Items.ValueWeight)
+show summary "Catalog Overview" a3a5                  {tileColor: #(mainColor)} with
+  count(Items.*) as "# Skus" {textBold: "true" ; unit: #(qUnit)}
+  count(Items.StockOnHand <= 0)  as "# Skus StockOut" {textBold: "true" ; unit: #(qUnit)}
+  count(Items.StockOnHand > 0)  as "# Skus In Stock" {textBold: "true" ; unit: #(qUnit)}
+  // weightedStockAge as "Avg. Stock Age" {textBold: "true"}
+
+where Items.StockOnHand > 0
+  show table "Items by Stock Value" a6b8                  {tileColor: #(mainColor)} with
+    Id as "Sku" {href: #[Items.Url]}
+    Items.Name as "Name"
+    Items.StockOnHand as "Stock on Hand" {unit: #(qUnit) ; cellBackground: #(passiveColor1)}
+    Items.StockOnHand * Items.BuyPrice as "Value on Hand" {unit: #(DcUnit) ; cellBackground: #(passiveColor1)}
+    Items.BackOrder as "Reserved" {unit: #(qUnit) ; cellBackground: #(passiveColor2)}
+    Items.BackOrder * Items.BuyPrice as "Value Reserved" {unit: #(DcUnit) ; cellBackground: #(passiveColor2)}
+    Items.StockOnOrder as "Stock on Order" {unit: #(qUnit) ; cellBackground: #(passiveColor1)}
+    Items.StockOnOrder * Items.BuyPrice as "Value on Order" {unit: #(DcUnit) ; cellBackground: #(passiveColor1)}
+    Items.BuyPrice {unit: #(DcUnit)}
+    Items.SellPrice {unit: #(DcUnit)}
+    Items.Qty365 {unit: #(qUnit)}
+    // Items.StockAge {unit: " Days"}
+    order by Items.StockOnHand * Items.BuyPrice desc
+
+///Stock history------------------------------------------------------------------------------------
+
+Stock.BuyPrice = Items.BuyPrice
+Stock.IsFirstDate = argfirst() by [Stock.Id, monday(Stock.date)] scan Stock.date
+
+show linechart "Stock History" c3h7 black                        {unit: #(DcUnit)}  with
+  sum(Stock.BuyPrice * Stock.StockOnHand) when (Stock.IsFirstDate and Stock.IsLegacy) as "On Hand (Legacy)" {seriesType: bar ; seriesStack: bar ; color: #(linechartBlight)}
+  sum(Stock.BuyPrice * Stock.StockOnHand) when (Stock.IsFirstDate and not Stock.IsLegacy) as "On Hand" {seriesType: bar ; seriesStack: bar ; color: #(linechartA)}
+  sum(Stock.BuyPrice * Stock.StockOnOrder) when (Stock.IsFirstDate and not Stock.IsLegacy ) as "On Order" {seriesType: bar ; seriesStack: bar ; color: #(linechartAlight)}
+  group by monday(Stock.date)
+
+Stock.IsFirstDate = argfirst() by [Stock.Id, monday(Stock.date)] scan Stock.date
+ofirstLabel = if GroupByMonth then "Month" else "Week"
+show table "Stock History by \{ofirstLabel}" c8h8 black                 {unit: #(DcUnit)}  with
+  monday(Stock.date) as timeGrpName {dateFormat: #(timeGrpFormat)}
+  sum(Stock.BuyPrice * Stock.StockOnHand) when (Stock.IsFirstDate) as "On Hand (Legacy)" {seriesType: bar ; seriesStack: bar }
+  sum(Stock.BuyPrice * Stock.StockOnOrder) when (Stock.IsFirstDate) as "On Order" {seriesType: bar ; seriesStack: bar }
+  group by monday(Stock.date)
+  order by monday(Stock.date) desc
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///------------------------------------------STOCK OUTS---------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+show label "Stock outs" a9h9 9b9b9b {textBold: "true"}
+
+Stock.IsStockOut = Stock.StockOnHand <= 0
+Orders.IsStockOut = same(Stock.IsStockOut) by [Stock.Id, Stock.date] at [Orders.Id, Orders.date]
+Items.Qty365WoOOS = sum(Orders.Quantity) when(not Orders.IsStockOut and Orders.date >= oend - 365)
+Items.NotOOSDays365 = count(not Orders.IsStockOut and Orders.date >= oend - 365)
+Items.AvgDailySales = Items.Qty365WoOOS / Items.NotOOSDays365
+
+Stock.StockOutLoss = if Stock.IsStockOut then Items.AvgDailySales * 7 else 0
+Stock.StockOutLossValue = Stock.StockOutLoss * Items.SellPrice
+
+show scalar "Skus StockOut" a10       {textAlign: center} with count(Items.StockOnHand <= 0) {numbers: simple ; unit: #(qUnit)}
+lastWeekOOSLoss = sum(Stock.StockOutLossValue) when(date == monday(oend))
+show scalar "Last Week Stock outs estimated loss" b10     {textAlign: center} with lastWeekOOSLoss {numbers: simple ; unit: #(DcUnit)}
+
+where Items.StockOnHand <= 0
+  show table "Stock Out Items" a11b13                  {tileColor: #(mainColor)} with
+    Id as "Sku" {href: #[Items.Url]}
+    Items.Name as "Name"
+    Items.StockOnHand as "Stock on Hand" {unit: #(qUnit) ; cellBackground: #(passiveColor1)}
+    Items.StockOnHand * Items.BuyPrice as "Value on Hand" {unit: #(DcUnit) ; cellBackground: #(passiveColor1)}
+    Items.BackOrder as "Reserved" {unit: #(qUnit) ; cellBackground: #(passiveColor2)}
+    Items.BackOrder * Items.BuyPrice as "Value Reserved" {unit: #(DcUnit) ; cellBackground: #(passiveColor2)}
+    Items.StockOnOrder as "Stock on Order" {unit: #(qUnit) ; cellBackground: #(passiveColor1)}
+    Items.StockOnOrder * Items.BuyPrice as "Value on Order" {unit: #(DcUnit) ; cellBackground: #(passiveColor1)}
+    Items.BuyPrice {unit: #(DcUnit)}
+    Items.SellPrice {unit: #(DcUnit)}
+    Items.Qty365 {unit: #(qUnit)}
+    order by Items.Qty365 * (Items.SellPrice - Items.BuyPrice) desc
+
+show linechart "Stock outs evolution" c10h13 with
+  sum(Stock.StockOutLossValue) as "Stock outs estimated loss" {numbers: simple ; seriesType: bar ; color: #(linechartAlight) ; unit: #(DcUnit)}
+  count(Stock.StockOnHand == 0) / count(Stock.*) as "Stock outs Nb" {numbers: percent}
+  group by date
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///-------------------------------------------OVERSTOCK---------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+show label "Overstock" a14h14 9b9b9b {textBold: "true"}
+
+Items.TotalDemand = same(WeeklyFc.TotalDemand)
+Items.MaxTotalDemand = quantile (Items.TotalDemand, 1)
+Items.Overstock = max(Items.TotalStock - Items.MaxTotalDemand, 0)
+Items.OverstockValue = Items.Overstock * Items.BuyPrice
+
+show scalar "Skus Overstocked" a15   {textAlign: center} with count(Items.Overstock > 0) {numbers: simple ; unit: #(qUnit)}
+
+where Items.Overstock > 0
+  Items.OverstockRank = rankrev () by Items.1 scan Items.OverstockValue
+
+  show table "Overstocked Items" a16b18         {tileColor: #(mainColor)} with
+    Id as "Sku" {href: #[Items.Url]}
+    Items.Name as "Name"
+    Items.StockOnHand as "Stock on Hand" {unit: #(qUnit) ; cellBackground: #(passiveColor1)}
+    Items.StockOnHand * Items.BuyPrice as "Value on Hand" {unit: #(DcUnit) ; cellBackground: #(passiveColor1)}
+    Items.BackOrder as "Reserved" {unit: #(qUnit) ; cellBackground: #(passiveColor2)}
+    Items.BackOrder * Items.BuyPrice as "Value Reserved" {unit: #(DcUnit) ; cellBackground: #(passiveColor2)}
+    Items.StockOnOrder as "Stock on Order" {unit: #(qUnit) ; cellBackground: #(passiveColor1)}
+    Items.StockOnOrder * Items.BuyPrice as "Value on Order" {unit: #(DcUnit) ; cellBackground: #(passiveColor1)}
+    Items.BuyPrice {unit: #(DcUnit)}
+    Items.SellPrice {unit: #(DcUnit)}
+    Items.Qty365 {unit: #(qUnit)}
+    Items.Overstock as "Overstock" {numbers: simple ; unit: #(qUnit)}
+    Items.OverstockValue as "Overstock Value" {precision:0; numbers: simple ; unit: #(DcUnit)}
+    order by Items.OverstockRank
+
+  where Items.OverstockRank <= 20
+    show chart "Top 20 items overstocked" c15h18 with
+      haxis by Items.Id
+        order by -Items.OverstockValue
+      plot by Items.Id
+        Items.OverstockValue as "Overstock Value" {numbers: simple ; seriesType: bar ; unit: #(DcUnit)}
+
+
+currentOverstockValue = sum(Items.OverstockValue)
+show scalar "Overstock" b15        {textAlign: center} with currentOverstockValue as "Overstock" {numbers: simple ; unit: #(DcUnit)}
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///-------------------------------------------EXPORT------------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+show table "Export" a19b19 write:"\{path}StockInspectorKPIs.ion" with
+  lastWeekOOSLoss
+  currentOverstockValue

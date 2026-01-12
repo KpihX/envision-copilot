@@ -1,0 +1,151 @@
+// import "/ProductDesign/SimonGeneral/Color" as C
+
+// read "newdemo/clean/MROPlanning/Process.ion" as Process[StepRef] small 100 with
+//   StepRef : number
+//   StepSegment : number
+//   StepSegmentName : text
+//   "Time" as Duration : number
+//   AccTime : number
+
+
+
+show tabs "" a1 {tilePlacement: hidden} with
+  "Overall"
+  "Planning"
+  "Procurement"
+  "Dispatch"
+  "Pricing"
+  "Assort"
+  "Asset"
+  "Documentation"
+
+dispatchURL = 68016
+tabOverall = dashUrl(dispatchURL, "Overall")
+tabPlanning = dashUrl(dispatchURL, "Planning")
+tabProcurement = dashUrl(dispatchURL, "Procurement")
+tabDispatch = dashUrl(dispatchURL, "Dispatch")
+tabPricing = dashUrl(dispatchURL, "Pricing")
+tabAssort = dashUrl(dispatchURL, "Assort")
+tabAsset = dashUrl(dispatchURL, "Asset")
+tabDocumentation = dashUrl(dispatchURL, "Documentation")
+
+// show logo "logo" f1g1
+show label "Documentation" a10h10           {textAlign: center ; hrefAspect: white ; tileTab: "Overall" ; textBold: "true" ; href: #(tabDocumentation)}
+show label (downloadUrl("5e495c7be0e2410d9238dacc3528056d", "demicercle.png")) e3h9 {tileTab: "Planning"}
+show label (downloadUrl("5e495c7be0e2410d9238dacc3528056d", "demicercle.png")) e3h9 {tileTab: "Procurement"}
+show label (downloadUrl("5e495c7be0e2410d9238dacc3528056d", "demicercle.png")) e3h9 {tileTab: "Dispatch"}
+show label (downloadUrl("5e495c7be0e2410d9238dacc3528056d", "demicercle.png")) e3h9 {tileTab: "Pricing"}
+show label (downloadUrl("5e495c7be0e2410d9238dacc3528056d", "demicercle.png")) e3h9 {tileTab: "Assort"}
+show label (downloadUrl("5e495c7be0e2410d9238dacc3528056d", "demicercle.png")) e3h9 {tileTab: "Asset"}
+show label (downloadUrl("5e495c7be0e2410d9238dacc3528056d", "demicercle.png")) e3h9 {tileTab: "Documentation"}
+
+show label (downloadUrl("2069B915D044C3E52BFC38A8F831E506", "logoTokic.png")) a1c1
+show label (downloadUrl("E68B5C2D2F94739F23E83265F5C9D96C", "TokicLDCdrawing.jpg")) c3f8
+show label "" c2c9 {labelBorder: "left"}
+
+show label "Overall" a3b3                   {textAlign: center ; hrefAspect: blue ; tileTab: "Overall" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabOverall)}
+show label "Planning & Scheduling" a4b4     {textAlign: center ; hrefAspect: white ; tileTab: "Overall" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+show label "Purchasing & Sourcing" a5b5     {textAlign: center ; hrefAspect: white ; tileTab: "Overall" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabProcurement)}
+show label "Allocation & Dispatch" a6b6     {textAlign: center ; hrefAspect: white ; tileTab: "Overall" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabDispatch)}
+show label "Pricing & Promotions" a7b7      {textAlign: center ; hrefAspect: white ; tileTab: "Overall" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPricing)}
+show label "Assortment & Facing" a8b8       {textAlign: center ; hrefAspect: white ; tileTab: "Overall" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabAssort)}
+show label "Asset & Stock Management" a9b9  {textAlign: center ; hrefAspect: white ; tileTab: "Overall" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabAsset)}
+
+show label "Overall" a3b3                   {textAlign: center ; hrefAspect: white ; tileTab: "Planning" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabOverall)}
+show label "Planning & Scheduling" a4b4     {textAlign: center ; hrefAspect: blue ; tileTab: "Planning" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+show label "Purchasing & Sourcing" a5b5     {textAlign: center ; hrefAspect: white ; tileTab: "Planning" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabProcurement)}
+show label "Allocation & Dispatch" a6b6     {textAlign: center ; hrefAspect: white ; tileTab: "Planning" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabDispatch)}
+show label "Pricing & Promotions" a7b7      {textAlign: center ; hrefAspect: white ; tileTab: "Planning" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPricing)}
+show label "Assortment & Facing" a8b8       {textAlign: center ; hrefAspect: white ; tileTab: "Planning" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabAssort)}
+show label "Asset & Stock Management" a9b9  {textAlign: center ; hrefAspect: white ; tileTab: "Planning" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabAsset)}
+show label "Documentation" a10h10           {textAlign: center ; hrefAspect: white ; tileTab: "Planning" ; textBold: "true" ; href: #(tabDocumentation)}
+
+show label "Overall" a3b3                   {textAlign: center ; hrefAspect: white ; tileTab: "Procurement" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabOverall)}
+show label "Planning & Scheduling" a4b4     {textAlign: center ; hrefAspect: white ; tileTab: "Procurement" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+show label "Purchasing & Sourcing" a5b5     {textAlign: center ; hrefAspect: blue ; tileTab: "Procurement" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabProcurement)}
+show label "Allocation & Dispatch" a6b6     {textAlign: center ; hrefAspect: white ; tileTab: "Procurement" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabDispatch)}
+show label "Pricing & Promotions" a7b7      {textAlign: center ; hrefAspect: white ; tileTab: "Procurement" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPricing)}
+show label "Assortment & Facing" a8b8       {textAlign: center ; hrefAspect: white ; tileTab: "Procurement" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabAssort)}
+show label "Asset & Stock Management" a9b9  {textAlign: center ; hrefAspect: white ; tileTab: "Procurement" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabAsset)}
+show label "Documentation" a10h10           {textAlign: center ; hrefAspect: white ; tileTab: "Procurement" ; textBold: "true" ; href: #(tabDocumentation)}
+
+show label "Overall" a3b3                   {textAlign: center ; hrefAspect: white ; tileTab: "Dispatch" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabOverall)}
+show label "Planning & Scheduling" a4b4     {textAlign: center ; hrefAspect: white ; tileTab: "Dispatch" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+show label "Purchasing & Sourcing" a5b5     {textAlign: center ; hrefAspect: white ; tileTab: "Dispatch" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabProcurement)}
+show label "Allocation & Dispatch" a6b6     {textAlign: center ; hrefAspect: blue ; tileTab: "Dispatch" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabDispatch)}
+show label "Pricing & Promotions" a7b7      {textAlign: center ; hrefAspect: white ; tileTab: "Dispatch" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPricing)}
+show label "Assortment & Facing" a8b8       {textAlign: center ; hrefAspect: white ; tileTab: "Dispatch" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabAssort)}
+show label "Asset & Stock Management" a9b9  {textAlign: center ; hrefAspect: white ; tileTab: "Dispatch" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabAsset)}
+show label "Documentation" a10h10           {textAlign: center ; hrefAspect: white ; tileTab: "Dispatch" ; textBold: "true" ; href: #(tabDocumentation)}
+
+show label "Overall" a3b3                   {textAlign: center ; hrefAspect: white ; tileTab: "Pricing" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabOverall)}
+show label "Planning & Scheduling" a4b4     {textAlign: center ; hrefAspect: white ; tileTab: "Pricing" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+show label "Purchasing & Sourcing" a5b5     {textAlign: center ; hrefAspect: white ; tileTab: "Pricing" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabProcurement)}
+show label "Allocation & Dispatch" a6b6     {textAlign: center ; hrefAspect: white ; tileTab: "Pricing" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabDispatch)}
+show label "Pricing & Promotions" a7b7      {textAlign: center ; hrefAspect: blue ; tileTab: "Pricing" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPricing)}
+show label "Assortment & Facing" a8b8       {textAlign: center ; hrefAspect: white ; tileTab: "Pricing" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabAssort)}
+show label "Asset & Stock Management" a9b9  {textAlign: center ; hrefAspect: white ; tileTab: "Pricing" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabAsset)}
+show label "Documentation" a10h10           {textAlign: center ; hrefAspect: white ; tileTab: "Pricing" ; textBold: "true" ; href: #(tabDocumentation)}
+
+show label "Overall" a3b3                   {textAlign: center ; hrefAspect: white ; tileTab: "Assort" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabOverall)}
+show label "Planning & Scheduling" a4b4     {textAlign: center ; hrefAspect: white ; tileTab: "Assort" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+show label "Purchasing & Sourcing" a5b5     {textAlign: center ; hrefAspect: white ; tileTab: "Assort" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabProcurement)}
+show label "Allocation & Dispatch" a6b6     {textAlign: center ; hrefAspect: white ; tileTab: "Assort" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabDispatch)}
+show label "Pricing & Promotions" a7b7      {textAlign: center ; hrefAspect: white ; tileTab: "Assort" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPricing)}
+show label "Assortment & Facing" a8b8       {textAlign: center ; hrefAspect: blue ; tileTab: "Assort" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabAssort)}
+show label "Asset & Stock Management" a9b9  {textAlign: center ; hrefAspect: white ; tileTab: "Assort" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabAsset)}
+show label "Documentation" a10h10           {textAlign: center ; hrefAspect: white ; tileTab: "Assort" ; textBold: "true" ; href: #(tabDocumentation)}
+
+show label "Overall" a3b3                   {textAlign: center ; hrefAspect: white ; tileTab: "Asset" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabOverall)}
+show label "Planning & Scheduling" a4b4     {textAlign: center ; hrefAspect: white ; tileTab: "Asset" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+show label "Purchasing & Sourcing" a5b5     {textAlign: center ; hrefAspect: white ; tileTab: "Asset" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabProcurement)}
+show label "Allocation & Dispatch" a6b6     {textAlign: center ; hrefAspect: white ; tileTab: "Asset" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabDispatch)}
+show label "Pricing & Promotions" a7b7      {textAlign: center ; hrefAspect: white ; tileTab: "Asset" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPricing)}
+show label "Assortment & Facing" a8b8       {textAlign: center ; hrefAspect: white ; tileTab: "Asset" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabAssort)}
+show label "Asset & Stock Management" a9b9  {textAlign: center ; hrefAspect: blue ; tileTab: "Asset" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabAsset)}
+show label "Documentation" a10h10           {textAlign: center ; hrefAspect: white ; tileTab: "Asset" ; textBold: "true" ; href: #(tabDocumentation)}
+
+show label "Overall" a3b3                   {textAlign: center ; hrefAspect: white ; tileTab: "Documentation" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabOverall)}
+show label "Planning & Scheduling" a4b4     {textAlign: center ; hrefAspect: white ; tileTab: "Documentation" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+show label "Purchasing & Sourcing" a5b5     {textAlign: center ; hrefAspect: white ; tileTab: "Documentation" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabProcurement)}
+show label "Allocation & Dispatch" a6b6     {textAlign: center ; hrefAspect: white ; tileTab: "Documentation" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabDispatch)}
+show label "Pricing & Promotions" a7b7      {textAlign: center ; hrefAspect: white ; tileTab: "Documentation" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPricing)}
+show label "Assortment & Facing" a8b8       {textAlign: center ; hrefAspect: white ; tileTab: "Documentation" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabAssort)}
+show label "Asset & Stock Management" a9b9  {textAlign: center ; hrefAspect: white ; tileTab: "Documentation" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabAsset)}
+show label "Documentation" a10h10           {textAlign: center ; hrefAspect: blue ; tileTab: "Documentation" ; textBold: "true" ; href: #(tabDocumentation)}
+
+
+
+show label "Scheduling" f3g3 4a90e2          {labelIcon: "report-with-diagrams" ; textAlign: center ; hrefAspect: white ; tileTab: "Planning" ; textBold: "true" ; textVerticalAlign: center ; hrefBackground: #ffffff ; href: #(tabPlanning)}
+show label "Projections" g5h5 4a90e2         {labelIcon: "time-series-up" ; textAlign: center ; hrefAspect: white ; tileTab: "Planning" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+show label "Budget" g7h7 4a90e2              {labelIcon: "gauge-dollar" ; textAlign: center ; hrefAspect: white ; tileTab: "Planning" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+show label "Strategic Param." f9g9 4a90e2    {labelIcon: "manual-list" ; textAlign: center ; hrefAspect: white ; tileTab: "Planning" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+
+show label "Purchase Orders" f3g3 4a90e2     {labelIcon: "gauge-dollar" ; textAlign: center ; hrefAspect: white ; tileTab: "Procurement" ; textBold: "true" ; textVerticalAlign: center ; hrefBackground: #ffffff ; href: #(tabPlanning)}
+show label "PO Action" g5h5 4a90e2           {labelIcon: "broken-glass" ; textAlign: center ; hrefAspect: white ; tileTab: "Procurement" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+show label "Control Tower" g7h7 4a90e2       {labelIcon: "report-with-diagrams" ; textAlign: center ; hrefAspect: white ; tileTab: "Procurement" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+show label "Optim. Parameters" f9g9 4a90e2   {labelIcon: "manual-list" ; textAlign: center ; hrefAspect: white ; tileTab: "Procurement" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+
+show label "Dispatch Orders" f3g3 4a90e2     {labelIcon: "truck" ; textAlign: center ; hrefAspect: white ; tileTab: "Dispatch" ; textBold: "true" ; textVerticalAlign: center ; hrefBackground: #ffffff ; href: #(tabPlanning)}
+show label "Rebalancing & DO Actions" g5h5 4a90e2         {labelIcon: "store-and-boxes" ; textAlign: center ; hrefAspect: white ; tileTab: "Dispatch" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+show label "Control Tower" g7h7 4a90e2       {labelIcon: "report-with-diagrams" ; textAlign: center ; hrefAspect: white ; tileTab: "Dispatch" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+show label "Optim. Parameters" f9g9 4a90e2   {labelIcon: "manual-list" ; textAlign: center ; hrefAspect: white ; tileTab: "Dispatch" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+
+show label "Pricing Movements" f3g3 4a90e2   {labelIcon: "time-series-up" ; textAlign: center ; hrefAspect: white ; tileTab: "Pricing" ; textBold: "true" ; textVerticalAlign: center ; hrefBackground: #ffffff ; href: #(tabPlanning)}
+show label "Event Management" g5h5 4a90e2    {labelIcon: "price-tag" ; textAlign: center ; hrefAspect: white ; tileTab: "Pricing" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+show label "Control Tower" g7h7 4a90e2       {labelIcon: "report-with-diagrams" ; textAlign: center ; hrefAspect: white ; tileTab: "Pricing" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+show label "Optim. Parameters" f9g9 4a90e2   {labelIcon: "manual-list" ; textAlign: center ; hrefAspect: white ; tileTab: "Pricing" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+
+show label "Assort Reco." f3g3 4a90e2        {labelIcon: "store-and-boxes" ; textAlign: center ; hrefAspect: white ; tileTab: "Assort" ; textBold: "true" ; textVerticalAlign: center ; hrefBackground: #ffffff ; href: #(tabPlanning)}
+show label "Collection analysis" g5h5 4a90e2 {labelIcon: "store-and-boxes" ; textAlign: center ; hrefAspect: white ; tileTab: "Assort" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+show label "Control Tower" g7h7 4a90e2       {labelIcon: "report-with-diagrams" ; textAlign: center ; hrefAspect: white ; tileTab: "Assort" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+show label "Optim. Parameters" f9g9 4a90e2   {labelIcon: "manual-list" ; textAlign: center ; hrefAspect: white ; tileTab: "Assort" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+
+show label "Discontinuation" f3g3 4a90e2     {labelIcon: "gauge-dollar" ; textAlign: center ; hrefAspect: white ; tileTab: "Asset" ; textBold: "true" ; textVerticalAlign: center ; hrefBackground: #ffffff ; href: #(tabPlanning)}
+show label "Depreciation & scrap" g5h5 4a90e2{labelIcon: "broken-glass" ; textAlign: center ; hrefAspect: white ; tileTab: "Asset" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+show label "Control Tower" g7h7 4a90e2       {labelIcon: "report-with-diagrams" ; textAlign: center ; hrefAspect: white ; tileTab: "Asset" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+show label "Optim. Parameters" f9g9 4a90e2   {labelIcon: "manual-list" ; textAlign: center ; hrefAspect: white ; tileTab: "Asset" ; textBold: "true" ; textVerticalAlign: center ; href: #(tabPlanning)}
+
+
+
+show label "" a14g14

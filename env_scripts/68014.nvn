@@ -1,0 +1,532 @@
+///
+// Cloned from '/Optimization workflow/5 Standard Purchase Suggestion' (see https://go.lokad.com/Dashboard/50158) on 2021-12-07
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// --------------------------------------READ INPUT TABLES-----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+import "/1. utilities/Modules/Global Parameters" as GP
+
+const testStorage = ""
+const inputPath = "\{testStorage}/Clean/"
+
+read "\{inputPath}Items.ion" as Items[Id unsafe] with
+  "Sku" as Id : text
+  Name : text
+  Category : text
+  SellPrice : number
+  BuyPrice : number
+  StockOnHand : number
+  StockOnOrder : number
+  LeadTime : number
+  ImageUrl : text
+  StartDate : date
+  EndDate : date
+  Supplier : text
+
+
+read "/Manual/TopItemsParameters.xlsx" as TopItemsParameters expect[Id] with
+  CategoryDisplayRank : number
+  Category : text
+  ItemDisplayRank : number
+  Ref : text
+  "Sku" as Id : text
+
+read "\{testStorage}Clean/Orders.ion" as Orders expect [Id, date] with
+  "Sku" as Id : text
+  "OrderDate" as date: date
+  Ref : text
+  Loc : text
+  Quantity : number
+  LokadNetAmount : number
+  OrderId : text
+  IsFirstOrder : boolean
+  HealthLog : text
+  IsClean : boolean
+
+read "/Clean/PO.ion" as PO expect[Id, date] with
+  "Sku" as Id : text
+  "OrderDate" as date: date
+  Loc : text
+  Ref : text
+  DeliveryDate : date
+  Quantity : number
+  Supplier : text
+  PONumber : text
+  IsInCatalog : boolean
+  IsClean : boolean
+  InputDate : date
+  InputPath : text
+
+read "/Clean/Stock.ion" as Stock expect[Id, date] with
+  "Sku" as Id : text
+  StockOnHand : number
+  StockOnOrder : number
+  "StockDate" as date: date
+  IsInCatalog : boolean
+  InputDate : date
+  InputPath : text
+
+read "\{inputPath}Forecast/Periodic/WeeklyFc.ion" as WeeklyFc expect[Id, date] with
+  "Sku" as Id : text
+  "Monday" as date: date
+  WOODemand : ranvar
+  SLTDemand : ranvar
+  TotalDemand : ranvar
+  IsPast : boolean
+  FutureWeekRank : number
+  IsSLT : boolean
+  IsWOO : boolean
+  Alpha : number
+  Dispersion : number
+  Baseline : number
+
+read "Clean/PurchaseResults/PORecommendations.ion" as PORecommendations expect[Id] with
+  Id : text
+  Margin : number
+  BuyPrice : number
+  OrderQuantity : number
+  InvestmentRequired : number
+  CurrentFR : number
+  NewFR : number
+  LastYearSales : number
+  SalesWeight : number
+  OverallFRContrib : number
+  SupplierLastYearSales : number
+  SupplierSalesWeight : number
+  SatisfiableDemand : ranvar
+
+read "Clean/PurchaseResults/MicroDecisions.ion" as MicroDecisions expect[Id] with
+  Rank : number
+  "SKU" as Id : text
+  Name : text
+  Supplier : text
+  BuyPrice : number
+  SellPrice : number
+  Margin : number
+  StockOnHand : number
+  StockOnOrder : number
+  LotMultiplier : number
+  Q : number
+  Min : number
+  Max : number
+  SLT : number
+  RLT : number
+  SalesWeight : number
+  CurrentFR : number
+  FillRateDelta : number
+  CumFillrateDelta : number
+  M : number
+  S : number
+  C : number
+  Reward : number
+  Score : number
+  Investment : number
+  CumInvest : number
+  IsEligible : boolean
+
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// ------------------------------------------SETUP-------------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///Editable body------------------------------------------------------------------------------------
+
+show logo "" a1
+show markdown "Strategy comparison" b1h1 with """
+  ### **Strategy comparison**
+"""
+
+show label "Welcome to your Lokad cockpit" d21 000000 {textAlign: center ; labelBorder: "none"}
+
+show markdown "" b21 with """
+  __This dashboard provides a purchase suggestion utilizing the ROI optimization of probablistic forecasts.__
+  __See full documentation below__
+"""
+show label "" a2h2 9b9b9b {labelBorder: "top"}
+
+
+show label "" a13h13 9b9b9b {labelBorder: "top"}
+
+// show label "Next" h1                    {href: "https://go.lokad.com/home" ; hrefAspect: white ; textAlign: center}
+// show label "Back" g1                    {href: "https://go.lokad.com/d/51250/" ; hrefAspect: white ; textAlign: center}
+
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///---------------------------------------PREPROCESS----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+Items.SupplierLastYearSales = same(PORecommendations.SupplierLastYearSales)
+table Slices [slice] = slice by [-Items.SupplierLastYearSales, Items.Supplier] title: Items.Supplier
+
+Items.TotalDemand = same(WeeklyFc.TotalDemand)
+
+
+oend = max(Orders.date)
+keep span date = [oend..oend+299]
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///---------------------------------------SIMULATIONS---------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+// Items.SimpleMaxDemandWOO = sum(WeeklyFc.Baseline * (1 + 3 * Items.Dispersion)) when WeeklyFc.IsWOO
+// Items.MaxQuantity = Items.StockOnHand + Items.StockOnOrder + max(Items.MOQ, Items.SimpleMaxDemandWOO)
+// table Q = extend.range(max(Items.MaxQuantity) into scalar)
+// expect table Q max 1m
+// table ItemsQ = cross(Items, Q)
+
+
+///Generator - since our demand is not a pure NegBin we can't use actionrwd()
+// Q.HoldingTime = 300
+// Items.SatisfiableDemand, Items.Dmd, ItemsWeek.AvgStockEnd = each Items
+//   week.IsSLT = same(WeeklyFc.IsSLT)
+//   week.IsRLT = same(WeeklyFc.IsWOO)
+//   week.OnOrderArrival = same(Items.StockOnOrder)
+//   week.StockDev = sum(PO.Quantity)
+//   week.Baseline = same(WeeklyFc.Baseline)
+//   montecarlo 1000 with
+//     week.Q, week.StockDev, week.Qserved, week.CumulQ = each week scan week
+//       keep level
+//       keep StockDev
+//       keep CumulQ
+//       keep Qserved
+//       Quantity = random.ranvar(negativebinomial(week.Baseline * level, Items.Dispersion)) //approx the above
+//       level = Items.Alpha * Quantity / week.Baseline + (1 - Items.Alpha) * level
+//       level = max(minLevel, level)
+//       Qserved = min(StockDev, Quantity)
+//       StockDev = if week.IsSLT then max(StockDev - Quantity, 0) + week.OnOrderArrival else (StockDev - Quantity + week.OnOrderArrival)
+//       CumulQ = CumulQ + Quantity
+
+//       return (Quantity, StockDev, Qserved, CumulQ)
+//     EndWOOStock = last(week.StockDev) sort Day.date when week.IsRLT
+//     EndWOODemand = last(week.CumulQ) sort Day.date when week.IsRLT
+
+//     // StartWOOStock = last(Day.StockDev) sort Day.date when Day.IsSLT
+//     // sample rv = ranvar(-EndWOOStock)
+//     // sample dmd = ranvar(EndWOODemand)
+//     sample week.Demand = ranvar(week.CumulQ)
+//     // sample week.LostSales = sum(week.Qserved)
+//   return (rv, dmd, week.AvgEndStock)
+
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///---------------------------------PURCHASE RECOMMENDATIONS--------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+target = 0.98
+
+Items.TotalRec = sum(PORecommendations.InvestmentRequired)
+table StockMorph = extend.range(Items.2)
+StockMorph.Type = if StockMorph.N == 1 then "Existing Stock" else "Ideal Stock"
+StockMorph.TotalStock = if StockMorph.N == 1 then (Items.StockOnHand + Items.StockOnOrder)*Items.BuyPrice else 0
+StockMorph.DeadStock = 0.1 * StockMorph.TotalStock
+StockMorph.PrematureStock = 0.2 * StockMorph.TotalStock
+StockMorph.StockOK = StockMorph.TotalStock - StockMorph.DeadStock - StockMorph.PrematureStock
+StockMorph.StockOK = max(StockMorph.StockOK) by Id
+StockMorph.StockRec = if StockMorph.N == 2 then Items.TotalRec else 0
+StockMorph.StockTooLate = 0.1 * StockMorph.StockRec
+
+
+Items.NonMutedDemand = dirac(round(Items.StockOnHand + Items.StockOnOrder)) + same(PORecommendations.SatisfiableDemand)
+
+
+Items.LotMultiplier = 1
+table G = extend.ranvar(Items.NonMutedDemand, 0, Items.LotMultiplier, round(Items.StockOnHand + Items.StockOnOrder)) //add a reach if needed
+///Qty
+G.Q = G.Max - G.Min + 1
+keep where G.Min > 0
+Items.FR = fillrate(Items.NonMutedDemand)
+G.FillRateDelta = int(Items.FR, G.Min, G.Max)
+G.OverallFRDelta = G.FillRateDelta * mean(Items.NonMutedDemand)/(sum(mean(Items.NonMutedDemand)) by 1)
+Items.SellThrough = (1 - cdf(Items.NonMutedDemand + 1))
+G.SaleProbability = int(Items.SellThrough, G.Min, G.Max)/G.Q
+G.IsInStock = (G.Max <= (Items.StockOnHand + Items.StockOnOrder))
+Items.SuggestedStock = same(PORecommendations.OrderQuantity) + Items.StockOnHand + Items.StockOnOrder
+G.IsSuggested = (G.Max <= Items.SuggestedStock) and not(G.IsInStock)
+
+where G.IsInStock
+  G.CurrentFillRateContribution = sum(G.OverallFRDelta) scan -G.SaleProbability
+  currentFillRate = max(G.CurrentFillRateContribution)
+
+G.IdealFRContribution = sum(G.OverallFRDelta) scan -G.SaleProbability
+G.IsIdealTarget = (G.IdealFRContribution <= target)
+G.IsIdealEquivalentCurrent = (G.IdealFRContribution <= min(target,currentFillRate))
+
+show table "G" c21       with
+  G.Id as "Id"
+  G.Min as "Min"
+  G.Max as "Max"
+  G.Q as "Q"
+  G.Q * Items.BuyPrice as "Cost"
+  G.FillRateDelta as "FillRateDelta"
+  G.SaleProbability as "SaleProbability"
+  G.IsInStock as "IsInStock"
+  G.IsSuggested as "IsSuggested"
+  G.IdealFRContribution as "IdealFR"
+  G.IsIdealTarget as "IsIdealTarget"
+
+G.Haxis = round(G.SaleProbability*20)*5
+show chart "Current Stock Efficiency - Stock ranked by probability of selling over next cycle" a3d11 with
+  haxis by text(G.Haxis)
+    order by same(-G.Haxis)
+  plot by text(G.Haxis)
+    sum(G.Q * Items.BuyPrice) when (G.IsInStock) as "Current Stock" {seriesType: bar ; seriesStack: "stack" ; color: #b3cab3}
+    sum(G.Q * Items.BuyPrice) when (not(G.IsIdealTarget) and G.IsInStock) as "of which ineffective Stock" {seriesType: bar ; seriesStack: "stackOther" ; color: #d88383}
+    sum(G.Q * Items.BuyPrice) when (G.IsIdealTarget and not(G.IsInStock)) as "Missing Stock" {seriesType: bar ; seriesStack: "stack" ; color: #3db45e}
+
+
+show scalar "Current FR" f4g4 {unit: "%" ; textAlign: center ; textBold: "true"} with currentFillRate*100
+show scalar "Target FR" e9f9 {unit: "%" ; textAlign: center ; textBold: "true"} with target*100
+
+where G.IsInStock
+  G.Statut = if G.IsIdealTarget then "Optimal" else "Ineffective"
+  show piechart "Test3" c19d20 with
+    sum(G.Q * Items.BuyPrice)
+    group by G.Statut
+
+currentefficiency = sum((Items.StockOnHand + Items.StockOnOrder)*Items.BuyPrice)/(100*min(currentFillRate, target))
+show scalar "Current Efficiency: cost per point of FR" f5 {textAlign: center} with
+  currentefficiency {unit: "$"}
+
+where G.IsIdealTarget
+  idealtargetefficiency = sum(G.Q * Items.BuyPrice) / (100*target)
+  show scalar "Could be ideally achieved for" f10 {textAlign: center} with
+    idealtargetefficiency {unit: "$"}
+
+where G.IsIdealEquivalentCurrent
+  idealcurrentefficiency = sum(G.Q * Items.BuyPrice) / (100*min(currentFillRate, target))
+  show scalar "Could have been ideally achieved for" g5 {textAlign: center} with
+    idealcurrentefficiency {unit: "$"}
+
+where G.IsSuggested or G.IsInStock
+  targetefficiency = sum(G.Q * Items.BuyPrice) / (100 * target)
+  show scalar "New efficiency at target" e10 {textAlign: center} with
+    targetefficiency {unit: "$"}
+
+show scalar "Current Inefficiency" f6g6 b43636 {textAlign: center ; textBold: "true" ; unit: "%"} with 100 * (currentefficiency/idealcurrentefficiency-1)
+show scalar "Target Inefficiency" e11f11 3db45e {textAlign: center ; textBold: "true" ; unit: "%"} with 100 * (targetefficiency/idealtargetefficiency-1)
+
+show label downloadUrl("logo.png") e8f8 {textVerticalAlign: center}
+show label downloadUrl("logo.png") h8 {textVerticalAlign: center}
+show label downloadUrl("Background/Graphics/Forms/Team.png") f3g3 {textVerticalAlign: center}
+
+Items.TargetCover = 1.08 * mean(Items.TotalDemand)
+G.IsCover = G.Max <= Items.TargetCover
+FRCover = sum(G.OverallFRDelta) when (G.IsCover or G.IsInStock)
+stockCover = sum(G.Q * Items.BuyPrice) when (G.IsCover or G.IsInStock)
+show scalar "Cover FR" h9 {unit: "%" ; textAlign: center ; textBold: "true"} with FRCover * 100
+show scalar "Cover Efficiency" h10 {textAlign: center ; unit: "$"} with stockCover/(FRCover*100)
+show scalar "Cover Inefficiency" h11 {textAlign: center ; textBold: "true" ; unit: "%"} with 100 * ((stockCover/(FRCover*100)) / idealtargetefficiency - 1)
+
+show label "" e8f11 9b9b9b {labelBorder: "all"}
+show label "" f3g6 9b9b9b {labelBorder: "all"}
+show label "" h8h11 9b9b9b {labelBorder: "all"}
+
+
+
+
+
+// ///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ///---------------------------------PURCHASE RECOMMENDATIONS--------------------------------
+// ///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+// show scalar "Total Investments" c18 {textBold: "true" ; textAlign: center} with
+//   sum(PORecommendations.InvestmentRequired) as "" {unit: #(dcUnit)}
+
+// show scalar "Current Fill Rate" a18 {textBold: "true" ; textAlign: center} with
+//   sum(PORecommendations.CurrentFR * PORecommendations.SalesWeight) as "" {numbers: percent}
+
+// show scalar "Achieved Fill Rate" b18 449d44 {textBold: "true" ; textAlign: center} with
+//   sum(PORecommendations.NewFR * PORecommendations.SalesWeight) as "" {numbers: percent}
+
+// where PORecommendations.OrderQuantity > 0
+//   show table "All Suppliers Purchase suggestions" d18f20 with
+//     Items.Url as "Inspect" {columnReadOnly: "true" ; columnWidth: 2 ; text: link ; textLinkName: "🔎"}
+//     Items.Id as "Sku"
+//     Items.Name as "Name"
+//     Items.Category as "Category"
+//     Items.Supplier as "Supplier"
+//     Items.Leadtime as "Leadtime"
+//     PORecommendations.BuyPrice as "Buy Price" {unit: #(dcUnit)}
+//     PORecommendations.Margin as "Margin" {unit: #(dcUnit)}
+//     Items.StockOnHand as "StockOnHand"
+//     Items.StockOnOrder as "StockOnOrder"
+//     mean(Items.SLTDemand) as "Avg SLT Demand"
+//     mean(Items.WOODemand) as "Avg WOO Demand"
+//     mean(Items.TotalDemand) as "Avg Total Demand"
+
+//     PORecommendations.OrderQuantity as "Sugg. Order Quantity" {unit: " units" ; cellBackground: #d1d1d1 ; textColor: #C7180F}
+//     PORecommendations.InvestmentRequired as "Investment" {unit: #(dcUnit)}
+//     PORecommendations.CurrentFR as "Current Fillrate" {numbers: percent}
+//     PORecommendations.NewFR as "New Fillrate" {numbers: percent}
+//     PORecommendations.OverallFRContrib as "Contrib. to overall Fillrate" {numbers: percent}
+//     order by not Items.IsTopItem, Items.CategoryDisplayRank, - PORecommendations.InvestmentRequired
+
+//   show barchart "Recommended amount by supplier" a19c20 ec9539 with
+//     sum(PORecommendations.InvestmentRequired) {unit: #(dcUnit)}
+//     group by Items.Supplier
+//     order by sum(PORecommendations.InvestmentRequired) desc
+
+//   show label "" a30h30 9b9b9b
+
+//   show table same("\{Items.Supplier} Purchase suggestions") by slice g18h20 slices:slice with
+//     Items.Url as "Inspect" {columnReadOnly: "true" ; columnWidth: 2 ; text: link ; textLinkName: "🔎"}
+//     Items.Id as "Sku"
+//     Items.Name as "Name"
+//     Items.Supplier as "Supplier"
+//     Items.Leadtime as "Leadtime"
+//     PORecommendations.BuyPrice as "Buy Price" {unit: #(dcUnit)}
+//     Items.StockOnHand as "StockOnHand"
+//     Items.StockOnOrder as "StockOnOrder"
+//     PORecommendations.OrderQuantity as "Sugg. Order Quantity" {unit: " units" ; cellBackground: #d1d1d1 ; textColor: #C7180F}
+//     PORecommendations.InvestmentRequired as "Investment" {unit: #(dcUnit)}
+//     PORecommendations.CurrentFR as "Current Fillrate" {numbers: percent}
+//     PORecommendations.NewFR as "New Fillrate" {numbers: percent}
+//     PORecommendations.OverallFRContrib as "Contrib. to overall Fillrate" {numbers: percent}
+//     order by not Items.IsTopItem, Items.CategoryDisplayRank, - PORecommendations.InvestmentRequired
+
+// ///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ///--------------------------------------MICRO DECISIONS------------------------------------
+// ///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+// MicroDecisions.PreviousId = same(MicroDecisions.Id) by MicroDecisions.Rank at [MicroDecisions.Rank - 1]
+// MicroDecisions.IdChangeRank = if MicroDecisions.Rank == 1 or MicroDecisions.Id != MicroDecisions.PreviousId then 1 else 0
+// MicroDecisions.CumIdChangeRank = sum(MicroDecisions.IdChangeRank) scan MicroDecisions.Rank
+// MicroDecisions.CellColor = if MicroDecisions.CumIdChangeRank mod 2 == 0 then "#ffebab" else "#f2f2f2"
+
+// ///Display
+// show table "All Suppliers Micro decisions" d21f23 with
+//   Items.Url as "Inspect" {columnReadOnly: "true" ; columnWidth: 2 ; text: link ; textLinkName: "🔎" ; cellBackground: #[MicroDecisions.CellColor]}
+//   MicroDecisions.Rank as "Rank" {cellBackground: #[MicroDecisions.CellColor]}
+//   Items.Id as "Sku" {cellBackground: #[MicroDecisions.CellColor]}
+//   Items.Name as "Name" {cellBackground: #[MicroDecisions.CellColor]}
+//   Items.Supplier as "Supplier" {cellBackground: #[MicroDecisions.CellColor]}
+//   MicroDecisions.Supplier as "Supplier" {cellBackground: #[MicroDecisions.CellColor]}
+
+//   ///Prices
+//   MicroDecisions.BuyPrice as "BuyPrice" {unit: #(dcUnit) ; cellBackground: #[MicroDecisions.CellColor]}
+//   MicroDecisions.SellPrice as "SellPrice" {unit: #(dcUnit) ; cellBackground: #[MicroDecisions.CellColor]}
+//   MicroDecisions.Margin as "Gross Margin" {unit: #(dcUnit) ; cellBackground: #[MicroDecisions.CellColor]}
+
+//   ///Stocks
+//   MicroDecisions.StockOnHand as "StockOnHand" {cellBackground: #[MicroDecisions.CellColor]}
+//   MicroDecisions.StockOnOrder as "StockOnOrder" {cellBackground: #[MicroDecisions.CellColor]}
+
+//   ///Grid attributes
+//   MicroDecisions.LotMultiplier as "LotMultiplier" {cellBackground: #[MicroDecisions.CellColor]}
+//   MicroDecisions.Q as "Q" {cellBackground: #[MicroDecisions.CellColor]}
+//   MicroDecisions.Max as "Basket" {cellBackground: #[MicroDecisions.CellColor]}
+//   Items.Leadtime as "Leadtime" {cellBackground: #[MicroDecisions.CellColor]}
+
+//   ///Fill rate
+//   MicroDecisions.CurrentFR as "Current Fillrate" {numbers: percent ; cellBackground: #[MicroDecisions.CellColor]}
+//   MicroDecisions.FillRateDelta as "FillRate Δ" {numbers: percent ; cellBackground: #[MicroDecisions.CellColor]}
+//   MicroDecisions.CurrentFR + MicroDecisions.CumFillrateDelta as "New Fillrate" {numbers: percent ; cellBackground: #[MicroDecisions.CellColor]}
+
+//   ///Reward
+//   MicroDecisions.M as "Exp. Margin" {value { minPrecision: 4 } ; cellBackground: #[MicroDecisions.CellColor] ; unit: #(dcUnit)}
+//   MicroDecisions.S as "Exp. Stockout Cover" {value { minPrecision: 4 } ; cellBackground: #[MicroDecisions.CellColor] ; unit: #(dcUnit)}
+//   MicroDecisions.C as "Exp. Carrying Costs" {value { minPrecision: 4 } ; cellBackground: #[MicroDecisions.CellColor] ; unit: #(dcUnit)}
+//   MicroDecisions.Reward as "Tot. Reward" {textColor: #C7180F ; value { minPrecision: 4 } ; cellBackground: #[MicroDecisions.CellColor] ; unit: #(dcUnit)}
+//   MicroDecisions.Score as "ROI" {textColor: #C7180F ; value { minPrecision: 4 ; precision: 4 } ; cellBackground: #[MicroDecisions.CellColor]}
+
+//   ///Investment
+//   // MicroDecisions.Investment as "Investment" {unit: #(dcUnit)}
+//   MicroDecisions.CumInvest as "Cum. Invest." {unit: #(dcUnit) ; cellBackground: #[MicroDecisions.CellColor]}
+//   if MicroDecisions.IsEligible then "Yes" else "No" as "Is Purchased?" {cellBackground: #[MicroDecisions.CellColor]}
+
+//   order by MicroDecisions.Rank
+
+// where MicroDecisions.Score >= 0
+//   show scatter "test" a40  slices:slice with
+//     MicroDecisions.Rank
+//     MicroDecisions.Score
+
+
+
+
+// MicroDecisions.SupplierRank = rank() by Items.Supplier scan -MicroDecisions.Score
+// MicroDecisions.PreviousSliceId = same(MicroDecisions.Id) by [Items.Supplier, MicroDecisions.SupplierRank] at [Items.Supplier, MicroDecisions.SupplierRank - 1]
+// MicroDecisions.SliceIdChangeRank = if MicroDecisions.SupplierRank == 1 or MicroDecisions.Id != MicroDecisions.PreviousSliceId then 1 else 0
+// MicroDecisions.CumSliceIdChangeRank = sum(MicroDecisions.SliceIdChangeRank) by Items.Supplier scan MicroDecisions.SupplierRank
+// MicroDecisions.SliceCellColor = if MicroDecisions.CumSliceIdChangeRank mod 2 == 0 then "#f2f2f2" else "#ffebab"
+
+// show table same("\{Items.Supplier} Micro decisions") by slice g21h23 slices:slice with
+//   Items.Url as "Inspect" {columnReadOnly: "true" ; columnWidth: 2 ; text: link ; textLinkName: "🔎" ; cellBackground: #[MicroDecisions.SliceCellColor]}
+//   MicroDecisions.Rank as "Rank" {cellBackground: #[MicroDecisions.SliceCellColor]}
+//   Items.Id as "Sku" {cellBackground: #[MicroDecisions.SliceCellColor]}
+//   Items.Name as "Name" {cellBackground: #[MicroDecisions.SliceCellColor]}
+//   Items.Supplier as "Supplier" {cellBackground: #[MicroDecisions.SliceCellColor]}
+//   MicroDecisions.Supplier as "Supplier" {cellBackground: #[MicroDecisions.SliceCellColor]}
+
+//   ///Prices
+//   MicroDecisions.BuyPrice as "BuyPrice" {unit: #(dcUnit) ; cellBackground: #[MicroDecisions.SliceCellColor]}
+//   MicroDecisions.SellPrice as "SellPrice" {unit: #(dcUnit) ; cellBackground: #[MicroDecisions.SliceCellColor]}
+//   MicroDecisions.Margin as "Gross Margin" {unit: #(dcUnit) ; cellBackground: #[MicroDecisions.SliceCellColor]}
+
+//   ///Stocks
+//   MicroDecisions.StockOnHand as "StockOnHand" {cellBackground: #[MicroDecisions.SliceCellColor]}
+//   MicroDecisions.StockOnOrder as "StockOnOrder" {cellBackground: #[MicroDecisions.SliceCellColor]}
+
+//   ///Grid attributes
+//   MicroDecisions.LotMultiplier as "LotMultiplier" {cellBackground: #[MicroDecisions.SliceCellColor]}
+//   MicroDecisions.Q as "Q" {cellBackground: #[MicroDecisions.SliceCellColor]}
+//   MicroDecisions.Max as "Basket" {cellBackground: #[MicroDecisions.SliceCellColor]}
+//   Items.Leadtime as "Leadtime" {cellBackground: #[MicroDecisions.SliceCellColor]}
+
+//   ///Fill rate
+//   MicroDecisions.CurrentFR as "Current Fillrate" {numbers: percent ; cellBackground: #[MicroDecisions.SliceCellColor]}
+//   MicroDecisions.FillRateDelta as "FillRate Δ" {numbers: percent ; cellBackground: #[MicroDecisions.SliceCellColor]}
+//   MicroDecisions.CurrentFR + MicroDecisions.CumFillrateDelta as "New Fillrate" {numbers: percent ; cellBackground: #[MicroDecisions.SliceCellColor]}
+
+//   ///Reward
+//   MicroDecisions.M as "Exp. Margin" {value { minPrecision: 4 } ; unit: #(dcUnit) ; cellBackground: #[MicroDecisions.SliceCellColor]}
+//   MicroDecisions.S as "Exp. Stockout Cover" {value { minPrecision: 4 } ; unit: #(dcUnit) ; cellBackground: #[MicroDecisions.SliceCellColor]}
+//   MicroDecisions.C as "Exp. Carrying Costs" {value { minPrecision: 4 } ; unit: #(dcUnit) ; cellBackground: #[MicroDecisions.SliceCellColor]}
+//   MicroDecisions.Reward as "Tot. Reward" {textColor: #C7180F ; value { minPrecision: 4 } ; unit: #(dcUnit) ; cellBackground: #[MicroDecisions.SliceCellColor]}
+//   MicroDecisions.Score as "ROI" {textColor: #C7180F ; value { minPrecision: 4 ; precision: 4 } ; cellBackground: #[MicroDecisions.SliceCellColor]}
+
+//   ///Investment
+//   // MicroDecisions.Investment as "Investment" {unit: #(dcUnit)}
+//   MicroDecisions.CumInvest as "Cum. Invest." {unit: #(dcUnit) ; cellBackground: #[MicroDecisions.SliceCellColor]}
+//   if MicroDecisions.IsEligible then "Yes" else "No" as "Is Purchased?" {cellBackground: #[MicroDecisions.SliceCellColor]}
+
+//   order by MicroDecisions.Rank
+
+// ///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ///----------------------------------------PARETO-------------------------------------------
+// ///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+// lastYearOverallSales = sum(PORecommendations.LastYearSales)
+
+// PORecommendations.CumSupplierLastYearSales = -1
+// where argwhichever() by Items.Supplier
+//   PORecommendations.CumSupplierLastYearSales = sum(PORecommendations.SupplierLastYearSales) scan - PORecommendations.SupplierLastYearSales
+// PORecommendations.CumSupplierLastYearSales = same(PORecommendations.CumSupplierLastYearSales)
+//                                               when(PORecommendations.CumSupplierLastYearSales != -1)
+//                                               by Items.Supplier
+
+// show barchart "Pareto at Supplier level" a21c23                        {barchartGroups: bottom} with
+//   0 as "" {numbers: percent ; color: #ffffff ; seriesType: bar ; seriesLegend: hidden ; unit: " overall sales"}
+//   1 as "" {numbers: percent ; color: #ffffff ; seriesType: bar ; seriesLegend: hidden}
+//   sum(PORecommendations.NewFR * PORecommendations.SupplierSalesWeight) as "New FR" {numbers: percent ; seriesType: bar ; color: #fdc488}
+//   sum(PORecommendations.CurrentFR * PORecommendations.SupplierSalesWeight) as "Current FR" {numbers: percent ; seriesType: bar ; color: #ec9539}
+//   same(PORecommendations.CumSupplierLastYearSales / lastYearOverallSales) as "% Sales" {numbers: percent ; unit: " overall sales" ; seriesPattern: dotted}
+//   group by Items.Supplier
+//   order by sum(PORecommendations.SalesWeight) desc
+
+// PORecommendations.CumLastYearSales = sum(PORecommendations.LastYearSales) scan - PORecommendations.LastYearSales
+// PORecommendations.BestSellerRank = rank() scan -PORecommendations.CumLastYearSales
+// bestSellerDisplayNb = 40
+// where PORecommendations.BestSellerRank <= bestSellerDisplayNb
+//   show barchart "Pareto at Reference level (\{bestSellerDisplayNb} top best-sellers)" a25h29                  {barchartGroups: bottom} with
+//     0 as "" {numbers: percent ; color: #ffffff ; seriesType: bar ; seriesLegend: hidden ; unit: " overall sales"}
+//     1 as "" {numbers: percent ; color: #ffffff ; seriesType: bar ; seriesLegend: hidden}
+//     same(PORecommendations.NewFR) as "New FR" {numbers: percent ; seriesType: bar ; color: #fdc488}
+//     same(PORecommendations.CurrentFR) as "Current FR" {numbers: percent ; seriesType: bar ; color: #ec9539}
+//     same(PORecommendations.CumLastYearSales / lastYearOverallSales) as "% Sales" {numbers: percent ; unit: " overall sales" ; seriesPattern: dotted}
+//     group by PORecommendations.Id
+//     order by same(PORecommendations.CumLastYearSales)

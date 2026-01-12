@@ -1,0 +1,360 @@
+/// TEST Stock dev simulation options
+import "/1. utilities/Modules/Functions" as Functions with
+  StockEvol
+import "/1. utilities/Modules/Global Parameters" as GP with
+  onHandColor
+  arrivingColor
+  newOrderColor
+  onOrderColor
+  realDemand
+
+read "/Input/Catalog/Catalog*" unsafe as Items [Id unsafe] with
+  "Sku" as Id : text
+  "Ref" as Ref : text
+  Name : text
+  Loc : text
+  Supplier : text
+  Category : text
+  InternalStockAggressiveness : number
+  IsTopItem : boolean
+  StartDate : date
+  EndDate : date
+
+read "/Input/Orders/Orders*" unsafe as History expect[Id, date] with
+  "Sku" as Id : text
+  "Ref" as Ref : text
+  Loc : text
+  "OrderDate" as date: date
+  "Quantity" as DayQty : number
+  NetAmount : number
+  Currency : text
+  OrderId : text
+
+read "/Manual/Suppliers_Dashboard.ion" as Supplier with
+  Supplier : text
+  LeadTime : number
+  "Order Frequency" as ReorderCycle : number
+
+table ItemsWeek = cross(Items, Week)
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///--------------------------------------PREPROCESS-----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ItemsWeek.WeekDate = min(monday(date)) into Week
+
+History.Mday = monday(History.date)
+History.WkQty = sum(History.DayQty) by [Id, History.Mday]
+
+Items.MinHistory = min(History.date)
+Items.MaxHistory = max(History.date)
+
+maxHistory = max(History.date)
+
+///Slice------------------------------------------------------------------------------------
+table Slices [slice] = slice by [not Items.IsTopItem, Items.Id] title: Items.Id subtitle: "ItemName \{Items.Name}"
+
+History.slice = Items.slice
+ItemsWeek.slice = Items.slice
+
+///Leadtimes--------------------------------------------------------------------------------
+
+keep where argwhichever() by [Id, History.Mday]
+
+///Reorder cycle
+Items.ReorderCycle = same(Supplier.ReorderCycle) by Supplier.Supplier at Items.Supplier
+History.ReorderCycleDays = Items.ReorderCycle
+History.ReorderCycleWeeks = ceiling(History.ReorderCycleDays / 7)
+
+///Supplier leadtime
+
+//Raw SLT
+Items.RawSupplierLTDays = max(Supplier.LeadTime) by Supplier.Supplier at Items.Supplier default 1
+
+//Randomize SLT
+seed1 = 2421
+seed2 = 3547
+History.BaseLT = Items.RawSupplierLTDays
+History.DiffLT = ceiling(History.BaseLT / 10)
+History.RdnSupplierLTDays = max(History.BaseLT +
+                                round((random.uniform(History.0,History.1)) * History.DiffLT)
+                              - round((random.uniform(History.0,History.1)) * History.DiffLT) , 7)
+
+History.SupplierLTDays = History.RdnSupplierLTDays
+History.SupplierLTWeeks = ceiling(History.SupplierLTDays / 7)
+
+///Total leadtime
+Items.TotalLTWeeks = ceiling((Items.RawSupplierLTDays + Items.ReorderCycle) / 7)
+
+///For some items, create a lower stock on hand so that we can have more interesting results in the dispatch simulation
+Items.IsDispatchStock = random.uniform(Items.0,Items.1) < 0.25 and Items.Loc != "MAN" //don't decrease stock for 1 loc, to show what happens in dispatch if there is 1 well stocked loc
+
+///Desired stock level simulation: sales moving average-------------------------------------
+
+///Sales moving average
+where argwhichever() by [Id, History.Mday]
+
+  ///Ideal stock
+  ItemsWeek.WkQty = same(History.WkQty) by [Id, History.Mday] at [ItemsWeek.Id, ItemsWeek.WeekDate]
+
+  Items.SecurityStockWeeks = if Items.Id == "CT-111-DC" or Items.Id == "CT-112-DC" then 0 else
+                                 if not Items.IsTopItem then 6 else 4
+
+  Items.SafetyTotalLTWeeks = if Items.IsDispatchStock and Items.Id != "CT-111-DC" and Items.Id != "CT-112-DC" then 3
+                             else Items.TotalLTWeeks + Items.SecurityStockWeeks
+
+  ItemsWeek.MovingAvgFuture = sum(ItemsWeek.WkQty) by ItemsWeek.Id over week = [0 .. Items.SafetyTotalLTWeeks]
+  ItemsWeek.LYMovingAvgFuture = ItemsWeek.MovingAvgFuture[-52]
+
+  Items.MaxWeek = max(ItemsWeek.WeekDate)
+  Items.AvgMovingAvgFuture = avg(ItemsWeek.MovingAvgFuture)
+                              when(ItemsWeek.WeekDate > Items.StartDate and
+                              ItemsWeek.WeekDate < Items.MaxWeek - Items.SafetyTotalLTWeeks * 7)
+                              default avg(ItemsWeek.MovingAvgFuture)
+                              when(ItemsWeek.MovingAvgFuture != 0)
+
+  ItemsWeek.MovingAvgFuture = if ItemsWeek.WeekDate >= Items.MaxWeek - Items.SafetyTotalLTWeeks * 7 then
+                                if ItemsWeek.WeekDate - 365 >= Items.StartDate then ItemsWeek.LYMovingAvgFuture else Items.AvgMovingAvgFuture
+                              else ItemsWeek.MovingAvgFuture
+
+  ItemsWeek.IdealStock = ceiling(ItemsWeek.MovingAvgFuture) //* Items.InternalStockAggressiveness)
+
+  ///Start stock
+  Items.MinWeek = min(ItemsWeek.WeekDate)
+  Items.StartStock = same(ItemsWeek.MovingAvgFuture) when(ItemsWeek.WeekDate == Items.MinWeek)
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///----------------------------------STOCKS GENERATION--------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+///Stock evolution function call----------------------------------------------------------
+History.MyStockOnHand,\
+History.MyStockOnOrder,\
+History.MyStockArriving,\
+History.MyNewOrder  =
+
+StockEvol(History.WkQty,
+          ItemsWeek.IdealStock,
+          History.ReorderCycleWeeks,
+          History.SupplierLTWeeks,
+          Items.StartStock)
+          by History.Id
+          scan History.Mday
+
+show table "History" with
+  History.Id
+  History.date
+  History.MyNewOrder
+  History.Ref
+  History.Loc
+  History.DayQty
+  History.NetAmount
+  History.Currency
+  History.OrderId
+  History.Mday
+  History.WkQty
+  History.ReorderCycleDays
+  History.ReorderCycleWeeks
+  History.BaseLT
+  History.DiffLT
+  History.RdnSupplierLTDays
+  History.SupplierLTDays
+  History.SupplierLTWeeks
+  History.MyStockOnHand
+  History.MyStockOnOrder
+  History.MyStockArriving
+
+
+///Post Process-----------------------------------------------------------------------------
+History.MyStockOnHand = round(History.MyStockOnHand,0)
+History.MyStockOnOrder = round(History.MyStockOnOrder,0)
+History.MyStockArriving = round(History.MyStockArriving,0)
+
+///POs
+Items.SupShort = substr(Items.Supplier,3)
+History.OrderWeek = concat(text(year(History.Mday)), padLeft(text(weekNum(History.Mday)),"0",2))
+History.PONumber = concat("PO-",Items.SupShort,"_",History.OrderWeek)
+
+///Manual PO
+//Define last order of an item, and manipulate it to be fix
+table ManualPO = extend.range(Items.1)
+ManualPO.DeliveryDate = maxHistory + Items.RawSupplierLTDays - 7
+ManualPO.OrderDate = ManualPO.DeliveryDate - random.ranvar(poisson(Items.RawSupplierLTDays))
+ManualPO.PONumber = concat("PO-",Items.SupShort,"_",233)
+ManualPO.Quantity = 0
+
+stockEnd = max(History.Mday)
+// where ManualPO.PONumber == "PO-oonLab_233"
+// where not Items.IsTopItem and Items.EndDate > stockEnd
+//   Items.AvgIdealStock = avg(ItemsWeek.IdealStock)
+//   ManualPO.Quantity = Items.AvgIdealStock / 2
+
+where ManualPO.PONumber == "PO-oonLab_233"
+  where Items.Id == "CT-112-DC"
+    ManualPO.Quantity = 26
+  where Items.Id == "CT-111-DC"
+    ManualPO.Quantity = 13
+
+///Stock On Hand
+History.CurrentOnHand = History.MyStockOnHand + History.MyStockArriving
+
+///Stock On Order
+History.ManualCurrentOnOrder = same(ManualPO.Quantity) by Items.Id at History.Id
+
+History.MaxSkuOrderDate = maxHistory + 1
+History.IsLatestArrival = false
+where History.MyNewOrder > 0 and History.Mday <= maxHistory - Items.ReorderCycle
+  History.MaxSkuOrderDate = max(History.Mday) by Id
+  History.IsLatestArrival = History.Mday == History.MaxSkuOrderDate
+
+where History.Mday >= History.MaxSkuOrderDate
+  History.MyNewOrder = floor(History.MyNewOrder / 2)
+  History.MyStockOnOrder = floor(History.MyStockOnOrder / 2)
+
+History.CurrentOnOrder = max((History.MyStockOnOrder) - (History.MyStockArriving) - (History.MyNewOrder),0) + History.ManualCurrentOnOrder
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///--------------------------------------REPORTING------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///Overall analysis-------------------------------------------------------------------------
+Items.Rank = rankrev () scan Items.1
+
+show table "All items" a1b3 with
+  if Items.IsTopItem then "Yes" else "No" as "Top item?"
+  Items.Rank
+  Id
+  Items.Category
+  Items.StartStock
+  Items.MinHistory
+  Items.MaxHistory
+  order by not Items.IsTopItem
+
+show linechart "All Orders" c1f3 with
+  sum(History.WkQty)
+  group by History.Mday
+
+///Focus on a specific item-------------------------------------------------------------------
+show label same("\{Items.Id} focus") by slice a4h4
+
+show linechart same("\{Items.Id} Stock simulation") by slice a5d7 slices:slice with
+  sum(History.MyStockOnHand) as "On Hand" {seriesType: bar ; seriesStack: bar ; color: #(onHandColor)}
+  sum(History.MyStockArriving) as "Arriving" {seriesType: bar ; seriesStack: bar ; color: #(arrivingColor)}
+  max(sum(History.MyStockOnOrder) - sum(History.MyStockArriving) - sum(History.MyNewOrder),0) as "On Order" {seriesType: bar ; seriesStack: bar ; color: #(onOrderColor)}
+  sum(History.MyNewOrder) as "New Order" {seriesType: bar ; seriesStack: bar ; color: #(newOrderColor)}
+  sum(sum(ItemsWeek.IdealStock) by [week,Id] at [History.week,Id]) as "MvgAvg Demand" {seriesPattern: dotted ; color: #(realDemand)}
+  sum(History.WkQty) as "Demand" {seriesPattern: "line" ; color: #(realDemand)}
+  group by History.Mday
+
+show linechart same("\{Items.Id} MovingSumFuture") by slice e5h7 slices:slice with
+  same(same(ItemsWeek.IdealStock) by [week,Id] at [History.week,Id])
+  same(History.WkQty)
+  group by History.Mday
+
+show linechart same("\{Items.Id} Last On Hand and OnOrder") by slice a8d10 slices:slice with
+  same(History.CurrentOnHand) as "On Hand" {seriesType: bar ; seriesStack: bar ; color: #(onHandColor)}
+  same(History.CurrentOnOrder) as "On Order" {seriesType: bar ; seriesStack: bar ; color: #(newOrderColor)}
+  group by History.Mday
+
+show table same("\{Items.Id} Stock simulation") by slice e8h8 slices:slice with
+  Id
+  History.Mday
+  History.WkQty
+  Items.RawSupplierLTDays / 7
+  Items.ReorderCycle / 7
+  Items.TotalLTWeeks
+  Items.SafetyTotalLTWeeks
+  History.MyStockOnHand
+  History.MyStockOnOrder
+  History.MyStockArriving
+  History.MyNewOrder
+  ItemsWeek.IdealStock
+
+where History.MyNewOrder > 0
+  show table same("\{Items.Id} POs") by slice e9h10 slices:slice with
+    Items.Ref as "Ref"
+    Items.Loc
+    Items.Supplier
+    History.Mday as "OrderDate"
+    History.Mday + History.SupplierLTDays as "DeliveryDate"
+    History.PONumber
+    History.MyNewOrder as "Quantity"
+    History.Mday <= maxHistory - Items.ReorderCycle
+    order by History.Mday
+
+///Tests------------------------------------------------------------------------------------
+
+show label "Tests" a11h11
+
+///Purchase Orders
+where History.MyNewOrder > 0
+where History.Mday <= maxHistory - Items.ReorderCycle //Make sure that next POs arrival are not so close from the next reorder decision arrival
+  show table "TEST PO Table" c12d12 with
+    Items.Ref as "Ref"
+    Items.Loc
+    Items.Supplier
+    History.Mday as "OrderDate"
+    History.Mday + History.SupplierLTDays as "DeliveryDate"
+    History.PONumber
+    History.MyNewOrder as "Quantity"
+    History.IsLatestArrival
+    order by History.Mday
+
+///Sales
+Items.Sales365 = sum(History.NetAmount) when (History.Mday > maxHistory - 365)
+Items.Qty365 = sum(History.DayQty) when (History.Mday > maxHistory - 365)
+show table "Item Ranks" a12b12 with
+  Id
+  Items.Name
+  Items.Category
+  Items.Qty365
+  Items.Sales365
+
+  order by Items.Sales365 desc
+
+where History.Mday == stockEnd
+  show table " \{stockEnd} Test Last Stock" e12f12 with
+    Id
+    History.MyNewOrder
+    History.MyStockOnOrder
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///------------------------------------EXPORT-----------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+show label "Export" a13h13
+
+///Stocks
+show table "Export Stock Table" a14b14 write: "Input/Stock/Stock_01.ion" with
+  Items.Ref as "Ref"
+  Items.Loc
+  History.Mday as "StockDate"
+  History.CurrentOnHand as "StockOnHand"
+  History.CurrentOnOrder as "StockOnOrder"
+  order by History.Mday
+
+///Manual Purchase orders
+show table "Manual PO" c14d14 write: "Input/PO/ManualPO_01.ion" with
+  Items.Ref as "Ref"
+  Items.Loc
+  Items.Supplier
+  ManualPO.OrderDate
+  ManualPO.DeliveryDate
+  ManualPO.PONumber
+  ManualPO.Quantity
+  order by ManualPO.OrderDate
+
+///Purchase Orders
+where History.MyNewOrder > 0
+// where History.Mday <= maxHistory - Items.ReorderCycle //Make sure that next POs arrival are not so close from the next reorder decision arrival
+  show table "Export PO Table" e14f14 write: "Input/PO/PO_01.ion" with
+    Items.Ref as "Ref"
+    Items.Loc
+    Items.Supplier
+    History.Mday as "OrderDate"
+    History.Mday + History.SupplierLTDays as "DeliveryDate"
+    History.PONumber
+    History.MyNewOrder as "Quantity"
+    order by History.Mday
+ 

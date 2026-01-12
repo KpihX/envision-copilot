@@ -1,0 +1,112 @@
+import "/1. utilities/Modules/Functions" as Functions
+import "/1. utilities/Modules/Global Parameters" as Gp
+
+read "/Clean/Locations.ion" as Locations[Loc] with
+  Loc : text
+  CarryingCostWeight : number
+
+read "/Clean/Items.ion" as Skus[Sku unsafe] expect[Loc] with
+  Sku : text
+  Ref : text
+  Loc : text
+  Name : text
+  Category : text
+  SellPrice : number
+  BuyPrice : number
+  RedispatchCycle : number
+  DispatchLT : number
+  StockOnHand : number
+  StockOnOrder : number
+  LeadTime : number
+  ImageUrl : text
+  StartDate : date
+  EndDate : date
+  Supplier : text
+  LotMultiplierDispatch : number
+  IsClean : boolean
+
+read "/Clean/Forecast/Periodic/WeeklyFc.ion" as ForecastSku expect[Sku, Date] with
+  Sku : text
+  "Monday" as Date : date
+  DemandQty : number
+  Cache : number
+  IsPast : boolean
+  FutureWeekRank : number
+  Alpha : number
+  Dispersion : number
+  Baseline : number
+  Demand : ranvar
+  LowerBarTotal2 : number
+  LowerBarTotal1 : number
+  HighBarTotal2 : number
+  HighBarTotal1 : number
+  CumDemand : ranvar
+
+read "/Clean/Simulation/ROP.ion" as ROP expect[Sku,Loc] with
+  Sku : text
+  Loc : text
+  ROP : number
+
+keep where Skus.Loc != "DC"
+
+Skus.StockOnHand = 7*Skus.StockOnHand///Swann 22.02.2024 : aligned with https://go.lokad.com/DEMO/d/75854/ to get coherent story
+Skus.StockOnHand = if Sku == "CT-110-MAN" then round(0.9*Skus.StockOnHand) else Skus.StockOnHand
+
+table SkusDay = cross(Skus,Day)
+SkusDay.Baseline = same(ForecastSku.Baseline) by [ForecastSku.Sku,ForecastSku.Date] at [SkusDay.Sku,monday(SkusDay.Date)]
+SkusDay.Baseline = SkusDay.Baseline * 7///Swann 22.02.2024 : aligned with https://go.lokad.com/DEMO/d/75854/ to get coherent story
+SkusDay.Baseline = SkusDay.Baseline /7 ///Weekly baseline into daily baseline
+SkusDay.FutureWeekRank = same(ForecastSku.FutureWeekRank) by [ForecastSku.Sku,ForecastSku.Date] at [SkusDay.Sku,monday(SkusDay.Date)]
+SkusDay.RedispatchCycleWeeks = 1
+SkusDay.ForecastWeekAfter = same(SkusDay.Baseline) by [SkusDay.Sku,SkusDay.FutureWeekRank] at [SkusDay.Sku,SkusDay.FutureWeekRank+1]
+keep where SkusDay.FutureWeekRank > 0 and SkusDay.FutureWeekRank <=12
+
+SkusDay.DayRank = rankrev () by SkusDay.Sku scan -SkusDay.Date
+Skus.DispatchLTDays = 7
+Skus.ROP = same(ROP.ROP)
+
+SkusDay.EOQ = ceiling(SkusDay.ForecastWeekAfter * SkusDay.RedispatchCycleWeeks* 7 ) ///Daily forecast -> weekly forecast
+SkusDay.StockOnHand = round(Skus.StockOnHand/2)
+SkusDay.StockOnHand = if SkusDay.DayRank == 1 then SkusDay.StockOnHand else 0
+
+SkusDay.StockEvolOnHand,SkusDay.StockEvolOnOrder,SkusDay.OrderedQty,SkusDay.StockDelivered =
+  Functions.PurchaseQty(SkusDay.Baseline,Skus.ROP,SkusDay.EOQ,Skus.DispatchLTDays,1,SkusDay.StockOnHand ) by Skus.Sku scan SkusDay.Date
+
+show linechart "Ventes et Prévisions" a2e5   with
+  round(sum(SkusDay.Baseline)) as "Prévisions" {seriesFan: 1 ; seriesType: bar ; seriesLegendRank: "1" ; color: #(Gp.ColorAdark)}
+  round(sum(SkusDay.OrderedQty)) as "Achats" {seriesFan: 2 ; seriesType: bar ; seriesLegendRank: "2" ; color: #(Gp.colorSkyBlue)}
+  round(sum(SkusDay.StockDelivered)) as "Receptions" {seriesFan: 3 ; seriesType: bar ; seriesLegendRank: "3" ; color: #(Gp.blue)}
+  group by SkusDay.Date
+
+show table "FullSimulation" with
+  SkusDay.Sku as "Sku"
+  SkusDay.Date as "date"
+  Skus.ROP
+  SkusDay.EOQ
+  Skus.StockOnHand
+  SkusDay.Baseline as "Baseline"
+  SkusDay.FutureWeekRank as "FutureWeekRank"
+  SkusDay.RedispatchCycleWeeks as "RedispatchCycleWeeks"
+  SkusDay.ForecastWeekAfter as "ForecastWeekAfter"
+  SkusDay.DayRank
+  SkusDay.StockEvolOnHand
+  SkusDay.StockEvolOnOrder
+  SkusDay.OrderedQty
+  SkusDay.StockDelivered
+
+where month(SkusDay.Date) == Gp.monthdispatchflux
+  show table "Export Simulation April" a8 write:"/Clean/Simulation/SimulationStandard.ion" with
+    SkusDay.Sku as "Sku"
+    SkusDay.Date as "date"
+    Skus.ROP
+    SkusDay.EOQ
+    Skus.StockOnHand
+    SkusDay.Baseline as "Baseline"
+    SkusDay.FutureWeekRank as "FutureWeekRank"
+    SkusDay.RedispatchCycleWeeks as "RedispatchCycleWeeks"
+    SkusDay.ForecastWeekAfter as "ForecastWeekAfter"
+    SkusDay.DayRank
+    SkusDay.StockEvolOnHand
+    SkusDay.StockEvolOnOrder
+    SkusDay.OrderedQty
+    SkusDay.StockDelivered

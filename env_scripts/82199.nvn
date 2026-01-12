@@ -1,0 +1,342 @@
+/// Dashboard to choose target ambition - All Granularity Level
+
+import "/1. utilities/Modules/Functions" as F
+import "/1. utilities/Modules/Colors" as C
+import "/1. utilities/Modules/PathSchemas" as PS
+import "/1. utilities/Modules/Global Parameters" as GP with
+  ColorB
+  CategoryURL
+
+read "/Clean/LongTermPlanning/Catalog.ion" as Catalog[Ref] small 1k with
+  Ref : text
+  Category : number
+  SubCategory : number
+  BuyPrice : number
+  SellPrice : number
+read "/Clean/LongTermPlanning/Forecast.ion" as Forecast small 100k expect[Ref]  with
+  "Month" as MonthF : month
+  Ref : text
+  Baseline : number
+
+read "/Clean/LongTermPlanning/Parametrisation/General.ion" as GeneralParametrisation with
+  GrowthGeneral: number
+  Category: number
+  IsCatForced: boolean
+  IsCatForcedHighLevel: boolean
+  GrowthCat: number
+  FreeGrowthCat: number
+  MaxGrowthCat: number
+read '/Clean/LongTermPlanning/Parametrisation/Category_\{..}.ion' as CategoryParametrisation
+
+read upload "SlicedFormGeneral" as SlicedFormGeneral with
+  GeneralChoice: number
+  GeneralGrowth: number
+  "Validate New General Growth?" as IsValidated : boolean
+
+read upload "SlicedFormCat" as SlicedFormCat with
+  Category: number
+  GeneralChoice: number
+  ChoiceCat: number
+  CatGrowth: number
+  "Choose Category Growth?" as IsValidated : boolean
+  Comment: text
+
+read upload "EnforcingCategoryGrowth" as CatEnforcing with
+  Category: number
+  "Force Growth at High Level?" as IsForcedHigh: boolean
+  "Force Growth value?" as IsForced: boolean
+  Growth : text
+
+read form with
+  GrowthGeneralForm: number
+  IsRunMAJ: boolean
+
+/// ----------------------------------------------------------------------------------------------------
+///# 0. Display
+/// ----------------------------------------------------------------------------------------------------
+
+show logo "" g1h2
+show label "High Level Forecasting Cockpit" b1f1 {labelIcon: "report-with-diagrams" ; textAlign: center ; textBold: "true" ; textColor: "black" ; tileColor: #(ColorB)}
+show label "🏠 Home" a1 {hrefAspect: white ; textAlign: center ; href: #(dashUrl(GP.LinkHomeLongTerm))}
+show label "📋 Final Forecast Plan" g5h5 {tileTab: "general" ; hrefAspect: white ; textAlign: center ; href: #(dashUrl(82317))}
+
+show markdown "Generic Documentation" a2f2 {tileZoom: "false"} with """
+__This cockpit enables to set the global growth target in the *General Overview*  tab and specific category growths in the *Category View*  tab.
+Each category manager can be allow or not to also change category growth targets. Remaining growth (or decline) will be spread equally between the categories without parametrization.__"""
+
+show tabs "" a3h3 {textColor: "black" ; backgroundColor: #(C.ColorLokadLight) ; tabBackgroundColor: "white"} with
+  "general" as "🔼 General Overview"
+  "category" as "🔍 Category View"
+
+highlightColor = ColorB
+
+@{ dashButton: ""}
+@{&.dashUnsaved {bannerMessage: "⚠️ Modifications Detected ⚠️"; bannerButton: "Save all Modifications and Refresh"}}
+
+/// ----------------------------------------------------------------------------------------------------
+///# 1. Creation of the Slicing
+/// ----------------------------------------------------------------------------------------------------
+
+table Category = by Catalog.Category
+Category.Category = same(Catalog.Category)
+Category.Color = match Category.Category with
+  1 -> C.color1e
+  2 -> C.color2e
+  3 -> C.color3e
+  4 -> C.color4e
+  5 -> C.color5e
+  6 -> C.color6e
+nbCat = count(Category.*)
+nbOption = 20
+
+Category.Choice = nbOption^2
+
+table SliceParameters = extend.range(Category.Choice)
+
+SliceParameters.GeneralChoice = SliceParameters.N mod nbOption
+SliceParameters.ChoiceCat = (SliceParameters.N - floor(SliceParameters.N/nbOption)) mod nbOption
+SliceParameters.Category = Category.Category
+SliceParameters.Letter = if SliceParameters.GeneralChoice == 7 then "a" else "b"
+SliceParameters.Slicer = concat(SliceParameters.N, "-", SliceParameters.Category)
+
+table Slices[slice] small 200k = slice by [SliceParameters.N, SliceParameters.Category] title: concat(SliceParameters.Letter,SliceParameters.Slicer)
+Slices.Category = single(SliceParameters.Category)
+Slices.GeneralChoice = single(SliceParameters.GeneralChoice)
+Slices.ChoiceCat = single(SliceParameters.ChoiceCat)
+
+Catalog.Extend = nbOption^2 * nbCat
+Category.Extend = nbOption^2 * nbCat
+table CatalogExtend = extend.range(Catalog.Extend)
+CatalogExtend.Category = Catalog.Category
+CatalogExtend.CategorySliced = ceiling(CatalogExtend.N/nbOption^2)
+CatalogExtend.Slicer = concat((CatalogExtend.N mod nbOption^2) + 1, "-", CatalogExtend.CategorySliced)
+keep where CatalogExtend.slice = same(SliceParameters.slice) by [SliceParameters.Slicer] at [CatalogExtend.Slicer]
+
+table CategoryExtend = extend.range(Category.Extend)
+CategoryExtend.CategorySliced = ceiling(CategoryExtend.N/nbOption^2)
+CategoryExtend.Slicer = concat((CategoryExtend.N mod nbOption^2) + 1, "-", CategoryExtend.CategorySliced)
+keep where CategoryExtend.slice = same(SliceParameters.slice) by [SliceParameters.Slicer] at [CategoryExtend.Slicer]
+CategoryExtend.Category = Category.Category
+
+/// ----------------------------------------------------------------------------------------------------
+///# 2. Handle of the previous choices
+/// ----------------------------------------------------------------------------------------------------
+
+///## A] Looking at previous Slices and Data
+Slices.IsValidatedGeneral = any(SlicedFormGeneral.IsValidated) by [SlicedFormGeneral.GeneralChoice] at [Slices.GeneralChoice]
+Slices.IsValidatedCat = same(SlicedFormCat.IsValidated) by [SlicedFormCat.Category, SlicedFormCat.GeneralChoice, SlicedFormCat.ChoiceCat] at [Slices.Category, Slices.GeneralChoice, Slices.ChoiceCat]
+
+CatEnforcing.IsForced = CatEnforcing.IsForced or any(Slices.IsValidatedCat) by Slices.Category at CatEnforcing.Category
+_, CatEnforcing.GrowthForced = tryParseNumber(field(CatEnforcing.Growth,"%",0), " ",".")
+CatEnforcing.GrowthForced = CatEnforcing.GrowthForced/100
+
+Catalog.CA = sum(Forecast.Baseline * Catalog.SellPrice)
+Category.CurrentCA = sum(Catalog.CA)
+CurrentCA = sum(Forecast.Baseline * Catalog.SellPrice)
+
+/// ----------------------------------------------------------------------------------------------------
+///## B] Computing Growth Authorized
+
+Category.IsForcedHighLevel = any(Slices.IsValidatedCat) by Slices.Category at Category.Category or
+                             same(CatEnforcing.IsForcedHigh) by CatEnforcing.Category at Category.Category
+Category.IsForced = Category.IsForcedHighLevel or
+                    (not IsRunMAJ and same(CatEnforcing.IsForced) by CatEnforcing.Category at Category.Category) or
+                    (IsRunMAJ and same(CategoryParametrisation.IsForcedCat) by CategoryParametrisation.Category at Category.Category)
+
+Category.SelectedGrowth = if any(Slices.IsValidatedCat) by Slices.Category at Category.Category then max(F.GrowthMap(Slices.ChoiceCat)) by Slices.Category at Category.Category when Slices.IsValidatedCat else
+                          if IsRunMAJ and not Category.IsForcedHighLevel then same(CategoryParametrisation.GrowthCat) by CategoryParametrisation.Category at Category.Category else
+                          if (not IsRunMAJ or Category.IsForcedHighLevel) and same(CatEnforcing.IsForced) by CatEnforcing.Category at Category.Category then same(CatEnforcing.GrowthForced) by CatEnforcing.Category at Category.Category
+                          else single(GeneralParametrisation.GrowthCat) by GeneralParametrisation.Category at Category.Category
+Category.CAExpected = Category.CurrentCA * (1+Category.SelectedGrowth)
+
+GeneralGrowth = if any(Slices.IsValidatedGeneral) then max(F.GrowthMap(Slices.GeneralChoice)) when Slices.IsValidatedGeneral
+                else GrowthGeneralForm/100
+show scalar "Current Applied General Growth Target" g4h4 {tileTab: "general" ; textBold: "true"} with GeneralGrowth {numbers: percent}
+
+Category.ForcedCA = if Category.IsForced then Category.CurrentCA * (1+Category.SelectedGrowth) else 0
+Category.ForcedCAAuthorised = Category.ForcedCA * min(1,((1+GeneralGrowth)*CurrentCA /. sum(Category.ForcedCA) into Scalar))
+RemainingCA = (1+GeneralGrowth)*CurrentCA -sum(Category.ForcedCAAuthorised)
+UnForcedCA = sum(Category.CurrentCA) when not Category.IsForced
+Category.AuthorisedCA = if Category.IsForced then Category.ForcedCAAuthorised
+                        else RemainingCA * (Category.CurrentCA/UnForcedCA)
+
+Category.MaxGrowthAuthorised = (RemainingCA + (if Category.IsForced then Category.ForcedCAAuthorised else 0)) / Category.CurrentCA -1
+Category.SelectedGrowth = Category.AuthorisedCA / Category.CurrentCA - 1
+
+write Category as "/Clean/LongTermPlanning/Parametrisation/General.ion" with
+  GrowthGeneral = GeneralGrowth
+  Category = Category.Category
+  IsCatForced = Category.IsForced
+  IsCatForcedHighLevel = Category.IsForcedHighLevel
+  GrowthCat = round(Category.SelectedGrowth,4)
+  FreeGrowthCat = 0
+  MaxGrowthCat = Category.MaxGrowthAuthorised
+
+Category.HasGrowthChanged = round(Category.SelectedGrowth,4) != same(CategoryParametrisation.GrowthCat) by CategoryParametrisation.Category at Category.Category
+Category.HasForcedChanged = Category.IsForced != same(CategoryParametrisation.IsForcedCat) by CategoryParametrisation.Category at Category.Category
+Category.HasForcedHighLevelChanged = Category.IsForcedHighLevel != same(GeneralParametrisation.IsCatForcedHighLevel) by GeneralParametrisation.Category at Category.Category
+where Category.HasGrowthChanged or Category.HasForcedChanged or Category.HasForcedHighLevelChanged
+  write Category partitioned as '/Clean/LongTermPlanning/Trigger/Category_\{..}.ion' with
+    Category = Category.Category
+    GrowthChange = Category.HasGrowthChanged
+    ForcedChanged = Category.HasForcedChanged
+    ForcedHighLevelChanged = Category.HasForcedHighLevelChanged
+
+ReservedCA = sum(Category.AuthorisedCA) when (Category.IsForced)
+OpenCurrentCA = sum(Category.CurrentCA) when not Category.IsForced
+
+/// --------------------------------------------------------------------------------------------------
+///# 3. Impact of the parametrization
+/// ----------------------------------------------------------------------------------------------------
+
+///## A] Possible Growth
+SliceParameters.GeneralGrowth = F.GrowthMap(SliceParameters.GeneralChoice) //+ GeneralGrowth
+SliceParameters.GrowthCat = F.GrowthMap(SliceParameters.ChoiceCat) //+ round(same(Category.SelectedGrowth) by Category.Category at SliceParameters.Category ,2)
+
+/// ----------------------------------------------------------------------------------------------------
+///## B] Computation of Final Growth
+
+SliceParameters.CATotalTarget = CurrentCA * (1+SliceParameters.GeneralGrowth)
+SliceParameters.CurrentCACat  = single(Category.CurrentCA) by Category.Category at SliceParameters.Category
+SliceParameters.CARemainingAvailable = SliceParameters.CATotalTarget - (ReservedCA - same(Category.AuthorisedCA) when (Category.IsForced) by Category.Category at SliceParameters.Category)
+
+SliceParameters.CACatTarget = min(SliceParameters.CurrentCACat * (SliceParameters.GrowthCat+1), SliceParameters.CARemainingAvailable)
+
+SliceParameters.MeanGrowth = if SliceParameters.CARemainingAvailable == SliceParameters.CACatTarget then -1
+                             else (SliceParameters.CARemainingAvailable - SliceParameters.CACatTarget) / (OpenCurrentCA - (if same(not Category.IsForced) by Category.Category at SliceParameters.Category then SliceParameters.CurrentCACat else 0))
+
+CategoryExtend.IsParamCat = single(SliceParameters.Category) by slice == CategoryExtend.Category
+CatalogExtend.IsParamCat = single(SliceParameters.Category) by slice == CatalogExtend.Category
+CategoryExtend.Growth = if CategoryExtend.IsParamCat then single(SliceParameters.CACatTarget/SliceParameters.CurrentCACat) by slice
+                        else if Category.IsForced then Category.CAExpected/Category.CurrentCA
+                        else single(SliceParameters.MeanGrowth) by SliceParameters.slice at CategoryExtend.slice
+CatalogExtend.Growth = single(CategoryExtend.Growth) by [CategoryExtend.slice, CategoryExtend.Category] at [CatalogExtend.slice, Catalog.Category]
+
+/// ----------------------------------------------------------------------------------------------------
+///## C] Sliced Forms
+
+SlicedFormCat.IsCurrentlySelected = single(Category.SelectedGrowth) by Category.Category at SlicedFormCat.Category == F.GrowthMap(SlicedFormCat.ChoiceCat)
+Slices.Comment = single(SlicedFormCat.Comment) by [SlicedFormCat.Category, SlicedFormCat.GeneralChoice, SlicedFormCat.ChoiceCat] at [Slices.Category, Slices.GeneralChoice, Slices.ChoiceCat] when (SlicedFormCat.IsValidated or SlicedFormCat.IsCurrentlySelected)
+                 default("")
+
+Slices.GeneralColor = if same(SliceParameters.GeneralGrowth == GeneralGrowth) then C.colorValid3 else "lightgray"
+/// Slices.CategoryColor = C.colorValid3 if current applied slices
+Slices.CategoryColor = if single(abs(SliceParameters.GrowthCat - single(Category.SelectedGrowth) by Category.Category at SliceParameters.Category) < 0.0001) then C.colorValid3 else "lightgray"
+
+InfoCat = """⚠️ If multiple category targets growth are selected, only the highest category target growth selected will be kept."""
+Slices.IsValidatedCat = false
+show form "" e4f6 editable: "SlicedFormCat" slices: slice {tileTab: "category"} with
+  Slices.Category {formAccess: hidden}
+  Slices.GeneralChoice {formAccess: hidden}
+  Slices.ChoiceCat {formAccess: hidden}
+  F.GrowthMap(Slices.ChoiceCat) as "CatGrowth" {formAccess: hidden}
+  Slices.IsValidatedCat as "Choose Category Growth?" {&.edited { fieldColor: #FBC550 ; entryTooltip: #(InfoCat) } ; fieldColor: #(Slices.CategoryColor)}
+  Slices.Comment {&.edited { fieldColor: #FBC550 }; fieldColor: #(if Slices.Comment != "" then Slices.CategoryColor else "lightgray")}
+
+InfoG = """⚠️ If multiple general targets growth are selected, only the highest general target growth selected will be kept."""
+Slices.IsValidatedGeneral = false
+show form "" e4f4 editable: "SlicedFormGeneral" slices: slice {tileTab: "general" ; tileColor: #(highlightColor)} with
+  Slices.GeneralChoice {formAccess: hidden}
+  F.GrowthMap(Slices.GeneralChoice) as "GeneralGrowth" {formAccess: hidden}
+  Slices.IsValidatedGeneral as "Validate New General Growth?" {&.edited { fieldColor: #FBC550 ; entryTooltip: #(InfoG) } ; fieldColor: #(Slices.GeneralColor)}
+
+Category.CommentManager = same(CategoryParametrisation.CommentCat) by CategoryParametrisation.Category at Category.Category
+Category.Comment = if (Category.IsForced and not Category.IsForcedHighLevel and Category.CommentManager != "") then Category.CommentManager else
+                   if Category.IsForced then mode(SlicedFormCat.Comment) by [SlicedFormCat.Category] at [Category.Category] when (SlicedFormCat.Comment != "")
+                   else ""
+Category.CommentMD = """\{Category.Comment}"""
+Category.Growth = concat(round(Category.SelectedGrowth*100,1),"%")
+show table "Category Growth Parametrisation" e7g10 editable: "EnforcingCategoryGrowth" {tileTab: "category" ; booleans: "✔️/❌" ; tileColor: #(highlightColor)} with
+  Category.Category as "Category" {columnDisplay: never ; columnReadOnly: "true"}
+  concat("Cat.", Category.Category) as "Category "
+  Category.IsForcedHighLevel as "Force Growth at High Level?" {textAlign: center ; columnTooltipText: "Restricting Category Growth to be editable only on the High Level Cockpit"}
+  Category.IsForced as "Force Growth value?" {textAlign: center ; columnTooltipText: "Forcing Category Growth (if the Growth is not forced at High Level, this value will be editable on the Category Cockpit)"}
+  if Category.IsForced then Category.Growth else "" as "Growth" {cellTooltip: #[Category.CommentMD]}
+
+GrowthGeneralForm = round(GeneralGrowth * 100,2)
+show form "" e5f5 {tileTab: "general" ; tileColor: #(highlightColor)} with
+  GrowthGeneralForm as "Manual General Growth Target (%)"
+IsRunMAJ = false
+show form "" {tilePlacement: "hidden"} with IsRunMAJ
+
+/// ----------------------------------------------------------------------------------------------------
+/// # 3. Visualization
+/// ----------------------------------------------------------------------------------------------------
+
+///## A] SlicePicker
+
+GeneralGrowthText = concat(": currently ", round(GeneralGrowth*100,1),"%", " Growth applied")
+Slices.CatGrowthText = if not same(Category.IsForced) by Category.Category at Slices.Category then  ""
+                       else concat(": currently ", same(Category.Growth) by Category.Category at Slices.Category, " Growth applied")
+
+show slicepicker "" a4d4 {tileTab: "general" ; tileColor: #(highlightColor)} with
+  same(SliceParameters.GeneralGrowth) as "General Growth Target \{GeneralGrowthText}" {numbers: percent ; plusSign: nonzero ; fieldColor: #(Slices.GeneralColor)}
+
+show slicepicker "" a4d6 {tileTab: "category"} with
+  same(concat("Category ", SliceParameters.Category)) as "Category"
+  same(SliceParameters.GeneralGrowth) as "General Growth Target \{GeneralGrowthText}" {numbers: percent ; plusSign: nonzero ; fieldColor: #(Slices.GeneralColor)}
+  same(SliceParameters.GrowthCat) as "Growth Target for Cat. \{Slices.Category} \{Slices.CatGrowthText}" {numbers: percent ; plusSign: nonzero ; fieldColor: #(Slices.CategoryColor)}
+
+/// ----------------------------------------------------------------------------------------------------
+///## B] General
+
+///### Small Category Highlight
+Slices.HighlightColor = if Slices.Category == 2 then "dimgray" else "white"
+Slices.Color = same(Category.Color) by Category.Category at Slices.Category
+show scalar "" g4h6 {tileTab: "category" ; backgroundColor: #(Slices.Color)} with ""
+show scalar "" g4h4 slices: CategoryExtend.slice {tileTab: "category" ; textAlign: center ; textBold: "true"} with concat("Category ",Slices.Category, " 🔎") {href: #(dashUrl(82199))}
+where CatalogExtend.IsParamCat
+  show summary "" g5 slices: CatalogExtend.slice {tileTab: "category" ; textAlign: left ; tileColor: #(Slices.HighlightColor)} with
+    count(CatalogExtend.*) as "# Ref"
+    sum(Catalog.CA into CatalogExtend)/CurrentCA as "% Turnover 2024" {numbers: percent}
+where CategoryExtend.IsParamCat
+  show summary "" h5h6 slices: CategoryExtend.slice {tileTab: "category" ; unit: "€" ; precision: 0 ; numbers: thousands ; textAlign: left ; tileColor: #(Slices.HighlightColor)} with
+    single(Category.CurrentCA into CategoryExtend) as "Sales 2024"
+    single(Category.CurrentCA * (CategoryExtend.Growth-1)) as "Targeted Growth"
+    single(Category.CurrentCA * CategoryExtend.Growth) as "Sales Target 2025" {textBold: "true"}
+show scalar "" g6 slices: CategoryExtend.slice {tileTab: "category" ; textAlign: center} with "⚙️" {href: #(dashUrl(same(CategoryURL.ParamURL) by CategoryURL.Category at Slices.Category ))}
+
+
+show summary "Computed Growth" h7h10 slices: CategoryExtend.slice {numbers: percent ; tileTab: "category" ; textAlign: left} with
+  single(SliceParameters.GeneralGrowth) as "General Growth Selected" {textBold: "true" ; textColor: #(if Slices.GeneralColor == C.colorValid3 then C.colorValid3 else highlightColor)}
+  single(CategoryExtend.Growth -1) when (CategoryExtend.Category == 1) as "Growth for Cat. 1" {textBold: #(same(Category.IsForced) when (Category.Category == 1)) ; textColor: #(if same(SliceParameters.Category) by slice == 1 then highlightColor else "black")}
+  single(CategoryExtend.Growth -1) when (CategoryExtend.Category == 2) as "Growth for Cat. 2" {textBold: #(same(Category.IsForced) when (Category.Category == 2)) ; textColor: #(if same(SliceParameters.Category) by slice == 2 then highlightColor else "black")}
+  single(CategoryExtend.Growth -1) when (CategoryExtend.Category == 3) as "Growth for Cat. 3" {textBold: #(same(Category.IsForced) when (Category.Category == 3)) ; textColor: #(if same(SliceParameters.Category) by slice == 3 then highlightColor else "black")}
+  single(CategoryExtend.Growth -1) when (CategoryExtend.Category == 4) as "Growth for Cat. 4" {textBold: #(same(Category.IsForced) when (Category.Category == 4)) ; textColor: #(if same(SliceParameters.Category) by slice == 4 then highlightColor else "black")}
+  single(CategoryExtend.Growth -1) when (CategoryExtend.Category == 5) as "Growth for Cat. 5" {textBold: #(same(Category.IsForced) when (Category.Category == 5)) ; textColor: #(if same(SliceParameters.Category) by slice == 5 then highlightColor else "black")}
+  single(CategoryExtend.Growth -1) when (CategoryExtend.Category == 6) as "Growth for Cat. 6" {textBold: #(same(Category.IsForced) when (Category.Category == 6)) ; textColor: #(if same(SliceParameters.Category) by slice == 6 then highlightColor else "black")}
+
+show summary "Total Sales" a5d5 slices: CatalogExtend.slice {tileTab: "general" ; unit: "€" ; precision: 0 ; numbers: thousands ; textAlign: left ; tileColor: #(highlightColor)} with
+  sum(Catalog.CA into CatalogExtend) as "Sales 2024"
+  sum(Catalog.CA into CatalogExtend) * (single(SliceParameters.GeneralGrowth)) as "Targeted Growth"
+  sum(Catalog.CA into CatalogExtend) * (1+single(SliceParameters.GeneralGrowth)) as "Sales Target 2025" {textBold: "true"}
+
+/// ----------------------------------------------------------------------------------------------------
+///## C] Forecast
+
+table CatalogExtendMonth = extend.range(CatalogExtend.12)
+CatalogExtendMonth.MonthF = month(2025,CatalogExtendMonth.N)
+CatalogExtendMonth.Baseline = single(Forecast.Baseline) by [Forecast.Ref, Forecast.MonthF] at [Catalog.Ref, CatalogExtendMonth.MonthF]
+
+
+show linechart "Sales Target - 2025" a6h10 slices: CatalogExtend.slice {tileTab: "general"} with
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * CatalogExtend.Growth) when (Catalog.Category == 1) as "Cat. 1" {unit: "€" ; seriesType: bar ; seriesStack: bar ; color: #(C.color1b)}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * CatalogExtend.Growth) when (Catalog.Category == 2) as "Cat. 2" {unit: "€" ; seriesType: bar ; seriesStack: bar ; color: #(C.color2b)}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * CatalogExtend.Growth) when (Catalog.Category == 3) as "Cat. 3" {unit: "€" ; seriesType: bar ; seriesStack: bar ; color: #(C.color3b)}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * CatalogExtend.Growth) when (Catalog.Category == 4) as "Cat. 4" {unit: "€" ; seriesType: bar ; seriesStack: bar ; color: #(C.color4b)}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * CatalogExtend.Growth) when (Catalog.Category == 5) as "Cat. 5" {unit: "€" ; seriesType: bar ; seriesStack: bar ; color: #(C.color5b)}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * CatalogExtend.Growth) when (Catalog.Category == 6) as "Cat. 6" {unit: "€" ; seriesType: bar ; seriesStack: bar ; color: #(C.color6b)}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * CatalogExtend.Growth) as "2025 Global Target" {unit: "€" ; seriesType: legend}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice) as "2024 Base" {unit: "€" ; seriesPattern: dashed}
+  group by CatalogExtendMonth.MonthF
+
+show linechart "Sales Target - 2025" a7d10 slices: CatalogExtend.slice {tileTab: "category"} with
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * CatalogExtend.Growth) when (Catalog.Category == 1) as "Cat. 1" {unit: "€" ; seriesType: bar ; seriesStack: bar ; color: #(C.color1) ; seriesOpacity: #(if Slices.Category == 1 then 1 else 0.33)}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * CatalogExtend.Growth) when (Catalog.Category == 2) as "Cat. 2" {unit: "€" ; seriesType: bar ; seriesStack: bar ; color: #(C.color2) ; seriesOpacity: #(if Slices.Category == 2 then 1 else 0.33)}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * CatalogExtend.Growth) when (Catalog.Category == 3) as "Cat. 3" {unit: "€" ; seriesType: bar ; seriesStack: bar ; color: #(C.color3) ; seriesOpacity: #(if Slices.Category == 3 then 1 else 0.33)}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * CatalogExtend.Growth) when (Catalog.Category == 4) as "Cat. 4" {unit: "€" ; seriesType: bar ; seriesStack: bar ; color: #(C.color4) ; seriesOpacity: #(if Slices.Category == 4 then 1 else 0.33)}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * CatalogExtend.Growth) when (Catalog.Category == 5) as "Cat. 5" {unit: "€" ; seriesType: bar ; seriesStack: bar ; color: #(C.color5) ; seriesOpacity: #(if Slices.Category == 5 then 1 else 0.33)}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * CatalogExtend.Growth) when (Catalog.Category == 6) as "Cat. 6" {unit: "€" ; seriesType: bar ; seriesStack: bar ; color: #(C.color6) ; seriesOpacity: #(if Slices.Category == 6 then 1 else 0.33)}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * CatalogExtend.Growth) as "2025 Global Target" {unit: "€" ; seriesType: legend}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice) as "2024 Base" {unit: "€" ; seriesPattern: dashed}
+  group by CatalogExtendMonth.MonthF

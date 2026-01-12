@@ -1,0 +1,141 @@
+/// Dashboard to choose target ambition - All Granularity Level
+
+read "/Clean/LongTermPlanning/Catalog.ion" as Catalog[Ref] small 1k with
+  Ref : text
+  Category : number
+  SubCategory : number
+  BuyPrice : number
+  SellPrice : number
+
+read "/Clean/LongTermPlanning/Forecast.ion" as Forecast small 100k expect[Ref]  with
+  "Month" as MonthF : month
+  Ref : text
+  Baseline : number
+
+read form with
+  GrowthGeneral: number
+  GrowthCat1 : number
+  GrowthCat2 : number
+  GrowthCat3 : number
+  GrowthCat4 : number
+  GrowthCat5 : number
+
+/// ----------------------------------------------------------------------------------------------------
+/// # 0. Display
+/// ----------------------------------------------------------------------------------------------------
+
+
+show tabs "" a3h3 with
+  "general" as "General Overview"
+  "category" as "Category View"
+
+
+/// ----------------------------------------------------------------------------------------------------
+/// # 1. Creation of the Slicing
+/// ----------------------------------------------------------------------------------------------------
+
+table Category = by Catalog.Category
+Category.Category = same(Catalog.Category)
+
+table SliceParameters = extend.range(11 * 7^5)
+
+SliceParameters.GeneralChoice = SliceParameters.N mod 11
+SliceParameters.ChoiceCat1 = (SliceParameters.N - floor(SliceParameters.N/11)) mod 7
+SliceParameters.ChoiceCat2 = (SliceParameters.N - floor(SliceParameters.N/11/7)) mod 7
+SliceParameters.ChoiceCat3 = (SliceParameters.N - floor(SliceParameters.N/11/7^2)) mod 7
+SliceParameters.ChoiceCat4 = (SliceParameters.N - floor(SliceParameters.N/11/7^3)) mod 7
+SliceParameters.ChoiceCat5 = (SliceParameters.N - floor(SliceParameters.N/11/7^4)) mod 7
+
+table Slices[slice] small 200k = slice by [SliceParameters.N] title: text(SliceParameters.N)
+
+Catalog.Extend = 11 * 7^5
+Category.Extend = 11 * 7^5
+table CatalogExtend = extend.range(Catalog.Extend)
+keep where CatalogExtend.slice = same(SliceParameters.slice) by SliceParameters.N at CatalogExtend.N
+
+table CategoryExtend = extend.range(Category.Extend)
+keep where CategoryExtend.slice = same(SliceParameters.slice) by SliceParameters.N at CategoryExtend.N
+CategoryExtend.Category = Category.Category
+
+/// ----------------------------------------------------------------------------------------------------
+/// # 2. Impact of the parametrization
+/// ----------------------------------------------------------------------------------------------------
+
+SliceParameters.GeneralGrowth = match SliceParameters.GeneralChoice with
+  0 -> -0.05
+  1 -> -0.02
+  2 -> -0.01
+  3 -> 0
+  4 -> 0.005
+  5 -> 0.01
+  6 -> 0.02
+  7 -> 0.03
+  8 -> 0.05
+  9 -> 0.075
+  10 -> 0.1
+
+def pure PonderationScale(Pond: number) with
+  Res = match Pond with
+    0 -> 75
+    1 -> 90
+    2 -> 95
+    3 -> 100
+    4 -> 105
+    5 -> 110
+    6 -> 125
+  return(Res)
+
+Category.CurrentCA = sum(Forecast.Baseline * Catalog.SellPrice)
+Category.CAExpected = (if Category.Category == 1 then GrowthCat1 else if Category.Category == 2 then GrowthCat2 else if Category.Category == 3 then GrowthCat3 else if Category.Category == 4 then GrowthCat4 else GrowthCat5)
+                       * Category.CurrentCA
+CategoryExtend.CAExpected = Category.CAExpected
+
+CategoryExtend.Ponderation = if CategoryExtend.Category == 1 then single(PonderationScale(SliceParameters.ChoiceCat1)) by slice else
+                             if CategoryExtend.Category == 2 then single(PonderationScale(SliceParameters.ChoiceCat2)) by slice else
+                             if CategoryExtend.Category == 3 then single(PonderationScale(SliceParameters.ChoiceCat3)) by slice else
+                             if CategoryExtend.Category == 4 then single(PonderationScale(SliceParameters.ChoiceCat4)) by slice else
+                             single(PonderationScale(SliceParameters.ChoiceCat5)) by slice
+
+CategoryExtend.FullPonderation = if Category.CAExpected != 0 then 0 else Category.CurrentCA*CategoryExtend.Ponderation
+SliceParameters.TotalPonderation = sum(CategoryExtend.FullPonderation) by slice
+
+CurrentCA = sum(Forecast.Baseline * Catalog.SellPrice)
+SliceParameters.CATotalTarget = CurrentCA * (1+SliceParameters.GeneralGrowth)
+SliceParameters.RemainingCA = SliceParameters.CATotalTarget - sum(CategoryExtend.CAExpected) by slice
+
+CategoryExtend.FinalCA = CategoryExtend.CAExpected + CategoryExtend.FullPonderation * single(SliceParameters.RemainingCA/SliceParameters.TotalPonderation) by slice
+SliceParameters.GrowthCat1 = single(CategoryExtend.FinalCA/Category.CurrentCA -1) by slice when (Category.Category == 1)
+SliceParameters.GrowthCat2 = single(CategoryExtend.FinalCA/Category.CurrentCA -1) by slice when (Category.Category == 2)
+SliceParameters.GrowthCat3 = single(CategoryExtend.FinalCA/Category.CurrentCA -1) by slice when (Category.Category == 3)
+SliceParameters.GrowthCat4 = single(CategoryExtend.FinalCA/Category.CurrentCA -1) by slice when (Category.Category == 4)
+SliceParameters.GrowthCat5 = single(CategoryExtend.FinalCA/Category.CurrentCA -1) by slice when (Category.Category == 5)
+
+show slicepicker "Growth Target" f4h9  with
+  same(SliceParameters.GeneralGrowth) as "General Growth Target" {numbers: percent}
+  same(SliceParameters.ChoiceCat1) as "Growth Target - Cat. 1" {numbers: percent}
+  same(SliceParameters.ChoiceCat2) as "Growth Target - Cat. 2" {numbers: percent}
+  same(SliceParameters.ChoiceCat3) as "Growth Target - Cat. 3" {numbers: percent}
+  same(SliceParameters.ChoiceCat4) as "Growth Target - Cat. 4" {numbers: percent}
+  same(SliceParameters.ChoiceCat5) as "Growth Target - Cat. 5" {numbers: percent}
+
+
+/// ----------------------------------------------------------------------------------------------------
+/// # 3. Forecast Visualization
+/// ----------------------------------------------------------------------------------------------------
+
+CatalogExtend.Growth = single(CategoryExtend.FinalCA) by [CategoryExtend.slice, CategoryExtend.Category] at [CatalogExtend.slice, Catalog.Category] /Category.CurrentCA
+
+table CatalogExtendMonth = extend.range(CatalogExtend.12)
+CatalogExtendMonth.MonthF = month(2025,CatalogExtendMonth.N)
+CatalogExtendMonth.Baseline = single(Forecast.Baseline) by [Forecast.Ref, Forecast.MonthF] at [Catalog.Ref, CatalogExtendMonth.MonthF]
+
+
+show linechart "Sales Target - 2025" slices: CatalogExtend.slice {tileTab: "general"} with
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * CatalogExtend.Growth) when (Catalog.Category == 1) as "Cat. 1" {unit: "€"; seriesType: bar ;seriesStack: bar}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * CatalogExtend.Growth) when (Catalog.Category == 2) as "Cat. 2" {unit: "€"; seriesType: bar ;seriesStack: bar}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * CatalogExtend.Growth) when (Catalog.Category == 3) as "Cat. 3" {unit: "€"; seriesType: bar ;seriesStack: bar}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * CatalogExtend.Growth) when (Catalog.Category == 4) as "Cat. 4" {unit: "€"; seriesType: bar ;seriesStack: bar}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * CatalogExtend.Growth) when (Catalog.Category == 5) as "Cat. 5" {unit: "€"; seriesType: bar ;seriesStack: bar}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * CatalogExtend.Growth) as "2025 Global Target" {unit: "€"; seriesType: legend}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice) as "2024 Base" {unit: "€"; seriesPattern: dashed}
+  group by CatalogExtendMonth.MonthF

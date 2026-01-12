@@ -1,0 +1,78 @@
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// ------------------------------------------SETUP-------------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+import "/1. utilities/Modules/Global Parameters" as GP with
+  LinkHomeDashboard
+
+///Editable body------------------------------------------------------------------------------------
+
+show logo "" a1
+show markdown "Finance - Projected cash and Audit Tools" b1d1 with """
+  ### **Audit tools - inspectors and analysis**
+"""
+
+
+
+show label "To Home" e1f1                {href: #("https://go.lokad.com/DEMO/d/\{LinkHomeDashboard}/") ; hrefAspect: white ; textAlign: center}
+show label "https://go.lokad.com/DEMO/gateway/BigFiles/browse/Download?hash=90F439C08030848A1DFA0CD2B55662FA&name=LogoLokadVertical.jpg" c4d6 {textVerticalAlign: center}
+
+// show label "Cash projection" a9f9 4a4a4a {textAlign: center ; textBold: "true" ; textVerticalAlign: center ; labelBorder: "bottom,top"}
+// show label "Audit Tools" e21 4a4a4a {textAlign: center ; textBold: "true" ; textVerticalAlign: center ; labelBorder: "bottom,top"}
+
+// show label "Imminent \{b} OOS avoidable" f24h24 4a4a4a {labelBorder: "none" ; labelIcon: "shelf" ; textAlign: center ; iconColor: #6ad44e ; textItalic: "true" ; textVerticalAlign: center}
+// show label "Working Capital ⬊" a12c12 4a4a4a {labelBorder: "top" ; labelIcon: "gauge-dollar" ; textAlign: center ; iconColor: #6ad44e ; textItalic: "true" ; textVerticalAlign: center ; labelBorderColor: #ebe9e9}
+
+
+// show label "To Sales Analysis" c21 f5ca91               {href: "https://go.lokad.com/DEMO/d/53368/" ; labelIcon: "histogram" ; hrefAspect: white ; textAlign: center ; textBold: "true"}
+show markdown "" e3e4 with
+  """
+  [![Redirection](https://go.lokad.com/DEMO/gateway/BigFiles/browse/Download?hash=04F2D448B4C11E484A539330F1499877&path=%2FBackground%2FGraphics%2FForms&name=Target.png)](https://go.lokad.com/DEMO/d/68010/)
+  """
+show markdown "" f3f4 {textAlign: right ; tileZoom: "false"} with
+  """
+  #### **To Sales analysis**
+  Sales evolution,
+  segmentation and
+  analysis
+  """
+
+// show label "To Store Analysis" d21 f5ca91               {href: "https://go.lokad.com/DEMO/d/52973/" ; labelIcon: "histogram" ; hrefAspect: white ; textAlign: center ; textBold: "true"}
+show markdown "" b6b7 with
+  """
+  [![Redirection](https://go.lokad.com/DEMO/gateway/BigFiles/browse/Download?hash=96044B081A03DE110A33DABFBBF5E384&path=%2FBackground%2FGraphics%2FInterface%2FSupplyChainObjects&name=shop-1.png)](https://go.lokad.com/DEMO/d/68012/)
+  """
+show markdown "" a6a7 {textAlign: right ; tileZoom: "false"} with
+  """
+  #### **To Store analysis**
+  Store performance,
+  current status &
+  evolution
+  """
+
+
+// show label "To Stock Inspector" a21 f5ca91               {href: "https://go.lokad.com/DEMO/d/52969/" ; labelIcon: "analytics-magnifier" ; hrefAspect: white ; textAlign: center ; textBold: "true"}
+show markdown "" b3b4 with
+  """
+  [![Redirection](https://go.lokad.com/DEMO/gateway/BigFiles/browse/Download?hash=1B1B6B036D1D80CF5B270AD57B135A8C&name=warehouse.png&path=%2FBackground%2FGraphics%2FInterface%2FSupplyChainObjects)](https://go.lokad.com/DEMO/d/79365/)
+  """
+show markdown "" a3a4 {textAlign: right ; tileZoom: "false"} with
+  """
+  #### **To Stock Inspector**
+  Stock evolution,
+  deadstock & OOS
+  analysis
+  """
+
+// show label "To Supplier Inspector" b21 f5ca91               {href: "https://go.lokad.com/DEMO/d/53154/" ; labelIcon: "analytics-magnifier" ; hrefAspect: white ; textAlign: center ; textBold: "true"}
+show markdown "" e6e8 with
+  """
+  [![Redirection](https://go.lokad.com/DEMO/gateway/BigFiles/browse/Download?hash=D858D55F0FE84B4468452CD2AE47A083&path=%2FBackground%2FGraphics%2FInterface%2FSupplyChainObjects&name=factorys.png)](https://go.lokad.com/DEMO/d/68013/)
+  """
+show markdown "" f6f7 {textAlign: right ; tileZoom: "false"} with
+  """
+  #### **To Supplier Inspector**
+  Supplier performance,
+  current status &
+  analysis
+  """

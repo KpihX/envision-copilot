@@ -1,0 +1,488 @@
+/// Input:  /Clean/
+
+///------------------------------ [     GENERIC DOCUMENTATION     ] --------------------------------
+
+
+/// ------------------------------------- [ READ INPUT TABLES ] ------------------------------------
+import "/1. utilities/Modules/Global Parameters" as GP with
+  DcUnit
+  ColorB
+  ColorC
+  ColorAlight
+  ColorLightBg
+  LinkHomeDashboard
+import "/1. utilities/Modules/Colors" as Colors
+
+read "/Clean/Items.ion" as Items[Id unsafe] with
+  "Sku" as Id : text
+  Loc : text
+  Ref : text
+  Name : text
+  Category : text
+  Brand : text
+  Supplier : text
+  StockOnHand : number
+  StockOnOrder : number
+  BackOrder : number
+  BuyPrice : number
+  SellPrice : number
+  MOQ : number
+  LotMultiplier : number
+  Volume : number
+  LokadMOQ : number
+  SupplierMOV : number
+  SupplierContainerM3 : number
+  IsClean : boolean
+  HealthLog : text
+  IsLokadBuyable : boolean
+  IsContainerReady : boolean
+  SnapshotDate : date
+  IsValidLocation  : boolean
+  IsValidRef  : boolean
+  IsValidSupplier : boolean
+  IsValidBuyPrice : boolean
+  IsValidSellPrice: boolean
+
+read "/Clean/Orders.ion" as Orders expect [Id, date] with
+  "Sku" as Id : text
+  "OrderDate" as date: date
+  "Ref" as Ref : text
+  Loc : text
+  Quantity : number
+  LokadNetAmount : number
+  OrderId : text
+  IsFirstOrder : boolean
+  IsClean : boolean
+  HealthLog : text
+
+read "/Clean/PO.ion" as PO expect [Id, date] with
+  "Sku" as Id : text
+  "OrderDate" as date: date
+  Loc : text
+  Ref : text
+  DeliveryDate : date
+  Quantity : number
+  Supplier : text
+  PONumber : text
+  IsInCatalog : boolean
+  IsClean : boolean
+  InputDate : date
+  InputPath : text
+
+read "/Clean/Suppliers.ion" as Suppliers with
+  Supplier : text
+  MOV : number
+  ContainerM3 : number
+
+read "/Clean/Stock.ion" as Stock expect [Id, date] with
+  "Sku" as Id : text
+  StockOnHand : number
+  StockOnOrder : number
+  "StockDate" as date: date
+  IsInCatalog : boolean
+  InputDate : date
+  InputPath : text
+
+show markdown "Generic Documentation" a2h2 with """
+  __This dashboard aims to model the business environment. Purpose of this exercise is to control if Lokad reflects the business environment correctly.__
+  __To support this approach, it should be discussed together, which results may be seen as suspicious or problematic.__
+  __Outputs, which should not occur in a clean data-set, will be setup as additional alerts, including a handling.__
+"""
+
+///-------------------------------------- [ SETUP COLORS ] -----------------------------------------
+
+//rename inputs from Module
+highlightColor =  ColorB
+bgLight =  ColorLightBg
+
+tileAup	=  ColorAlight
+
+tileCcenter =  ColorC
+
+/// ------------------------------------ [ SETUP-Global Parameters ] -------------------------------
+qUnit = " Pcs" // unit for item quantity
+
+///--------------------------------- [ Pre Calculations ] ------------------------------------------
+missingDate = date(2001,1,1)
+oend = max(Orders.date)
+Items.Margin = (Items.SellPrice - Items.BuyPrice)
+Items.MarginRate = (Items.SellPrice - Items.BuyPrice) /. Items.SellPrice
+
+/// PRECALCULATE Alerts
+/// ITEMS
+// Search Suspicious Margin
+Items.IsSuspicousMargin = Items.Margin <= 0
+
+// Search Suspicious Historic Price
+Items.AvgUnitPrice365 = sum(Orders.LokadNetAmount) when (date > oend - 365)
+                  /. sum(Orders.Quantity) when (date > oend - 365)
+Items.IsHigherHistPrice = Items.AvgUnitPrice365 > Items.SellPrice*1.5
+Items.IsLowerHistPrice = Items.AvgUnitPrice365*1.5 < Items.SellPrice
+Items.IsSuspiciousHistPrice = Items.IsHigherHistPrice or Items.IsLowerHistPrice
+Items.NetAmount365 = sum(Orders.LokadNetAmount) when (date > oend - 365)
+
+// Not Recently Sold
+Items.IsSold365 = sum(Orders.LokadNetAmount) when (date > oend - 365) > 0
+
+
+///--------------------------------- [ SHOW GENERIC HEADLINE ] -------------------------------------
+
+show tabs "" a3h3 with
+  "Catalog"
+  "Stock"
+  "Margin"
+  "Orders"
+  "Purchase Orders"
+
+// Show Header
+@{ dashButton: ""}
+
+show logo "" a1
+show markdown "High Level Data Health" b1f1 with """
+  ### **High Level Data Health**
+"""
+
+show label "To home" g1h1           {hrefAspect: white ; textAlign: center ; href: #("https://go.lokad.com/d/\{LinkHomeDashboard}/")}
+
+
+keep where date > date(2013,01,01)
+
+
+///------------------------------------- [ CATALOG OVERVIEW ] --------------------------------------
+
+tileTab = "Catalog"
+
+show scalar "" a4 9b9b9b  {textAlign: center ; textBold: "true" ; tileTab: #(tileTab)} with "Catalog"
+
+show summary "Overview" b4b5    {numbers: simple ; tileTab: #(tileTab) ; tileColor: #(highlightColor)} with //backgroundColor:#(bgLight) ;
+  count(Items.*) as "#Skus" {textBold: "true" ; textAlign: center}
+  distinct(Items.Ref) as "#Ref" {textBold: "true" ; textAlign: center}
+  count(Items.IsClean)  as "#Clean" {textBold: "true" ; textAlign: center}
+
+where Items.IsClean and Items.IsLokadBuyable
+  show table "All Buyable Items" f4h4    {numbers: simple ; tileTab: #(tileTab) ; backgroundColor: #(bgLight)} with
+    Items.Loc
+    Items.Ref
+    Items.Name
+    Items.Category
+    Items.Brand
+    Items.Supplier
+    Items.StockOnHand {unit: #(qUnit)}
+    Items.StockOnOrder {unit: #(qUnit)}
+    Items.BackOrder {unit: #(qUnit)}
+    Items.BuyPrice {unit: #(DcUnit)}
+    Items.SellPrice {unit: #(DcUnit)}
+    Items.MOQ
+    Items.LotMultiplier
+    Items.Volume
+    Items.IsLokadBuyable
+    Items.IsClean
+
+show table "All Items" f5h5    {numbers: simple ; tileTab: #(tileTab) ; backgroundColor: #(bgLight)} with
+  Items.Loc
+  Items.Ref
+  Items.Name
+  Items.Category
+  Items.Brand
+  Items.Supplier
+  Items.StockOnHand {unit: #(qUnit)}
+  Items.StockOnOrder {unit: #(qUnit)}
+  Items.BackOrder {unit: #(qUnit)}
+  Items.BuyPrice {unit: #(DcUnit)}
+  Items.SellPrice {unit: #(DcUnit)}
+  Items.MOQ
+  Items.LotMultiplier
+  Items.Volume
+  Items.IsLokadBuyable
+  Items.IsClean
+
+show barchart "Items by Category" c4e5    {numbers: simple ; unit: " Items" ; tileTab: #(tileTab) ; tileColor: #(Colors.color5a)} with
+  count(Items.*) as "count(Items.True)"
+  group by Items.Category
+
+show barchart "Items by Brand" c6e7    {numbers: simple ; unit: " Items" ; tileTab: #(tileTab) ; tileColor: #(Colors.colorWarning2)} with
+  count(Items.*) as "count(Items.True)"
+  group by Items.Brand
+
+show barchart "Items by Supplier" c8e9    {numbers: simple ; unit: " Items" ; tileTab: #(tileTab) ; tileColor: #(Colors.color1f)} with
+  count(Items.*) as "count(Items.True)"
+  group by Items.Supplier
+
+/// Display Alerts
+show label "Alerts" f6h6    {textAlign: center ; tileTab: #(tileTab) ; textColor: #(highlightColor)}
+
+where not Items.IsClean
+  countLines = count(Items.*)
+  Items.IsValidLocationColor = if Items.IsValidLocation then "" else Colors.colorWarning3
+  Items.IsValidRefColor = if Items.IsValidRef then "" else Colors.colorWarning3
+  Items.IsValidSupplierColor = if Items.IsValidSupplier then "" else Colors.colorWarning3
+  Items.IsValidBuyPriceColor = if Items.IsValidBuyPrice then "" else Colors.colorWarning3
+  Items.IsValidSellPriceColor = if Items.IsValidSellPrice then "" else Colors.colorWarning3
+  Items.BuyPriceColor = if Items.IsValidBuyPrice then "" else Colors.colorWarning
+  Items.SellPriceColor = if Items.IsValidSellPrice then "" else Colors.colorWarning
+
+  show table "\{countLines}x Unclean Items" f7h9    {tileTab: #(tileTab) ; tileColor: #(highlightColor)} with
+    Id
+    Items.Loc
+    Items.Ref
+    Items.Name
+    Items.Category
+    Items.Brand
+    Items.Supplier
+    Items.BuyPrice {textAlign: center ; cellBackground: #[Items.BuyPriceColor ]}
+    Items.SellPrice  {textAlign: center ; cellBackground: #[Items.SellPriceColor  ]}
+    Items.IsValidLocation {cellBackground: #[Items.IsValidLocationColor]}
+    Items.IsValidRef {cellBackground: #[Items.IsValidRefColor]}
+    Items.IsValidSupplier {cellBackground: #[Items.IsValidSupplierColor]}
+    Items.IsValidBuyPrice {cellBackground: #[Items.IsValidBuyPriceColor]}
+    Items.IsValidSellPrice {cellBackground: #[Items.IsValidSellPriceColor]}
+
+
+///-------------------------------------- [ STOCK OVERVIEW ] ---------------------------------------
+
+tileTab = "Stock"
+
+show scalar "" a4 9b9b9b  {textBold: "true" ; textAlign: center ; tileTab: #(tileTab)}  with "Stock"
+
+
+show summary "Stock Value" b4b5    {numbers: simple ; tileTab: #(tileTab) ; tileColor: #(highlightColor) ; unit: #(DcUnit)} with
+  sum(Items.BuyPrice * Items.StockOnHand) as "On Hand" {numbers: simple ; textBold: "true" ; textAlign: center ; unit: #(DcUnit)}
+  sum(Items.BuyPrice * Items.StockOnOrder) as "On Order" {numbers: simple ; textBold: "true" ; textAlign: center ; unit: #(DcUnit)}
+  sum(Items.BuyPrice * Items.BackOrder) as "Backorder" {numbers: simple ; textBold: "true" ; textAlign: center ; unit: #(DcUnit)}
+
+show table "StockLevels" c4h6    {tileTab: #(tileTab) ; tileColor: #(highlightColor)} with
+  Items.Category {cellBackground: #(Colors.color5e)}
+  count(Id != "") as "# Skus" {cellBackground: #(Colors.color5b)}
+  sum(Items.StockOnHand) as "Stock on Hand" {unit: #(qUnit)}
+  sum(Items.BuyPrice * Items.StockOnHand) as "Value on Hand" {cellBackground: #(Colors.color1) ; unit: #(DcUnit)}
+  round(sum(Items.StockOnOrder)) as "Stock on Order"  {unit: #(qUnit)}
+  sum(Items.BuyPrice * Items.StockOnOrder)as "Value on Order"  {unit: #(DcUnit) ; cellBackground: #(Colors.colorWarning5)}
+  sum(Items.BackOrder) as "Backorder"  {unit: #(qUnit)}
+  sum(Items.BuyPrice * Items.BackOrder) as "Backorder Value" {unit: #(DcUnit)}
+  group by Items.Category
+  order by sum(Items.BuyPrice * Items.StockOnHand) desc
+
+
+Stock.Ofirst = monday(Stock.date)
+Stock.IsFirstDate = argfirst() by [Stock.Id,Stock.Ofirst] scan Stock.date
+Stock.BuyPrice = Items.BuyPrice
+
+
+show linechart "Stock History" a7e10    {tileTab: #(tileTab) ; unit: #(DcUnit)}  with
+  sum(Stock.BuyPrice * Stock.StockOnHand) when (Stock.IsFirstDate) as "On Hand" {seriesType: bar ; seriesStack: bar ; color: #(GP.ColorAdark)}
+  sum(Stock.BuyPrice * Stock.StockOnOrder) when (Stock.IsFirstDate) as "On Order" {seriesType: bar ; seriesStack: bar ; color: #(Colors.colorWarning5)}
+  group by Stock.Ofirst
+
+/// Display Alerts
+show label "Alerts" f7h7    {textAlign: center ; tileTab: #(tileTab) ; textColor: #(highlightColor)}
+Items.Stock90d = sum(Stock.StockOnHand) when (date > oend - 90)
+Items.MinStockDate = min(Stock.date) when (Stock.StockOnHand > 0)
+Items.LastDateWithStock = max(Stock.date) when (Stock.StockOnHand > 0)
+where Items.Stock90d == 0 and Items.MinStockDate < (oend - 90) and Items.MinStockDate > missingDate and Items.StockOnHand == 0
+  countLines = count(Items.*)
+  show table "\{countLines}x Items in StockOut over last 90 Days" f8h10    {tileTab: #(tileTab) ; tileColor: #(highlightColor)} with
+    Id
+    Items.StockOnHand
+    Items.StockOnOrder
+    Items.LastDateWithStock as "Last Day With Stock"
+    Items.NetAmount365 as "Sales Amount 365 Days" {unit: #(DcUnit)}
+    order by Items.NetAmount365 desc
+
+///------------------------------------- [ MARGIN OVERVIEW ] --------------------------------------
+
+tileTab = "Margin"
+
+show scalar "" a4 9b9b9b  {textAlign: center ; textBold: "true" ; tileTab: #(tileTab)}  with "Margin"
+
+show table "Margin Details" a7d9    {tileTab: #(tileTab) ; tileColor: #(highlightColor)} with
+  Id
+  Items.BuyPrice {unit: #(DcUnit)}
+  Items.SellPrice {unit: #(DcUnit)}
+  Items.Margin  {unit: #(DcUnit) ; cellBackground: #(Colors.color5e)}
+  Items.MarginRate {numbers: percent ; cellBackground: #(Colors.color1a)}
+  round(Items.NetAmount365)  as "Sales Amount last 365 days" {unit: #(DcUnit)}
+  order by Items.NetAmount365 desc
+
+show summary "Margins" b4b5    {numbers: simple ; tileTab: #(tileTab) ; tileColor: #(highlightColor)} with
+  min(Items.Margin) as "Min Margin" {textBold: "true" ; textAlign: center ; unit: #(DcUnit)}
+  max(Items.Margin)  as "Max Margin" {textBold: "true" ; textAlign: center ; unit: #(DcUnit)}
+  avg(Items.MarginRate) as "Avg Margin Rate" {textBold: "true" ; textAlign: center ; numbers: percent}
+
+
+show scalar "Margin Rate Repartition" c4h6    {haxis { as: "Margin Rate (%)" } ; tileTab: #(tileTab) ; tileColor: #(Colors.color1a)} with
+  ranvar(Items.MarginRate*100) {numbers: simple}
+
+// Alerts:
+show label "Alerts" e7h7    {textAlign: center ; tileTab: #(tileTab) ; textColor: #(highlightColor)}
+
+where Items.IsSuspicousMargin
+  countLines = count(Items.*)
+  show table "\{countLines}x Suspicious Margin" e9h9    {tileTab: #(tileTab) ; tileColor: #(highlightColor)} with
+    Id
+    Items.Loc
+    Items.Ref
+    Items.SellPrice
+    Items.AvgUnitPrice365
+    Items.BuyPrice
+
+where Items.IsSuspiciousHistPrice and Items.IsSold365
+  countLines = count(Items.*)
+  show table "\{countLines}x Sellprice not matching historic prices" e8h8    {tileTab: #(tileTab) ; tileColor: #(highlightColor)} with
+    Id
+    Items.Loc
+    Items.Ref
+    Items.SellPrice
+    Items.AvgUnitPrice365
+    Items.BuyPrice
+
+///-------------------------------------- [ SALES OVERVIEW ] ---------------------------------------
+
+tileTab = "Orders"
+
+show scalar "" a4 9b9b9b {textBold: "true" ; textAlign: center ; tileTab: #(tileTab)} with "Orders"
+
+Sales2022 = sum(Orders.LokadNetAmount) when (year(Orders.date) == 2022)
+Sales2021 = sum(Orders.LokadNetAmount) when (year(Orders.date) == 2021)
+
+show summary "Orders" b4b6    {numbers: simple ; tileTab: #(tileTab) ; tileColor: #(highlightColor)} with
+  max(Orders.date) as "Last Orders Date" {textBold: "true" ; textAlign: center}
+  Sales2022 as "Sales 2022" {textBold: "true" ; textAlign: center ; unit: #(DcUnit)}
+  distinct(Orders.Id) when (year(Orders.date) == 2022) as "#Skus sold 2022" {textBold: "true" ; textAlign: center}
+  (Sales2022 - Sales2021 ) /Sales2021  as "Growth Rate 2022 vs 2021" {textBold: "true" ; textAlign: center ; numbers: percent}
+
+
+Orders.Ofirst = monday(Orders.date)
+fFInput = ""
+Orders.FocusGroup = Orders.Loc
+Orders.GrpSpent = sum(Orders.LokadNetAmount) by Items.Category when (Orders.date > oend - 90)
+// Orders.RankRaw = 0
+Orders.GrpSpentRankRaw = 0
+where argfirst() by Orders.FocusGroup scan 1 and Orders.FocusGroup != fFInput
+  Orders.GrpSpentRankRaw = rankrev () by Items.1 scan Orders.GrpSpent
+Orders.GrpSpentRank = if Orders.FocusGroup ~~ fFInput then -1 else
+                          if max(Orders.GrpSpentRankRaw) by Orders.FocusGroup > 3 then 999 else max(Orders.GrpSpentRankRaw) by Orders.FocusGroup
+
+nameLC3 =  same(Orders.FocusGroup) when (Orders.GrpSpentRank == 3)
+nameLC2 =  same(Orders.FocusGroup) when (Orders.GrpSpentRank == 2)
+nameLC1 =  same(Orders.FocusGroup) when (Orders.GrpSpentRank == 1)
+
+show linechart "Sales History - NetAmount" c4h6    {tileTab: #(tileTab) ; unit: #(DcUnit)}  with
+  sum(Orders.LokadNetAmount) when (Orders.GrpSpentRank == 999) as "Other" \
+  {seriesType: bar ; seriesStack: bar ; color: #(Colors.colorWarning6)}
+
+  sum(Orders.LokadNetAmount) when (Orders.GrpSpentRank == 1) as nameLC1 \
+  {seriesType: bar ; seriesStack: bar ; color: #(Colors.colorWarning2)}
+  sum(Orders.LokadNetAmount) when (Orders.GrpSpentRank == 2) as nameLC2 \
+  {seriesType: bar ; seriesStack: bar ; color: #(tileAup)}
+  sum(Orders.LokadNetAmount) when (Orders.GrpSpentRank == 3) as nameLC3 \
+  {seriesType: bar ; seriesStack: bar ; color: #(tileCcenter)}
+  sum(Orders.LokadNetAmount) as "Total" {color: "Nocolor"} /// This is my Total Line. I don't want a barchart but the number
+  group by Orders.Ofirst
+
+Items.Last365DaysSales = sum(Orders.LokadNetAmount) when (Orders.date >= oend - 365)
+
+show table "Top Seller Items" a7e9  {tileTab: #(tileTab) ; tileColor: #(highlightColor)} with
+  Items.Id as "Sku"
+  Items.Loc
+  Items.Ref
+  Items.Category
+  round(Items.Last365DaysSales)  as "Last 365 Days Sales Amount" {unit: #(DcUnit)}
+  sum(Orders.Quantity) when (Orders.date >= oend - 365) into Items as "Last 365 Days Sales Qty" {numbers: simple ; unit: #(qUnit)}
+  round(sum(Orders.LokadNetAmount) into Items) as "Total Past Sales Amount" {unit: #(DcUnit)}
+  round(sum(Orders.Quantity) into Items) as "Total Past Sales Qty" {numbers: simple ; unit: #(qUnit)}
+  order by Items.Last365DaysSales desc
+
+
+
+
+// Alerts:
+show label "Alerts" f7h7    {textAlign: center ; tileTab: #(tileTab) ; textColor: #(highlightColor)}
+
+where not Items.IsSold365
+  countLines = count(Items.*)
+  show table "\{countLines}x Not Recently sold" f8h8    {tileTab: #(tileTab) ; tileColor: #(highlightColor)} with
+    Id
+    Items.Loc
+    Items.Ref
+    Items.SellPrice
+    Items.AvgUnitPrice365
+    Items.BuyPrice
+
+  where Orders.Quantity == 0
+    countLines = count(Orders.*)
+    show table "\{countLines}x Orders lines with Qty = 0" f9h9 {tileTab: #(tileTab) ; tileColor: #(highlightColor)} with
+      Orders.Id
+      Orders.Ref
+      Orders.date
+      Orders.Quantity
+      Orders.LokadNetAmount
+      Orders.OrderId
+      order by Orders.date desc
+
+///------------------------------------- [ Purchase OVERVIEW ] -------------------------------------
+
+tileTab = "Purchase Orders"
+
+show scalar "" a4 9b9b9b {textBold: "true" ; textAlign: center ; tileTab: #(tileTab)} with "Purchase"
+
+PO.LokadNetAmount = PO.Quantity * Items.BuyPrice
+
+show summary "Purchase Orders" b4b6 {numbers: simple ; tileTab: #(tileTab) ; tileColor: #(highlightColor)} with
+  max(PO.date) as "Last PO Date" {textBold: "true" ; textAlign: center}
+  distinct(PO.Id) when (year(PO.date) == 2022) as "#Skus Purchased 2022" {textBold: "true" ; textAlign: center}
+  round(sum(PO.Quantity) when (year(PO.date) == 2022)) as "Qty Purchased 2022" {textBold: "true" ; textAlign: center ; numbers: simple ; unit: #(qUnit)}
+  round(sum(PO.LokadNetAmount) when (year(PO.date) == 2022)) as "Amount Purchased 2022" {textBold: "true" ; textAlign: center ; numbers: simple ; unit: #(DcUnit)}
+
+PO.Monthstart = monthStart(PO.date)
+
+where PO.date >= date(2019,7,1)///filter because there are some months without POs before and it is visually ugly
+  show linechart "Purchase History" c4h6    {tileTab: #(tileTab) ; unit: #(DcUnit)}  with
+    sum(PO.LokadNetAmount) when (PO.Loc == "DC") as "Amount DC" {seriesType: area ; areaTo: 75 ; seriesOpacity: 0.1 ; seriesLegend: hidden ; color: #(Colors.colorValid2)}
+    sum(PO.LokadNetAmount) when (PO.Loc == "DC") as "Amount DC" {seriesSmooth: cubic ; color: #(Colors.colorValid2)}
+    sum(PO.LokadNetAmount) as "Total Amount" {seriesSmooth: cubic ; color: #(Colors.color5)}
+    sum(PO.LokadNetAmount) as "Total Amount" {seriesType: area ; areaTo: 75 ; seriesOpacity: 0.1 ; seriesLegend: hidden ; color: #(Colors.color5)}
+    group by PO.Monthstart
+
+
+
+/// Alerts:
+show label "Alerts" c7h7    {textAlign: center ; tileTab: #(tileTab) ; textColor: #(highlightColor)}
+
+poLines = count(PO.*)
+where PO.Quantity == 0
+  countLines = count(PO.*)
+  ratioLines = round((countLines/poLines)*100,2)
+  show table "\{ratioLines}% PO Lines with Qty = 0" c8e9    {tileTab: #(tileTab) ; tileColor: #(highlightColor)} with
+    PO.date
+    PO.Id as "Sku"
+    PO.Ref
+    PO.Quantity
+    PO.PONumber
+    PO.DeliveryDate
+    order by PO.date desc
+
+table SupplierLeadtimes = with
+  [| as Supplier, as MaxAnnouncedLeadtime|]
+  [| "LagoonLab", 55|]
+  [| "MedicalExpert", 60|]
+  [| "DentalExpert", 60|]
+  [| "AllergyLab", 90|]
+
+PO.MaxAnnouncedLeadtime = same(SupplierLeadtimes.MaxAnnouncedLeadtime) by SupplierLeadtimes.Supplier at PO.Supplier
+PO.ObservedDelay = PO.DeliveryDate-PO.date
+
+where PO.DeliveryDate - PO.date > PO.MaxAnnouncedLeadtime and PO.Quantity > 0
+  countLines = count(PO.*)
+  ratioLines = round((countLines/poLines)*100,2)
+  show table "\{ratioLines}% PO Lines with Leadtime > max announced" f8h9 {tileTab: #(tileTab) ; tileColor: #(highlightColor)} with
+    PO.Id
+    PO.date as "date"
+    PO.Loc as "Loc"
+    PO.Ref as "Ref"
+    PO.DeliveryDate as "DeliveryDate"
+    PO.ObservedDelay
+    PO.MaxAnnouncedLeadtime
+    PO.Quantity as "Quantity"
+    PO.Supplier as "Supplier"
+    PO.PONumber as "PONumber"
+    order by PO.date desc

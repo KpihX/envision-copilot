@@ -1,0 +1,244 @@
+// 2020-02-13: Created by Lokad
+/// THIS IS A GENERIC SALES ANALYSIS INSPECTOR TOOL. TO CONFIGURE IT, YOU NEED TO SETUP YOUR FOCUS
+/// GROUP AS ITEM.ID. THE REAL ITEM WILL BE IDENTIFIED AS 'SKU' or 'REF'.
+/// DEFINE YOUR FOCUS GROUP
+import "/1. utilities/Modules/Global Parameters" as GP with
+  DcUnit
+  ColorA
+  ColorB
+  ColorAlight
+  ColorLightBg
+  LinkLocationItemInspector
+  LinkLocationLocInspector
+  LinkHomeDashboard
+
+read form with
+  GroupByMonth : boolean
+  lineHorizon : number
+
+const focusGroup = "Location" /// THIS HAS TO MATCH WITH THE ID!
+
+read "/Clean/Items.ion" as Items[Id unsafe] with
+  Sku : text
+  "Loc" as Id : text
+  Ref : text
+  Name : text
+
+
+read "/Clean/Items.ion" as RefCatalog expect[Id] with
+  Sku : text
+  "Loc" as Id : text
+  Ref : text
+  Name : text
+  Supplier : text
+  Category : text
+  Brand : text
+  StartDate : date
+  EndDate : date
+  SubCategory : text
+  BuyPrice : number
+  SellPrice : number
+  MOQ : number
+  LotMultiplier : number
+
+read "/Clean/Orders.ion" as Orders expect [Id, date] with
+  Sku : text
+  "OrderDate" as date: date
+  Ref : text
+  "Loc" as Id : text
+  Quantity : number
+  "LokadNetAmount" as NetAmount : number
+  OrderId : text
+  IsClean : boolean
+
+keep where Orders.IsClean
+
+///------------------------------------- [ SETUP COLORS ] ---------------------------------------
+
+mainColor = ColorA
+highlightColor = ColorB
+bgLight = ColorLightBg
+linechartAlight = ColorAlight
+linechartA = ColorA
+
+show markdown "Documentation" a15h27 with
+  """
+  ### Documentation
+
+  __All locations__: list of all locations and associated main indicators
+
+  __Map__: map of all locations. The one selected is displayed in red against grey for other locations
+
+  Location: store name
+
+  Turnover 365 d: turnover at location on the last 365 days
+
+  Quantity 365 d: quantity sold at location on the last 365 days
+
+  __365d Overview__: overview over 365 days for the selected location
+
+  NetAmount: turnover at selected location last 365 days
+
+  Quantity: quantity sold at selected location last 365 days
+
+  "# Refs": distinct references sold at selected location last 365 days
+
+  "# Orders": distinct orders at selected location last 365 days
+
+  __Weekly Sales__: weekly turnover and quantity sold at selected location
+
+  __Last 365 days Best Sellers__: list of all best sellers at location based on their turnover the last 365 days
+
+  Rank: best seller rank based on the reference turnover on the last 365 days
+
+  Inspect: link to the item inspector
+
+  Ref: reference code
+
+  Name: reference name
+
+  Supplier: reference supplier
+
+  Qty sold last 365 d: reference quantity sold on the last 365 days
+
+  Value sold last 365 d: reference turnover on the last 365 days
+
+  Sales Weight: ratio of the reference turnover in the overall scope turnover
+
+  __Pareto on turnover last 365 days__: cumulative overall turnover percentage over the last 365 days at location depending on the best seller rank
+
+  __Turnover last 365 d by category__: turnover last 365 days by category at location
+
+  __Turnover last 365 d by Brand__: turnover last 365 days by brand at location
+
+  """
+
+/// ------------------------------------- [ PRE-CALCULATION ] -----------------------------------
+
+table Slices [slice] = slice by [Id] title: Id
+RefCatalog.slice = Items.slice
+Orders.slice = Items.slice
+
+locInspectorId = LinkLocationLocInspector
+
+Items.SelectGrp = sliceSearchUrl(locInspectorId,Id)
+
+// Generic parameters:
+pcsText = " Pcs"
+// timeGroup = mo
+
+oend = max(Orders.date)
+
+Orders.Ofirst = if GroupByMonth then monthStart(Orders.date) else monday(Orders.date)
+
+
+inspectorId = LinkLocationItemInspector
+
+selectedTab = concat("&t=", "Info")
+RefCatalog.hRefUrlRaw = sliceSearchUrl(inspectorId, RefCatalog.Ref)
+RefCatalog.hRefUrl = concat(RefCatalog.hRefUrlRaw, selectedTab)
+
+RefCatalog.Url = replace(RefCatalog.hRefUrl , "~" , "https://go.lokad.com" )
+
+
+Items.LocImageUrl = match Id with
+  "DC" ->  "https://go.lokad.com/DEMO/gateway/BigFiles/browse/Download?hash=40CFFAD92212E05F5135738E228D6E4B&path=%2FBackground%2FGraphics%2FInterface%2FLocation&name=Select_DC.png"
+  "EDB" -> "https://go.lokad.com/DEMO/gateway/BigFiles/browse/Download?hash=8EC301110EC782D9FCF0821CF5FF927F&path=%2FBackground%2FGraphics%2FInterface%2FLocation&name=Select_EDB.png"
+  "LON" -> "https://go.lokad.com/DEMO/gateway/BigFiles/browse/Download?hash=7D23CE0F33B8BE4691373A523CFE1773&path=%2FBackground%2FGraphics%2FInterface%2FLocation&name=Select_LON.png"
+  "MAN" -> "https://go.lokad.com/DEMO/gateway/BigFiles/browse/Download?hash=44330EA974A3D380630136C6AE17CBCE&path=%2FBackground%2FGraphics%2FInterface%2FLocation&name=Select_MAN.png"
+
+Slices.LocImageUrl = same(Items.LocImageUrl)
+
+show label Slices.LocImageUrl a7b10
+/// ---------------------------------------- [ HEADLINE ] ---------------------------------------
+show logo "" a1
+
+show markdown "Stores Analysis" b1c1 with """
+  ### **Stores Analysis**
+"""
+
+show label "To home" h1                            {hrefAspect: white ; textAlign: center ; href: #("https://go.lokad.com/d/\{LinkHomeDashboard}/")}
+
+show markdown "" b2e2 black with """
+ __This dashboard provides sales and demand information for every sales location__
+"""
+
+show label "" a2h2
+
+show label "Total" a3b3            {textAlign: left ; textBold: "true" ; textColor: #(mainColor)}
+show label same(concat("Selected Location: ", Items.Id)) by slice  c3h3            {textAlign: left ; labelIcon: "store-and-boxes" ; textBold: "true" ; textColor: #(mainColor) ; tileColor: #(mainColor)}
+
+/// ------------------------------------- [ TOTAL OVERVIEW ] ------------------------------------
+
+where date >= oend - 365
+  show table "All locations" a4b6                     {tileColor: #(mainColor)} with
+    Id as focusGroup {hrefAspect: white ; textAlign: center ; href: #[(Items.SelectGrp)] ; cellBackground: #(bgLight)}
+    sum(Orders.NetAmount) as "Turnover 365 d" {unit: #(DcUnit) ; cellBackground: #(bgLight)}
+    sum(Orders.Quantity) as "Quantity 365 d" {unit: #(pcsText) ; cellBackground: #(bgLight)}
+    group by Id
+    order by sum(Orders.NetAmount) desc
+
+/// --------------------------------------- [ SLICE FOCUS ] -------------------------------------
+
+where date >= oend - lineHorizon
+  show linechart "Weekly Sales" d4h6 slices:slice with
+    sum(Orders.NetAmount) as "NetAmount" {unit: #(DcUnit) ; color: #(linechartA)}
+    sum(Orders.Quantity) as "Quantity" {seriesType: bar ; seriesStack: bar ; seriesOpacity: 0.7 ; unit: #(pcsText) ; color: #(linechartAlight)}
+    group by Orders.Ofirst
+
+where date >= oend - 365
+  show summary "365d Overview" c4c6 slices:slice                     {tileColor: #(highlightColor)} with
+    sum(Orders.NetAmount) as "NetAmount" {textBold: "true" ; unit: #(DcUnit)}
+    sum(Orders.Quantity) as "Quantity" {textBold: "true" ; unit: #(pcsText)}
+    distinct(Orders.Sku) as "# Refs" {textBold: "true"}
+    distinct(Orders.OrderId) as "# Orders" {textBold: "true"}
+
+  RefCatalog.Sold365 = sum(Orders.Quantity) by Orders.Sku at RefCatalog.Sku
+  RefCatalog.ValueSold365 = sum(Orders.NetAmount) by Orders.Sku at RefCatalog.Sku
+  RefCatalog.LocationValueSold365 = sum(Orders.NetAmount)
+                                    by Orders.Id
+                                    at RefCatalog.Id
+
+  show barchart "Turnover last 365 d by category" c10e11 slices:slice            {color: "grey" ; unit: #(DcUnit)} with
+    sum(RefCatalog.ValueSold365) as "Turnover"
+    group by RefCatalog.Category
+
+  // Per brand
+  show barchart "Turnover last 365 d by Brand" f10h11 slices:slice            {color: "grey" ; unit: #(DcUnit)} with
+    sum(RefCatalog.ValueSold365) as "Turnover"
+    group by RefCatalog.Brand
+
+RefCatalog.SalesWeight = RefCatalog.ValueSold365 / RefCatalog.LocationValueSold365
+RefCatalog.BestSellerRank = rankrev () by RefCatalog.Id scan RefCatalog.SalesWeight
+
+RefCatalog.CumValueSold365 = sum(RefCatalog.ValueSold365) by RefCatalog.Id scan RefCatalog.BestSellerRank
+
+show table "Last 365 days Best Sellers" c7e9 slices:slice with
+  RefCatalog.BestSellerRank as "Rank"
+  "🔎" as "Inspect" {columnReadOnly: "true" ; columnWidth: 2 ; value { textAlign: center } ; href: #[RefCatalog.Url]}
+  RefCatalog.Ref as "Ref"
+  RefCatalog.Name
+  RefCatalog.Supplier
+  RefCatalog.Sold365 as "Qty sold last 365 d"
+  RefCatalog.ValueSold365 as "Value sold last 365 d" {unit: #(DcUnit)}
+  RefCatalog.SalesWeight as "Sales Weight" {numbers: percent}
+  order by RefCatalog.BestSellerRank
+
+show plot "Pareto on turnover last 365 days" f7h9 slices:slice            {color: #(linechartA)} with
+  RefCatalog.BestSellerRank as ""
+  RefCatalog.CumValueSold365 / RefCatalog.LocationValueSold365 * 100 as "Cumulative Turnover %"
+
+today = date(2023,11,21)
+where RefCatalog.StartDate > today
+  show table "Items to be launched" c12h14 slices:slice     with
+    RefCatalog.Id as "Ref"
+    RefCatalog.Name as "Name"
+    RefCatalog.StartDate
+    RefCatalog.Category
+    RefCatalog.SubCategory
+    RefCatalog.Brand
+    RefCatalog.Supplier
+    RefCatalog.BuyPrice
+    RefCatalog.SellPrice
+    RefCatalog.MOQ
+    RefCatalog.LotMultiplier

@@ -1,0 +1,1030 @@
+
+// 2020-01-27: Created by Lokad
+import "/1. utilities/Modules/Global Parameters" as GP with
+  DcUnit
+  ColorB
+  ColorBlight
+  ColorLightWarning
+  LinkLocationSupplierInspector
+  LinkLocationLocInspector
+  LinkHomeDashboard
+
+read "/Clean/Items.ion" as Items[Sku unsafe] with
+  Sku : text
+  Loc : text
+  Ref : text
+  Name : text
+  Category : text
+  ReorderCycle : number
+  ReDispatchCycle : number
+  LeadTime : number
+  Brand : text
+  Supplier : text
+  StockOnHand : number
+  StockOnOrder : number
+  // BackOrder : number
+  BuyPrice : number
+  SellPrice : number
+  MOQ : number
+  LotMultiplier : number
+  Volume : number
+  IsActive : boolean
+  ImageUrl : text
+  ImagePath : text
+  IsClean : boolean
+  RanvarLeadTime : ranvar
+
+read "/Clean/Orders.ion" as Orders expect [Sku, date] with
+  Sku : text
+  "OrderDate" as date: date
+  Ref : text
+  Loc : text
+  Quantity : number
+  LokadNetAmount : number
+  OrderId : text
+  IsFirstOrder : boolean
+  HealthLog : text
+  IsClean : boolean
+
+read "/Clean/PO.ion" as PO expect [Sku, date] with
+  Sku : text
+  "OrderDate" as date: date
+  Loc : text
+  Ref : text
+  DeliveryDate : date
+  Quantity : number
+  Supplier : text
+  PONumber : text
+  IsInCatalog : boolean
+  IsClean : boolean
+  InputDate : date
+  InputPath : text
+
+read "/Clean/Forecast/Periodic/WeeklyFc.ion" as WeeklyFC expect[Sku, date] with
+  Sku : text
+  "Monday" as date: date
+  DemandQty : number
+  IsPast : boolean
+  IsSLT : boolean
+  IsWOO : boolean
+  IsWOODispatch : boolean
+  Baseline : number
+  Demand : ranvar
+  WOODemand : ranvar
+  WOODemandDispatch : ranvar
+  SLTDemand : ranvar
+  TotalDemand : ranvar
+
+read "/Clean/Forecast/Periodic/FcItems.ion" as FcItems expect[Sku] with
+  "Id" as Sku : text //this is not good practice should have been exported as Sku for better understanding
+  GapToTarget : number
+  CategoryGapToTarget : number
+  overallGapToTarget : number
+  ForecastSanityLabel : text
+  CategoryForecastSanityLabel : text
+  overallForecastSanityLabel : text
+  sanityQTarget : number
+  quantileLow1 : number
+  quantileLow2 : number
+  quantileHigh1 : number
+  quantileHigh2 : number
+
+read "/Clean/Stock.ion" as Stock expect [Sku, date] with
+  Sku : text
+  StockOnHand : number
+  StockOnOrder : number
+  "StockDate" as date: date
+  IsInCatalog : boolean
+
+read "Clean/PurchaseResults/PORecommendations.ion" as PORecommendations expect[Sku] with
+  "Id" as Sku : text
+  Margin : number
+  BuyPrice : number
+  OrderQuantity : number
+  InvestmentRequired : number
+  FR : ranvar
+  CurrentFR : number
+  NewFR : number
+  LastYearSales : number
+  SalesWeight : number
+  OverallFRContrib : number
+  SatisfiedDemand : number
+  TotalDemandRLT : ranvar
+  TotalDemandRLTDisplay : ranvar
+
+read "Clean/PurchaseResults/MicroDecisions.ion" as MicroDecisions expect[Sku] with
+  Rank : number
+  Sku : text
+  Name : text
+  Supplier : text
+  BuyPrice : number
+  SellPrice : number
+  Margin : number
+  StockOnHand : number
+  StockOnOrder : number
+  LotMultiplier : number
+  Q : number
+  Min : number
+  Max : number
+  SLT : number
+  RLT : number
+  SalesWeight : number
+  CurrentFR : number
+  FillRateDelta : number
+  CumFillrateDelta : number
+  M : number
+  S : number
+  C : number
+  Reward : number
+  Score : number
+  Investment : number
+  CumInvest : number
+  IsEligible : boolean
+
+read "Clean/PurchaseResults/StockSimulation.ion" as StockSimulation expect[Sku, date] with
+  Sku : text
+  date: date
+  StockEndWeekLowBar1 : number
+  StockEndWeekLowBar2 : number
+  AvgStockEndWeek : number
+  StockEndWeekHighBar1 : number
+  StockEndWeekHighBar2 : number
+  StockStartWeekLowBar1 : number
+  StockStartWeekLowBar2 : number
+  AvgStockStartWeek : number
+  StockStartWeekHighBar1 : number
+  StockStartWeekHighBar2 : number
+  lowBarQuantile1Display : number
+  lowBarQuantile2Display : number
+  highBarQuantile1Display : number
+  highBarQuantile2Display : number
+  StockQtyBeforeReorder : number
+
+read "Clean/PurchaseResults/EconomicParameters.ion" as EconomicParameters expect[Sku] with
+  "Id" as Sku : text //this is not good practice should have been exported as Sku for better understanding
+  Category : text
+  SellPrice : number
+  BuyPrice : number
+  M : number
+  S : number
+  carryingCost : number
+  TotalLTWeeks : number
+  C : number
+  AgressivenessFactorIni : number
+
+read "Clean/DispatchResults/MicroDecisions.ion" as MicroDecisionsDispatch  expect[Sku] with
+  Rank : number
+  Loc : text
+  Ref : text
+  Sku : text
+  Category : text
+  BuyPrice : number
+  SellPrice : number
+  Margin : number
+  StockOnHand : number
+  StockAvailableForDispatch : number
+  Q : number
+  Min : number
+  Max : number
+  "Transportation LT" as TransportationLT : number
+  "Redispacth LT" as ReDispatchLT : number
+  CurrentFR : number
+  FillRateDelta : number
+  CumFillRateDelta : number
+  OverallFRGain : number
+  CumOverallFRGain : number
+  CumStockDispatchedByRef : number
+  "NewFR EDB" as NewFREDB : number
+  "NewFR LON" as NewFRLON : number
+  "NewFR MAN" as NewFRMAN : number
+  "FR target by location" as FRTargetByLoc : number
+  Reward : number
+  Score : number
+  IsEnoughStockRemaining : boolean
+  IsEligible : boolean
+
+read "Clean/DispatchResults/DispatchRecommendations.ion" as DispatchRecommendations expect[Sku] with
+  Sku : text
+  Ref : text
+  Loc : text
+  M : number
+  StockOnHand : number
+  StockOnOrder : number
+  "Qty to Dispatch" as QtyToDispatch : number
+  "StockOnHand after Dispatch" as StockOnHandAfterDispatch : number
+  FR : ranvar
+  CurrentFR : number
+  NewFR : number
+  LastYearSales : number
+  SalesWeight : number
+  OverallFRContrib : number
+  AvgDemandOnRLT : number
+  SatisfiableDemand : ranvar
+  SatisfiedDemand : number
+  TotalDemandRLT : ranvar
+  StockAvailableForDispatch : number
+  DispatchQuantityWarehouse : number
+  NewStockWarehouse : number
+
+read "Clean/DispatchResults/EconomicParameters.ion" as EconomicParametersDispatch expect[Sku] with
+  Sku : text
+  Loc : text
+  Category : text
+  SellPrice : number
+  BuyPrice : number
+  M : number
+  S : number
+  carryingCost : number
+  TotalLTWeeks : number
+  C : number
+
+
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///-------------------------------------------SETUP-------------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+show tabs "" a3e3 with
+  "Info"
+  "Sales"
+  "Stock"
+  "PO"
+  "Forecast"
+  "PO Recommendations"
+  "Dispatch Recommendations"
+  "Rational"
+
+volUnit = "m³"
+pcsUnit = "Pcs"
+
+highlightColor = ColorB
+
+
+linechartBlight = ColorBlight
+linechartB = ColorB
+
+linkLocationSupplierInspector = LinkLocationSupplierInspector
+linkLocationLocInspector = LinkLocationLocInspector
+
+
+yes = "✅"
+no = "❌"
+
+linechartSOColor =  ColorLightWarning
+
+//Units
+pcsText = " Pcs"
+
+
+Orders.Monday = monday(Orders.date)
+Stock.Monday = monday(Stock.date)
+PO.Monday = monday(PO.date)
+
+timeGrpFormat = "dd/MM/yyyy"
+timeGrpName = "Week"
+
+oend = max(Orders.date)
+
+lookforwardDays = 26 * 7
+lookbackDays = 365 * 3
+
+///Slice--------------------------------------------------------------------------------------------
+
+PORecommendations.ForRanking = if (PORecommendations.OrderQuantity < 100) then -PORecommendations.OrderQuantity else -PORecommendations.OrderQuantity/100
+table Slices [slice] = slice by [same(PORecommendations.ForRanking) into Items, Sku,Items.Loc] title: Sku subtitle: Items.Loc
+Orders.slice = Items.slice
+Stock.slice = Items.slice
+PO.slice = Items.slice
+WeeklyFC.slice = Items.slice
+PORecommendations.slice = Items.slice
+EconomicParameters.slice = Items.slice
+MicroDecisions.slice = Items.slice
+DispatchRecommendations.slice = Items.slice
+EconomicParametersDispatch.slice = Items.slice
+MicroDecisionsDispatch.slice = Items.slice
+
+Items.SupplierUrl = sliceSearchUrl(linkLocationSupplierInspector, Items.Supplier)
+Slices.SupplierUrl = same(Items.SupplierUrl)
+PO.SupplierUrl = sliceSearchUrl(linkLocationSupplierInspector, PO.Supplier)
+Items.LocUrl = sliceSearchUrl(linkLocationLocInspector, Items.Loc)
+Slices.LocUrl = same(Items.LocUrl)
+// Items.TestColor = Items.MOQ > 1 ? "#AA1212" : "#1122AA"
+// Slices.TestColor = same(Items.TestColor)
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///-----------------------------------------HEADLINE------------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+show logo "" a1
+
+show markdown "Item Inspector" b1c1 with """
+  ### **Item Inspector**
+"""
+
+show label "To home" e1                                 {hrefAspect: white ; textAlign: center ; href: #("https://go.lokad.com/d/\{LinkHomeDashboard}/")}
+
+show markdown "" a2e2 with """
+ __This dashboard provides information on any item in the Catalog.__
+"""
+
+show markdown "Documentation Info" a8e12 {tileTab: "Info"} with
+  """
+  ### Documentation
+
+  __Information__: displays all general information on the reference
+
+  MOQ: minimal order quantity imposed by the supplier for every purchase
+
+  LotMultiplier: purchase batch imposed by the supplier for every purchase
+
+  Volume: volume of the reference in cubic metre
+
+  __Prices__:
+
+  BuyPrice: gross buy price in dollars
+
+  SellPrice: gross sell price in dollars
+
+  __Status__:
+
+  Active?: if yes, active item eligible for purchase. If no, inactive item not eligible for purchase
+
+  Clean?: if yes, item with data clean enough to make a purchase recommendation. If no, data not clean enough to proceed with a purchase recommendation
+
+  """
+
+show markdown "Documentation Sales" a10e18 {tileTab: "Sales"} with
+  """
+  ### Documentation
+
+  __Summary__
+
+  NetAmount365: reference turnover last 365 days
+
+  NetAmount90: reference turnover last 90 days
+
+  Delivered Qty 365: quantity sold last 365 days
+
+  Delivered Qty 90: quantity sold last 90 days
+
+  __Weekly Orders__: quantities sold and turnover of the reference week by week
+
+  Week: date of the week
+
+  Qty: quantity sold of the reference over the week
+
+  NetAmount: weekly turnover of the reference
+
+  "# Orders": number of orders over the week
+
+  __All Order Records__: all orders of the reference
+
+  OrderId: unique identifier of the order
+
+  Sku: reference code
+
+  Date: order date
+
+  Quantity: quantity sold
+
+  NetAmount: amount sold
+
+  __Demand History__: weekly sales history
+
+  Qty: quantity sold over the week
+
+  NetAmount: weekly turnover of the reference
+
+  StockOut Days: number of stock out days over the week
+
+  """
+
+show markdown "Documentation Stock" a10e17 {tileTab: "Stock"} with
+  """
+  ### Documentation
+
+  __Stock On Hand__: amount of stock physically on shelf
+
+  __Stock on Order__: amount of stock purchased but not received yet
+
+  __90d StockOut__: proportion of stock out on the last 90 days
+
+  __First Stockday__: date of first entry in stock
+
+  __Last Stockday__: date of last unit in stock
+
+  __Weekly Stock Summary__: weekly stock on hand and on order of the reference
+
+  Week: week date
+
+  StockOnHand: units on hand
+
+  StockOnOrder: units on order
+
+  __All Stock Records__: all inventory records
+
+  Date: record date
+
+  Sku: reference code
+
+  StockOnHand: units on hand
+
+  StockOnOrder: units on order
+
+  __Stock History__: weekly stock on hand and on order history
+
+  """
+
+show markdown "Documentation PO" a10e18 {tileTab: "PO"} with
+  """
+  ### Documentation
+
+  __NetAmount365__: amount purchased last 365 days
+
+  __NetAmount90__: amount purchased last 90 days
+
+  __PO Qty 365__: quantity purchased last 365 days
+
+  __PO Qty 90__: quantity purchased last 90 days
+
+  __First Purchase Order__: first purchase date
+
+  __Latest Purchase Order__: last purchase date
+
+  __Weekly Purchase Summary__: weekly purchases
+
+  Week: week date
+
+  Order NetAmount: amount purchased
+
+  Order Qty: units purchased
+
+  __All Purchase Records__: list of all purchase orders of the reference
+
+  Sku: reference code
+
+  Date: purchase date
+
+  Quantity: purchase quantity
+
+  NetAmount: amount purchased
+
+  Supplier: reference supplier
+
+  PONumber: unique ifendtifier of the purchase
+
+  __PO History__: weekly purchases history
+
+  """
+
+show markdown "Documentation Forecast" a9e12 {tileTab: "Forecast"} with
+  """
+  ### Documentation
+
+  __Reorder cycle__: reference average reorder frequency
+
+  __Supplier Leadtime__: reference average supplier leadtime, i.e. time between the order is placed and when it is received
+
+  __Demand to be covered (WOO)__: demand forecasted quantity distribution over the responsibility window (in dark red), i.e. a reorder cycle period in a supplier leadtime period.
+  One should take action on this period: by definition, all demand not already covered on the supplier leadtime cannot be covered ; there is no need to cover more than a
+  reorder cycle in a supplier leadtime because it will be covered by next purchases made in a reorder cycle.
+
+  __Demand Quantity__: displays reference past sales and reference forecasted future average demand, as well as a likely and a plausible area
+
+  """
+
+show markdown "Documentation PO Recommendations" a24e37 {tileTab: "PO Recommendations"} with
+  """
+  ### Documentation
+
+  __Summary__:
+
+  Category: reference category
+
+  Supplier: reference supplier
+
+  Sugg. Order Quantity: recommended purchase in units
+
+  Total Investments: recommended investment in dollars
+
+  Current Fillrate: fill rate associated to the current stock on hand and on order, i.e. the proportion of the demand on responsibility window
+  already covered by the current stock on hand and on order
+
+  Achieved Fill Rate (WOO): fill rate associated to the current stock on hand and on order and the recommended purchase suggestions, i.e. the proportion of the demand
+  on responsibility window which will be covered after purchasing
+
+  #### Calculation details: how to understand the purchase recommendation?
+
+  The purchase recommendation is made on the responsibility window. One should take action on this period: by definition, all demand
+  not already covered on the supplier leadtime cannot be covered ; there is no need to cover more than a
+  reorder cycle in a supplier leadtime because it will be covered by next purchases made in a reorder cycle.
+
+  The methodology to calculate the needs on the responsibility window is described below.
+
+  __Step 1 - Stock End SLT__
+
+  Lokad's calculates the stock at the beginning of the responsibility window, i.e. the stock at the end of the next supplier leadtime. To do
+  so, it starts at the current stock on hand, adds all purchase orders which will arrive durring the supplier leadtime and substracts all demands on the supplier leadtime.
+  In this example, the size of the supplier lead time is assumed to be fixed.
+
+  __Step 2 - Current FR on responsibility window (WOO)__
+
+  Lokad's makes an estimation of the demand on the responsibility window. Then, it deduces the uncovered demand on the responsibility by substracting the stock at the end
+  of the supplier leadtime to the demand on the responsibility window. Lokad's is also able to calculate the current fill rate on the responsibility window, i.e. the proportion
+  of the demand on the responsibility window which is covered by the stock at the end of the supplier leadtime. In reality we use a probabilistic supplier lead time for the calculation
+  but this makes the interpretability of the data even more challenging.
+
+  __Step 3 - Fill rate target and final recommendation__
+
+  Depending on the agressiveness factor chosen by the user, the economic prioritization aims a specific fill rate target and then, a specific quantity needed to cover the responsibility window.
+  The final purchase recommendation is calculated as the difference between this quantity needed to cover the responsibility window and the stock which will already be there at the end of the
+  supplier leadtime.
+
+  """
+
+show label "" a2e2 9b9b9b
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///-------------------------------------ARTICLE INFORMATION-----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+show scalar "Article" a5c5  slices: Items.slice {tileTab: "Info" ; textAlign: center ; textBold: "true" ; textColor: #(highlightColor)} with same(Items.Ref)
+show scalar "Article Name" a4c4  slices: Items.slice {tileTab: "Info" ; textAlign: center ; textBold: "true" ; textColor: #(highlightColor)} with same(Items.Name)
+
+show label same(downloadUrl(Items.ImagePath)) by slice a6c7                            {tileTab: "Info"}
+
+show summary "Information" d4d7 slices: Items.slice {tileTab: "Info" ; tileColor: #(highlightColor)} with
+  same(Items.Loc) as "Loc" {textBold: "true" ; href: #(Slices.LocUrl)}
+  same(Items.Category) as "Category" {textBold: "true"}
+  same(Items.Brand) as "Brand" {textBold: "true"}
+  same(Items.Supplier) as "Supplier" {textBold: "true" ; href: #(Slices.SupplierUrl)}
+  same(Items.MOQ) as "MOQ" {numbers: simple ; textBold: "true" ; unit: #(pcsUnit)}
+  same(Items.LotMultiplier) as "LotMultiplier" {numbers: simple ; textBold: "true" ; unit: #(pcsUnit)}
+  same(Items.Volume) as "Volume" {numbers: simple ; textBold: "true" ; unit: #(volUnit)}
+  // same(Items.IsActive) as "IsLokadBuyable"
+  // same(Items.IsActive) as "IsClean"
+
+show summary "Prices" e4e5 slices: Items.slice {tileTab: "Info" ; tileColor: #(highlightColor)} with
+  same(Items.BuyPrice) as "BuyPrice" {textBold: "true" ; unit: #(DcUnit)}
+  same(Items.SellPrice) as "Sellprice" {textBold: "true" ; unit: #(DcUnit)}
+
+// Items.IsClean = Items.IsActive /// REMOVE BEFORE FLIGHT!
+show summary "Status" e6e7 slices: Items.slice {tileTab: "Info" ; tileColor: #(highlightColor)} with
+  same(if Items.IsActive then yes else no) as "Active?" {textBold: "true"}
+  same(if Items.IsClean then yes else no) as "Clean?" {textBold: "true"}
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///----------------------------------------------SALES----------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+dayFocus = 90 // define the focus horizon for analysis
+
+show summary "" a4b5 slices: Items.slice {tileTab: "Sales" ; tileColor: #(highlightColor)} with
+  sum(Orders.LokadNetAmount) when (date >= oend - 365) as "NetAmount365" {textBold: "true" ; unit: #(DcUnit)}
+  sum(Orders.LokadNetAmount) when (date >= oend - dayFocus) as "NetAmount\{dayFocus}" {textBold: "true" ; unit: #(DcUnit)}
+  sum(Orders.Quantity) when (date >= oend - 365) as "Delivered Qty 365" {textBold: "true"}
+  sum(Orders.Quantity) when (date >= oend - dayFocus) as "Delivered Qty \{dayFocus}" {textBold: "true"}
+
+Orders.StockOnHand = count(Stock.StockOnHand == 0) by [Sku, Stock.Monday] at [Sku,Orders.Monday]
+
+where Orders.date > oend - lookbackDays
+  show linechart "Weekly Demand History" a6e9 slices: Items.slice {tileTab: "Sales"} with
+    sum(Orders.Quantity) as "Qty" {seriesType: area ; color: "1A56DB" ; seriesOpacity: 0.05 ; seriesLegend: hidden}
+    sum(Orders.Quantity) as "Qty" {color: "1A56DB"}
+    sum(Orders.StockOnHand) as "StockOut Days" {seriesType: bar ; seriesStack: bar ; seriesOpacity: 0.5 ; color: #(linechartSOColor)}
+    group by Orders.Monday
+
+show table "\{timeGrpName}ly Orders" c4e4 slices: Items.slice {tileTab: "Sales"} with
+  Orders.Monday as timeGrpName {dateFormat: #(timeGrpFormat)}
+  sum(Orders.Quantity) as "Qty"
+  sum(Orders.LokadNetAmount) as "NetAmount"
+  distinct(Orders.OrderId) as "# Orders"
+  group by Orders.Monday
+  order by Orders.Monday desc
+
+show table "All Order Records" c5e5 slices: Items.slice {tileTab: "Sales"} with
+  Orders.OrderId
+  Orders.Sku as "Sku"
+  Orders.date
+  Orders.Quantity
+  Orders.LokadNetAmount as "NetAmount"
+  order by Orders.date desc
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///----------------------------------------------STOCK----------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+focus = "Stock"
+dayFocus = 90 // define the focus horizon for analysis
+
+show summary "" c4c5 slices: Items.slice {tileTab: "Stock" ; tileColor: #(highlightColor)} with
+  ratio(Stock.StockOnHand == 0) when (Stock.date > oend - dayFocus) as "\{dayFocus}d StockOut" {numbers: percent ; textBold: "true"}
+  // 0 as "Days Of Stock" {textBold: "true" ; unit: #(timeUnit)}
+  // 0 as "Annual Turnover rate" {textBold: "true"}
+  // 0 as "MOQ Reach" {textBold: "true" ; unit: #(timeUnit)}
+
+show summary "" a4b5 slices: Items.slice {tileTab: "Stock" ; tileColor: #(highlightColor)} with
+  same(Items.StockOnHand) as "StockOnHand" {textBold: "true"}
+  same(Items.StockOnOrder) as "StockOnOrder" {textBold: "true"}
+  min(Stock.date) when (Stock.StockOnHand > 0) as "First Stockday" {textBold: "true"}
+  max(Stock.date) when (Stock.StockOnHand > 0) as "Last Stockday" {textBold: "true"}
+
+show linechart "\{focus} History" a6e9 slices: Items.slice {tileTab: "Stock"} with
+  same(Stock.StockOnHand)  as "Stock on Hand" {seriesType: bar ; seriesStack: bar ; color: #(linechartB) ; unit: #(pcsText)}
+  same(Stock.StockOnOrder) as "Stock on Order" {seriesType: bar ; seriesStack: bar ; color: #(linechartBlight) ; unit: #(pcsText)}
+  group by Stock.Monday
+
+show table "\{timeGrpName}ly Stock Summary" d4e4 slices: Items.slice {tileTab: "Stock"} with
+  Stock.Monday as timeGrpName {dateFormat: #(timeGrpFormat)}
+  same(Stock.StockOnHand) when (Stock.date == Stock.Monday) as "StockOnHand"
+  same(Stock.StockOnOrder) when (Stock.date == Stock.Monday) as "StockOnOrder"
+  group by Stock.Monday
+  order by Stock.Monday desc
+
+show table "All Stock Records" d5e5 slices: Items.slice {tileTab: "Stock"} with
+  Stock.date
+  Stock.Sku as "Sku"
+  Stock.StockOnHand
+  Stock.StockOnOrder
+  order by Stock.date desc
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///------------------------------------------PURCHASE ORDERS----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+focus = "PO"
+dayFocus = 90 // define the focus horizon for analysis
+
+show summary "" a4a7 slices: Items.slice {tileTab: "PO" ; tileColor: #(highlightColor)} with
+  sum(PO.Quantity * Items.BuyPrice) when (date >= oend - 365) as "NetAmount365" {textBold: "true" ; value { textBold: "true" } ; unit: #(DcUnit)}
+  sum(PO.Quantity * Items.BuyPrice) when (date >= oend - dayFocus) as "NetAmount\{dayFocus}" {textBold: "true" ; unit: #(DcUnit)}
+  sum(PO.Quantity) when (date >= oend - 365) as "PO Qty 365" {textBold: "true"}
+  sum(PO.Quantity) when (date >= oend - dayFocus) as "PO Qty \{dayFocus}" {textBold: "true"}
+  min(PO.date) as "First Purchase Order" {textBold: "true"}
+  max(PO.date) as "Latest Purchase Order" {textBold: "true"}
+
+doc = "This is the distribution observed for that ref only. It differs from the distribution for the whole supplier that takes into account deliveries for references."
+show scalar "Distribution Supplier LT" d8e9  slices: Items.slice {tileTab: "PO" ; tileColor: #(highlightColor) ; tileTooltipText: #(doc)} with ranvar(PO.DeliveryDate - PO.date)
+
+where monday(PO.Monday) > oend - lookbackDays
+  show linechart "\{focus} History" b4e7 slices: Items.slice {tileTab: "PO"} with
+    sum(PO.Quantity) as "Delivery Qty"  {seriesType: bar ; seriesStack: bar ; color: #(linechartB) ; unit: #(pcsText)}
+    group by monday(PO.Monday)
+
+show table "\{timeGrpName}ly Purchase Summary" a9c9 slices: Items.slice {tileTab: "PO"} with
+  PO.Monday as timeGrpName {dateFormat: #(timeGrpFormat)}
+  sum(PO.Quantity * Items.BuyPrice) as "Order NetAmount" {unit: #(DcUnit)}
+  sum(PO.Quantity) as "Order Qty" {unit: #(pcsText)}
+  group by PO.Monday
+  order by PO.Monday desc
+
+show table "All Purchase Records" a8c8 slices: Items.slice {tileTab: "PO"} with
+  PO.Sku as "Sku"
+  PO.date
+  PO.Quantity
+  PO.Quantity * Items.BuyPrice as "NetAmount"
+  PO.Supplier {href: #[(PO.SupplierUrl)] ; textColor: #(highlightColor)}
+  PO.PONumber
+  order by PO.date desc
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///---------------------------------------------FORECAST--------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+quantileLow1 = same(FcItems.quantileLow1)
+quantileLow2 = same(FcItems.quantileLow2)
+quantileHigh1 = same(FcItems.quantileHigh1)
+quantileHigh2 = same(FcItems.quantileHigh2)
+
+WeeklyFC.LowerBarItem1 = max(quantile(WeeklyFC.Demand, quantileLow1), 0 )
+WeeklyFC.LowerBarItem2 = max(quantile(WeeklyFC.Demand, quantileLow2), 0 )
+WeeklyFC.HighBarItem1 = max(quantile(WeeklyFC.Demand, quantileHigh1), 0 )
+WeeklyFC.HighBarItem2 = max(quantile(WeeklyFC.Demand, quantileHigh2), 0 )
+
+WeeklyFC.DemLw2 = WeeklyFC.LowerBarItem2
+WeeklyFC.DemLw1 = WeeklyFC.LowerBarItem1
+WeeklyFC.DemMed = if not WeeklyFC.IsPast then WeeklyFC.Baseline else 0
+WeeklyFC.DemUp1 = WeeklyFC.HighBarItem1
+WeeklyFC.DemUp2 = WeeklyFC.HighBarItem2
+WeeklyFC.BackgroundPeriod = if WeeklyFC.IsPast then 1 else 0
+
+show summary "" a4b4 slices: Items.slice {tileTab: "Forecast" ; tileColor: #(highlightColor)} with
+  same(Items.ReorderCycle) as "Reorder cycle" {unit: " days" ; textBold: "true"}
+  same(Items.LeadTime) as "Supplier Leadtime" {unit: " days" ; textBold: "true"}
+
+show scalar "Distribution SLT" d4e4 slices: Items.slice {tileTab: "Forecast" ; tileColor: #(highlightColor)} with single(Items.RanvarLeadTime) as "LeadTime"
+
+where WeeklyFC.date > monday(oend - lookbackDays) and WeeklyFC.date <= monday(oend + lookforwardDays)
+  show linechart "Demand Quantity" a5e8 slices:slice                                {tileTab: "Forecast"} with
+    1 as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden ; unit: #(pcsUnit)}
+    same(WeeklyFC.BackgroundPeriod) as "" {seriesType: background ; seriesOpacity: 0.3 ; color: #fadac3}
+    same(if WeeklyFC.IsSLT then 1 else 0) as "" {seriesType: background ; color: #f2eeee ; seriesLegend: hidden ; unit: #(pcsUnit)}
+    same(if WeeklyFC.IsWOO then 1 else 0) as "" {seriesType: background ; color: #ae4141 ; seriesLegend: hidden ; unit: #(pcsUnit)}
+    sum(WeeklyFC.DemUp2) + sum(WeeklyFC.DemandQty) as "Possible High" {seriesType: area ; color: #fbc367 ; unit: #(pcsUnit)}
+    sum(WeeklyFC.DemUp1) + sum(WeeklyFC.DemandQty) as "Certain High" {seriesType: area ; color: #fb8f62 ; unit: #(pcsUnit)}
+    sum(WeeklyFC.DemMed) + sum(WeeklyFC.DemandQty) as "Mean Expected" {seriesType: area ; color: #fb8f62 ; unit: #(pcsUnit)}
+    sum(WeeklyFC.DemLw1) + sum(WeeklyFC.DemandQty) as "Certain Low" {seriesType: area ; color: #fbc367 ; unit: #(pcsUnit)}
+    sum(WeeklyFC.DemLw2) + sum(WeeklyFC.DemandQty) as "Possible Low" {seriesType: area ; color: #ffffff ; unit: #(pcsUnit)}
+
+    sum(WeeklyFC.DemMed) + sum(WeeklyFC.DemandQty) as "Mean Expected" {color: #c62a2a ; seriesLegend: hidden ; unit: #(pcsUnit)}
+    group by WeeklyFC.date
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///--------------------------------------PURCHASE RECOMMENDATIONS-----------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+show summary "Summary" a4a5 slices:slice                  {tileTab: "PO Recommendations"} with
+  same(Items.Category) as "Category"
+  same(Items.Supplier) as "Supplier"
+
+docOrderQty = "Output of the Purchase Optimization"
+show scalar "Sugg. Order Quantity" b4c4 slices:slice                      {textBold: "true" ; textAlign: center ; tileTab: "PO Recommendations" ; tileTooltipText: #(docOrderQty)} with
+  same(PORecommendations.OrderQuantity) as "" {unit: #(pcsUnit)}
+
+show scalar "Total Investments" b5c5 slices:slice                      {textBold: "true" ; textAlign: center ; tileTab: "PO Recommendations"} with
+  same(PORecommendations.InvestmentRequired) as "" {unit: #(DcUnit)}
+
+docCurrentFR = "FR without any order"
+show scalar "Current Fill Rate (WOO)" d4e4 slices:slice                      {textBold: "true" ; textAlign: center ; tileTab: "PO Recommendations" ; tileTooltipText: #(docCurrentFR)} with
+  same(PORecommendations.CurrentFR) as "" {numbers: percent}
+
+docAchievedFR = "FR if purchase sugg. is ordered"
+show scalar "Achieved Fill Rate (WOO)" d5e5 449d44 slices:slice                      {textBold: "true" ; textAlign: center ; tileTab: "PO Recommendations" ; tileTooltipText: #(docAchievedFR)} with
+  same(PORecommendations.NewFR) as "" {numbers: percent}
+
+show label "Calculation details" a6e6               {tileTab: "PO Recommendations"}
+
+///Estimated stock end SLT
+show label "1. Stock End SLT" a7e7 9b9b9b              {tileTab: "PO Recommendations"}
+
+show scalar "Stock On Hand" a8 slices:slice                {tileTab: "PO Recommendations"} with same(Items.StockOnHand) {unit: #(pcsUnit)}
+show scalar "Stock On Order" b8 slices:slice                {tileTab: "PO Recommendations"} with same(Items.StockOnOrder) {unit: #(pcsUnit)}
+show scalar "Total Stock" c8 slices:slice                {tileTab: "PO Recommendations" ; textBold: "true" ; tileTooltipText: "Stock on hand + stock on order"} with same(Items.StockOnHand + Items.StockOnOrder) {unit: #(pcsUnit)}
+
+lowBarQuantile1Display = same(StockSimulation.lowBarQuantile1Display)
+lowBarQuantile2Display = same(StockSimulation.lowBarQuantile2Display)
+highBarQuantile1Display = same(StockSimulation.highBarQuantile1Display)
+highBarQuantile2Display = same(StockSimulation.highBarQuantile2Display)
+
+StockSimulation.IsSLT = same(WeeklyFC.IsSLT) by [WeeklyFC.Sku, WeeklyFC.date] at [StockSimulation.Sku, StockSimulation.date]
+StockSimulation.IsWOO = same(WeeklyFC.IsWOO) by [WeeklyFC.Sku, WeeklyFC.date] at [StockSimulation.Sku, StockSimulation.date]
+StockSimulation.IsPast = same(WeeklyFC.IsPast) by [WeeklyFC.Sku, WeeklyFC.date] at [StockSimulation.Sku, StockSimulation.date]
+StockSimulation.BackgroundPeriod = if StockSimulation.IsPast then 1 else 0
+
+where StockSimulation.date > monday(oend - lookbackDays) and StockSimulation.date <= monday(oend + lookforwardDays)
+  show linechart "Start Week Stock Evolution" a9e11 slices: Items.slice {tileTab: "PO Recommendations"} with
+    1 as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden ; unit: #(pcsUnit)}
+    same(StockSimulation.BackgroundPeriod) as "" {seriesType: background ; seriesOpacity: 0.3 ; color: #fadac3}
+    same(if StockSimulation.IsSLT then 1 else 0) as "" {seriesType: background ; color: #D1CBCB ; seriesLegend: hidden ; unit: #(pcsUnit)}
+    same(if StockSimulation.IsWOO then 1 else 0) as "" {seriesType: background ; color: #ae4141 ; seriesLegend: hidden ; unit: #(pcsUnit)}
+
+    sum(StockSimulation.StockStartWeekLowBar1) as "OnHand Q\{lowBarQuantile1Display}" {seriesType: area ; color: #fbc367 ; unit: #(pcsUnit)}
+    sum(StockSimulation.StockStartWeekLowBar2) as "OnHand Q\{lowBarQuantile2Display}" {seriesType: area ; color: #fb8f62 ; unit: #(pcsUnit)}
+    sum(StockSimulation.AvgStockStartWeek) as "OnHand Avg" {seriesType: area ; color: #fb8f62 ; unit: #(pcsUnit)}
+    sum(StockSimulation.StockStartWeekHighBar1) as "OnHand Q\{highBarQuantile1Display}" {seriesType: area ; color: #fbc367 ; unit: #(pcsUnit)}
+    sum(StockSimulation.StockStartWeekHighBar2) as "OnHand Q\{highBarQuantile2Display}" {seriesType: area ; color: #ffffff ; unit: #(pcsUnit)}
+
+    sum(StockSimulation.AvgStockStartWeek) as "OnHand Avg" {color: #c62a2a ; seriesLegend: hidden ; unit: #(pcsUnit)}
+    group by StockSimulation.date
+
+show scalar "Stock End SLT at target" d8e8 449d44 slices:slice        {tileTab: "PO Recommendations" ; textBold: "true" ; textAlign: center} with
+  max(same(PORecommendations.SatisfiedDemand),0)
+
+///WOO Demand
+show label "2. Current FR on responsibility window (WOO)" a12e12 9b9b9b          {tileTab: "PO Recommendations"}
+
+//Total Demand
+where WeeklyFC.date > monday(oend - lookbackDays) and WeeklyFC.date <= monday(oend + lookforwardDays)
+  show linechart "Demand Quantity" a13e15 slices:slice                                {tileTab: "PO Recommendations"} with
+    1 as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden ; unit: #(pcsUnit)}
+    same(WeeklyFC.BackgroundPeriod) as "" {seriesType: background ; seriesOpacity: 0.3 ; color: #fadac3}
+    same(if WeeklyFC.IsSLT then 1 else 0) as "" {seriesType: background ; color: #f2eeee ; seriesLegend: hidden ; unit: #(pcsUnit)}
+    same(if WeeklyFC.IsWOO then 1 else 0) as "" {seriesType: background ; color: #ae4141 ; seriesLegend: hidden ; unit: #(pcsUnit)}
+    sum(WeeklyFC.DemUp2) + sum(WeeklyFC.DemandQty) as "Possible High" {seriesType: area ; color: #fbc367 ; unit: #(pcsUnit)}
+    sum(WeeklyFC.DemUp1) + sum(WeeklyFC.DemandQty) as "Certain High" {seriesType: area ; color: #fb8f62 ; unit: #(pcsUnit)}
+    sum(WeeklyFC.DemMed) + sum(WeeklyFC.DemandQty) as "Mean Expected" {seriesType: area ; color: #fb8f62 ; unit: #(pcsUnit)}
+    sum(WeeklyFC.DemLw1) + sum(WeeklyFC.DemandQty) as "Certain Low" {seriesType: area ; color: #fbc367 ; unit: #(pcsUnit)}
+    sum(WeeklyFC.DemLw2) + sum(WeeklyFC.DemandQty) as "Possible Low" {seriesType: area ; color: #ffffff ; unit: #(pcsUnit)}
+
+    sum(WeeklyFC.DemMed) + sum(WeeklyFC.DemandQty) as "Mean Expected" {color: #c62a2a ; seriesLegend: hidden ; unit: #(pcsUnit)}
+    group by WeeklyFC.date
+
+show scalar "Total Demand on WOO" a16b17 ae4141 slices:slice              {tileTab: "PO Recommendations"} with same(max(0,PORecommendations.TotalDemandRLTDisplay))
+show scalar "Demand on WOO Fill rate %" c16d17 ae4141 slices:slice              {tileTab: "PO Recommendations"} with same(cdf(PORecommendations.FR)*100)
+
+show scalar "Current FR on WOO based on Stock End SLT" e16e17 449d44 slices:slice                      {textAlign: center ; tileTab: "PO Recommendations" ; textBold: "true"} with
+  same(PORecommendations.CurrentFR) as "" {numbers: percent}
+
+// show scalar "Already covered WOO Demand in avg" a23 449d44 slices:slice    {tileTab: "PO Recommendations" ; textAlign: center ; textBold: "true"} with same(PORecommendations.SatisfiedDemand) ///Basile : this is a stock at the end of the SLT, not a demand (see a largely overstocked product to see the difference). Should not be displayed with that naming imo.
+
+///Prioritization
+show label "3. Fill rate target and final recommendation" a18e18 9b9b9b      {tileTab: "PO Recommendations"}
+
+show summary "Economic prioritization parameters" a19e20 slices:slice     {tileTab: "PO Recommendations"} with
+  same(EconomicParameters.Category) as "Category"
+  same(EconomicParameters.AgressivenessFactorIni) as "Agressiveness factor" {textBold: "true" ; value { textColor: #449d44 }}
+  same(EconomicParameters.BuyPrice) as "Buy Price" {unit: #(DcUnit)}
+  same(EconomicParameters.M) as "Margin" {unit: #(DcUnit)}
+  same(EconomicParameters.C) as "Carrying cost" {unit: #(DcUnit)}
+  same(EconomicParameters.S) as "Stock out penalty" {unit: #(DcUnit)}
+  same(EconomicParameters.M / EconomicParameters.BuyPrice) as "Margin/BuyPrice" {textBold: "true" ; value { textColor: #449d44 }}
+  same(EconomicParameters.C / EconomicParameters.BuyPrice) as "Carrying c/BuyPrice" {textBold: "true" ; value { textColor: #449d44 }}
+  same(EconomicParameters.S / EconomicParameters.BuyPrice) as "Stock out c/BuyPrice" {textBold: "true" ; value { textColor: #449d44 }}
+  single(Items.LotMultiplier) as "Lot Multiplier"
+  single(Items.MOQ) as "MOQ"
+
+show scalar "Achieved FR" b23 000000 slices:slice                      {textAlign: center ; tileTab: "PO Recommendations"} with
+  same(PORecommendations.NewFR) as "" {numbers: percent}
+
+PORecommendations.NewFRDisplay = round(PORecommendations.NewFR * 100, 2)
+PORecommendations.UnitsToReachNewFR = quantile(PORecommendations.FR, PORecommendations.NewFR)
+show scalar same("Total Units needed on WOO to reach \{PORecommendations.NewFRDisplay}% FR") by slice c23 449d44 slices:slice     {tileTab: "PO Recommendations" ; textAlign: center ; textBold: "true"} with
+  same(PORecommendations.UnitsToReachNewFR)
+
+// show scalar same("Sugg. Order Quantity (\{PORecommendations.UnitsToReachNewFR} - \{PORecommendations.SatisfiedDemand})") by slice d23e23 449d44 slices:slice                      {textBold: "true" ; textAlign: center ; tileTab: "PO Recommendations"} with
+//   same(PORecommendations.OrderQuantity) as "" {unit: #(pcsUnit)}
+
+MicroDecisions.CellColor = if MicroDecisions.IsEligible then "#bee6c4" else "#f2f2f2"
+MicroDecisions.CumInvestInternal = cumsum(MicroDecisions.Q * MicroDecisions.BuyPrice) by Sku scan MicroDecisions.Max
+
+Items.DemandOverSLT = sum(WeeklyFC.DemandQty) when WeeklyFC.IsSLT
+
+show table "All Micro decisions to cover WOO uncovered demand" a21e22 slices:slice                 {tileTab: "PO Recommendations"} with
+  MicroDecisions.Rank as "Rank" {cellBackground: #[MicroDecisions.CellColor]}
+
+  ///Prices
+  MicroDecisions.BuyPrice as "BuyPrice" {unit: #(DcUnit) ; cellBackground: #[MicroDecisions.CellColor]}
+  MicroDecisions.SellPrice as "SellPrice" {unit: #(DcUnit) ; cellBackground: #[MicroDecisions.CellColor]}
+  MicroDecisions.Margin as "Gross Margin" {unit: #(DcUnit) ; cellBackground: #[MicroDecisions.CellColor]}
+
+  ///Stocks
+  // MicroDecisions.StockOnHand as "StockOnHand" {cellBackground: #[MicroDecisions.CellColor]}
+  // MicroDecisions.StockOnOrder as "StockOnOrder" {cellBackground: #[MicroDecisions.CellColor]}
+  round(MicroDecisions.StockOnHand + MicroDecisions.StockOnOrder, 0) as "TotalStock" {cellBackground: #[MicroDecisions.CellColor]}
+
+  ///Grid attributes
+  // MicroDecisions.LotMultiplier as "LotMultiplier" {cellBackground: #[MicroDecisions.CellColor]}
+  // MicroDecisions.Q as "Q" {cellBackground: #[MicroDecisions.CellColor]}
+  MicroDecisions.Max as "Basket" {cellBackground: #[MicroDecisions.CellColor]}
+  // round(MicroDecisions.StockOnHand + MicroDecisions.StockOnOrder, 0) + MicroDecisions.Max as "StockReached" {cellBackground: #[MicroDecisions.CellColor]}
+  Items.DemandOverSLT as "DmdOverSLT" {cellBackground: #[MicroDecisions.CellColor]}
+  Items.LeadTime as "Leadtime" {cellBackground: #[MicroDecisions.CellColor]}
+
+  ///Fill rate
+  MicroDecisions.M/(MicroDecisions.Q*(Items.SellPrice - Items.BuyPrice)) as "SellProbability" {numbers: percent ; cellBackground: #[MicroDecisions.CellColor]}
+  MicroDecisions.CurrentFR as "Current Fillrate" {numbers: percent ; cellBackground: #[MicroDecisions.CellColor]}
+  MicroDecisions.FillRateDelta as "FillRate Δ" {numbers: percent ; cellBackground: #[MicroDecisions.CellColor]}
+  MicroDecisions.CurrentFR + MicroDecisions.CumFillrateDelta as "New Fillrate" {numbers: percent ; cellBackground: #[MicroDecisions.CellColor]}
+
+  ///Reward
+  MicroDecisions.M as "Exp. Margin" {value { minPrecision: 4 } ; cellBackground: #[MicroDecisions.CellColor] ; unit: #(DcUnit)}
+  MicroDecisions.S as "Exp. Stockout Cover" {value { minPrecision: 4 } ; cellBackground: #[MicroDecisions.CellColor] ; unit: #(DcUnit)}
+  -MicroDecisions.C as "Exp. Carrying Costs" {value { minPrecision: 4 } ; cellBackground: #[MicroDecisions.CellColor] ; unit: #(DcUnit)}
+  MicroDecisions.Reward as "Tot. Reward" {textColor: #C7180F ; value { minPrecision: 4 } ; cellBackground: #[MicroDecisions.CellColor] ; unit: #(DcUnit)}
+  MicroDecisions.Score as "ROI" {textColor: #C7180F ; value { minPrecision: 4 ; precision: 4 } ; cellBackground: #[MicroDecisions.CellColor]}
+
+  ///Investment
+  // MicroDecisions.Investment as "Investment" {unit: #(DcUnit)}
+  MicroDecisions.CumInvest as "Cum. Invest." {unit: #(DcUnit) ; cellBackground: #[MicroDecisions.CellColor]}
+  MicroDecisions.CumInvestInternal as "Cum. Invest. Int" {unit: #(DcUnit) ; cellBackground: #[MicroDecisions.CellColor]}
+  if MicroDecisions.IsEligible then "Yes" else "No" as "Is Purchased?" {cellBackground: #[MicroDecisions.CellColor]}
+
+  order by MicroDecisions.Rank
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///--------------------------------------DISPATCH RECOMMENDATIONS-----------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+show summary "Summary" a4a5 slices:slice                  {tileTab: "Dispatch Recommendations"} with
+  same(Items.Category) as "Category"
+  same(Items.Supplier) as "Supplier"
+
+docDispatchQty = "Output of the Dispatch Optimization"
+show scalar "Sugg. Dispatch Quantity" b4c4 slices:slice                      {textBold: "true" ; textAlign: center ; tileTab: "Dispatch Recommendations" ; tileTooltipText: #(docDispatchQty)} with
+  same(DispatchRecommendations.QtyToDispatch) as "" {unit: #(pcsUnit)}
+
+docCurrentFR = "FR without dispatch"
+show scalar "Current Fill Rate (WOO)" d4e4 slices:slice                      {textBold: "true" ; textAlign: center ; tileTab: "Dispatch Recommendations" ; tileTooltipText: #(docCurrentFR)} with
+  same(DispatchRecommendations.CurrentFR) as "" {numbers: percent}
+
+docAchievedFR = "FR if dispatch sugg. is applied"
+show scalar "Achieved Fill Rate (WOO)" d5e5 449d44 slices:slice                      {textBold: "true" ; textAlign: center ; tileTab: "Dispatch Recommendations" ; tileTooltipText: #(docAchievedFR)} with
+  same(DispatchRecommendations.NewFR) as "" {numbers: percent}
+
+show label "Calculation details" a6e6               {tileTab: "Dispatch Recommendations"}
+
+///Estimated stock end SLT
+
+show scalar "Stock On Hand" a8 slices:slice                {tileTab: "Dispatch Recommendations"} with same(Items.StockOnHand) {unit: #(pcsUnit)}
+show scalar "Stock On Order" b8 slices:slice                {tileTab: "Dispatch Recommendations"} with same(Items.StockOnOrder) {unit: #(pcsUnit)}
+show scalar "Stock Available For Dispatch" c8 slices:slice                {tileTab: "Dispatch Recommendations"} with same(DispatchRecommendations.StockAvailableForDispatch) {unit: #(pcsUnit)}
+
+///WOO Demand
+show label "1. Current FR on responsibility window (WOO)" a7e7 9b9b9b          {tileTab: "Dispatch Recommendations"}
+
+//Total Demand
+where WeeklyFC.date > monday(oend - lookbackDays) and WeeklyFC.date <= monday(oend + lookforwardDays)
+  show linechart "Demand Quantity" a9e11 slices:slice                                {tileTab: "Dispatch Recommendations"} with
+    1 as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden ; unit: #(pcsUnit)}
+    same(WeeklyFC.BackgroundPeriod) as "" {seriesType: background ; seriesOpacity: 0.3 ; color: #fadac3}
+    same(if WeeklyFC.IsWOODispatch then 1 else 0) as "" {seriesType: background ; color: #ae4141 ; seriesLegend: hidden ; unit: #(pcsUnit)}
+    sum(WeeklyFC.DemUp2) + sum(WeeklyFC.DemandQty) as "Possible High" {seriesType: area ; color: #fbc367 ; unit: #(pcsUnit)}
+    sum(WeeklyFC.DemUp1) + sum(WeeklyFC.DemandQty) as "Certain High" {seriesType: area ; color: #fb8f62 ; unit: #(pcsUnit)}
+    sum(WeeklyFC.DemMed) + sum(WeeklyFC.DemandQty) as "Mean Expected" {seriesType: area ; color: #fb8f62 ; unit: #(pcsUnit)}
+    sum(WeeklyFC.DemLw1) + sum(WeeklyFC.DemandQty) as "Certain Low" {seriesType: area ; color: #fbc367 ; unit: #(pcsUnit)}
+    sum(WeeklyFC.DemLw2) + sum(WeeklyFC.DemandQty) as "Possible Low" {seriesType: area ; color: #ffffff ; unit: #(pcsUnit)}
+
+    sum(WeeklyFC.DemMed) + sum(WeeklyFC.DemandQty) as "Mean Expected" {color: #c62a2a ; seriesLegend: hidden ; unit: #(pcsUnit)}
+    group by WeeklyFC.date
+
+show scalar "Total Demand on WOO" a12b13 ae4141 slices:slice              {tileTab: "Dispatch Recommendations"} with same(max(0,DispatchRecommendations.TotalDemandRLT))
+show scalar "Demand on WOO Fill rate" c12d13 ae4141 slices:slice              {tileTab: "Dispatch Recommendations"} with same(DispatchRecommendations.FR)
+
+show scalar "Current FR on WOO based on Stock End SLT" e12e13 449d44 slices:slice                      {textAlign: center ; tileTab: "Dispatch Recommendations" ; textBold: "true"} with
+  same(DispatchRecommendations.CurrentFR) as "" {numbers: percent}
+
+show scalar "Already covered WOO Demand in avg" a19 449d44 slices:slice    {tileTab: "Dispatch Recommendations" ; textAlign: center ; textBold: "true"} with same(DispatchRecommendations.SatisfiedDemand)
+
+///Prioritization
+show label "2. Fill rate target and final recommendation" a14e14 9b9b9b      {tileTab: "Dispatch Recommendations"}
+
+show summary "Economic prioritization parameters" a15e16 slices:slice     {tileTab: "Dispatch Recommendations"} with
+  same(EconomicParametersDispatch.Category) as "Cateogry"
+  same(EconomicParametersDispatch.BuyPrice) as "Buy Price" {unit: #(DcUnit)}
+  same(EconomicParametersDispatch.M) as "Margin" {unit: #(DcUnit)}
+  same(EconomicParametersDispatch.C) as "Carrying cost" {unit: #(DcUnit)}
+  same(EconomicParametersDispatch.S) as "Stock out penalty" {unit: #(DcUnit)}
+  same(EconomicParametersDispatch.M / EconomicParametersDispatch.BuyPrice) as "Margin/BuyPrice" {textBold: "true" ; value { textColor: #449d44 }}
+  same(EconomicParametersDispatch.C / EconomicParametersDispatch.BuyPrice) as "Carrying c/BuyPrice" {textBold: "true" ; value { textColor: #449d44 }}
+  same(EconomicParametersDispatch.S / EconomicParametersDispatch.BuyPrice) as "Stock out c/BuyPrice" {textBold: "true" ; value { textColor: #449d44 }}
+  single(Items.LotMultiplier) as "Lot Multiplier Dispatch"
+
+show scalar "Achieved FR" b19 000000 slices:slice                      {textAlign: center ; tileTab: "Dispatch Recommendations"} with
+  same(DispatchRecommendations.NewFR) as "" {numbers: percent}
+
+DispatchRecommendations.NewFRDisplay = round(DispatchRecommendations.NewFR * 100, 2)
+DispatchRecommendations.UnitsToReachNewFR = quantile(DispatchRecommendations.FR, DispatchRecommendations.NewFR)
+show scalar same("Total Units needed on WOO to reach \{DispatchRecommendations.NewFRDisplay}% FR") by slice c19 449d44 slices:slice     {tileTab: "Dispatch Recommendations" ; textAlign: center ; textBold: "true"} with
+  same(DispatchRecommendations.UnitsToReachNewFR)
+
+
+MicroDecisionsDispatch.CellColor = if MicroDecisionsDispatch.IsEligible then "#bee6c4" else "#f2f2f2"
+
+show table "All Micro decisions to cover WOO uncovered demand" a17e18 slices:slice                 {tileTab: "Dispatch Recommendations"} with
+  MicroDecisionsDispatch.Rank as "Rank" {cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  ///Prices
+  MicroDecisionsDispatch.BuyPrice as "BuyPrice" {unit: #(DcUnit) ; cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  MicroDecisionsDispatch.SellPrice as "SellPrice" {unit: #(DcUnit) ; cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  MicroDecisionsDispatch.Margin as "Gross Margin" {unit: #(DcUnit) ; cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  ///Stocks
+  MicroDecisionsDispatch.StockOnHand {cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  MicroDecisionsDispatch.StockAvailableForDispatch {cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  MicroDecisionsDispatch.StockAvailableForDispatch as "Stock DC before Dispatch" {cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  ///Grid attributes
+  MicroDecisionsDispatch.Q {cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  MicroDecisionsDispatch.Min {cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  MicroDecisionsDispatch.Max {cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  ///Lead Times
+  MicroDecisionsDispatch.TransportationLT as "Transportation LT" {unit: " week(s)"}
+  MicroDecisionsDispatch.ReDispatchLT as "Redispacth LT" {unit: " week(s)"}
+  ///FR
+  MicroDecisionsDispatch.CurrentFR {numbers: percent ; cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  MicroDecisionsDispatch.FillRateDelta {numbers: percent ; cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  MicroDecisionsDispatch.CumFillRateDelta {numbers: percent ; cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  MicroDecisionsDispatch.OverallFRGain {numbers: percent ; cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  MicroDecisionsDispatch.CumOverallFRGain {numbers: percent ; cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  MicroDecisionsDispatch.CumStockDispatchedByRef {cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  MicroDecisionsDispatch.NewFREDB as "NewFR EDB" {numbers: percent ; cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  MicroDecisionsDispatch.NewFRLON as "NewFR LON" {numbers: percent ; cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  MicroDecisionsDispatch.NewFRMAN as "NewFR MAN" {numbers: percent ; cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  MicroDecisionsDispatch.FRTargetByLoc as "FR target by location" {numbers: percent ; cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  ///Reward
+  MicroDecisionsDispatch.Reward as "Reward" {cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  MicroDecisionsDispatch.Score as "Score" {cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  ///Decision
+  if MicroDecisionsDispatch.IsEnoughStockRemaining then "Yes" else "No" as "Enough Stock?" {cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  if MicroDecisionsDispatch.IsEligible then "Yes" else "No" as "Is Purcahsed?" {cellBackground: #[MicroDecisionsDispatch.CellColor]}
+  order by MicroDecisionsDispatch.Rank
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///-----------------------------------------RATIONAL----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+MicroDecisions.IsVisible = true
+where (count(MicroDecisions.IsEligible) by Sku ) > 200
+  MicroDecisions.IsVisible =  (max(same(PORecommendations.OrderQuantity) by Sku - MicroDecisions.Max,0) mod 2 == 0) //or MicroDecisions.IsVisible
+where (count(MicroDecisions.IsEligible) by Sku ) > 400
+  MicroDecisions.IsVisible =  (max(same(PORecommendations.OrderQuantity) by Sku - MicroDecisions.Max,0) mod 8 == 0) //or MicroDecisions.IsVisible
+
+where MicroDecisions.IsVisible
+
+  show chart "Driving forces" a4e10 {tileTab: "Rational" ; haxis { as: "Units" } ; vaxis { right { axisMin: "0" } } ; vaxis { right { numbers: percent } }} with
+    haxis by MicroDecisions.Max slices:slice
+    plot by MicroDecisions.Max slices:slice
+      same(if MicroDecisions.IsEligible then MicroDecisions.CumInvestInternal else 0) as "Investment" {unit: "$" ; color: #B3DFC4 ; seriesType: bar}
+      same(MicroDecisions.Score) as "ROI" {numbers: percent ; color: #FA0000 ; vaxis: right}
+      same(MicroDecisions.M/(MicroDecisions.Q*(Items.SellPrice - Items.BuyPrice))) as "SellProbability" {numbers: percent ; color: #EB722D ; vaxis: right}
+      same(MicroDecisions.CurrentFR + MicroDecisions.CumFillrateDelta) as "FillRate" {numbers: percent ; color: #4088CC ; vaxis: right}
+
+
+// Items.TotalStock = round(Items.StockOnHand + Items.StockOnOrder, 0)
+// show scalar "Starting Stock" a11 slices:slice {tileTab: "Rational"} with single(Items.TotalStock)

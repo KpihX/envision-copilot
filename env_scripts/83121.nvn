@@ -1,0 +1,332 @@
+import "/1. utilities/Modules/Global Parameters" as GP
+import "/1. utilities/Modules/Colors" as Colors
+
+read "/Clean/References.ion" as Items[Id unsafe] small 5000 with
+  "Ref" as Id : text
+  Name : text
+  Category : text
+  SubCategory : text
+  Brand : text
+  Supplier : text
+  StartDate : date
+  EndDate : date
+  StockOnHand : number
+  StockOnOrder : number
+  BackOrder : number
+  BuyPrice : number
+  SellPrice : number
+  MOQ : number
+  IsActive : boolean
+  LeadTime : number
+read "/Clean/PricingRuleBased/CompetitorCatalog.ion"  as Competitor expect[Id] with
+  "Ref" as Id : text
+  SellPrice : number
+read "/Clean/Orders.ion"  as Sales expect[Id, date] with
+  OrderId : text
+  "Ref" as Id : text
+  Quantity : number
+  "OrderDate" as date: date
+  "LokadNetAmount" as NetAmount : number
+read "/Clean/PricingRuleBased/Classeur1.xlsx" as Calendar expect[date] with
+  date: date
+read form with
+  yes: boolean
+  Category : text
+read upload "PerimetreCategoryUpload" as PerimetreCategoryUpload with
+  Category : text
+  SelectedCategory : boolean
+  PricePercentChange : number
+  PricingCompetitorAlignment : number
+  MinMargin : number
+read upload "PerimetreItemsUpload" as PerimetreItemsUpload with
+  Item : text
+  SelectedItem : boolean
+  PricePercentChange : number
+  PricingCompetitorAlignment : number
+  MinMargin : number
+
+////Useful constants to be used
+
+lastdate = max(Sales.date)
+today = date(2022,12,31)
+nbdaystoday = 365
+nbweekstoday = floor(nbdaystoday/7)
+currentyear = year(today)
+lastyear = currentyear - 1
+daysunit = " days"
+
+show tabs "" a4h4  {textColor: "black"} with
+  "Catalog"
+  "PricingRules" as "Pricing Management"
+  "GlobalResults" as "Results Global Scope"
+  "CategoryResults" as "Results Category Level"
+  "ItemResults" as "Results Item Level"
+
+Items.IsFirst = Items.Id == "DS-204"
+table Slices [slice] = slice by [not Items.IsFirst,Items.Id] title: Items.Id
+
+show logo "" d1e2
+
+show label "Pricing Rules" a3h3 {textAlign: center ; textBold: "true"}
+
+Items.CompetitorSellPrice = same(Competitor.SellPrice)
+Items.LastYearSalesQty = sum(Sales.Quantity) when (year(Sales.date) == lastyear)
+Items.LastYearSales = sum(Sales.NetAmount) when (year(Sales.date) == lastyear)
+Items.YTDSalesQty = sum(Sales.Quantity) when (year(Sales.date) == currentyear)
+Items.YTDSales = sum(Sales.NetAmount) when (year(Sales.date) == currentyear)
+Items.SaleTrend = (Items.YTDSalesQty-Items.LastYearSalesQty)/.(Items.LastYearSalesQty)
+Items.GrowthColor = if Items.SaleTrend > 0 then Colors.colorValid else Colors.colorRed
+
+Items.MarginRate = (Items.SellPrice - Items.BuyPrice)/Items.SellPrice
+Items.DailySalesQty = Items.YTDSalesQty/nbdaystoday
+Items.NbDaysInStock = round(Items.StockOnHand/.Items.DailySalesQty)
+
+Items.PricingRecommendationEmoji,Items.PricingRecommendation = if Items.NbDaysInStock < 30 then (GP.EmoPos,"Increase Price") else \
+  if Items.NbDaysInStock >90 then (GP.EmoNeg,"Decrease Price") else (GP.EmoEgal,"Stable Price")
+
+////Tab Catalog
+
+currentTab = "Catalog"
+
+show table "List of Products" a5c5 {backgroundColor: #(Colors.color5a) ; tileTab: #(currentTab)} with
+  Items.Id as "Ref"
+  Items.Name
+  Items.BuyPrice
+  Items.SellPrice
+  Items.MarginRate
+
+show table "List of Category" a6c6 {backgroundColor: #(Colors.colorRed) ; tileTab: #(currentTab)} with
+  Items.Category
+  count(Items.*) as "# Ref"
+  group by Items.Category
+
+show table "List of SubCategory" a7c7 {backgroundColor: #(Colors.colorWarning1) ; tileTab: #(currentTab)} with
+  Items.SubCategory
+  same(Items.Category) as "Category"
+  count(Items.*) as "# Ref"
+  group by Items.SubCategory
+
+show table "List of Brands" a8c8 {backgroundColor: #(Colors.colorValid6) ; tileTab: #(currentTab)} with
+  Items.Brand
+  count(Items.*) as "# Ref"
+  group by Items.Brand
+
+show linechart "Weekly Sales History" d5h8 {tileTab: #(currentTab)} with
+  sum(Sales.NetAmount) as "Amount" {seriesType: area ; unit: #(GP.DcUnit) ; color: #(Colors.color5)}
+  sum(Sales.NetAmount) as "Amount" {seriesSmooth: cubic ; unit: #(GP.DcUnit) ; color: #(Colors.color5)}
+  group by monday(Sales.date)
+
+///Tab Pricing Management
+
+currentTab = "PricingRules"
+
+show form "" g5h6 {formButton: "OK" ; tileTab: #(currentTab)} with
+  yes as "Apply Strategy"
+
+table Category = by Items.Category
+Category.Category = same(Items.Category)
+
+table PerimetreCategory = with
+  [| as Category, as SelectedCategory, as PricePercentChange, as PricingCompetitorAlignment, as MinMargin |]
+  [| "All Categories", same(PerimetreCategoryUpload.SelectedCategory) by PerimetreCategoryUpload.Category at "All Categories", same(PerimetreCategoryUpload.PricePercentChange) by PerimetreCategoryUpload.Category at "All Categories", same(PerimetreCategoryUpload.PricingCompetitorAlignment) by PerimetreCategoryUpload.Category at "All Categories", same(PerimetreCategoryUpload.MinMargin) by PerimetreCategoryUpload.Category at "All Categories"|]//same(PerimetreCategoryUpload.PricePercentChange) by PerimetreCategoryUpload.Category at "All Categories"|]
+  [| Category.Category, same(PerimetreCategoryUpload.SelectedCategory) by PerimetreCategoryUpload.Category at Category.Category,same(PerimetreCategoryUpload.PricePercentChange) by PerimetreCategoryUpload.Category at Category.Category, same(PerimetreCategoryUpload.PricingCompetitorAlignment) by PerimetreCategoryUpload.Category at Category.Category, same(PerimetreCategoryUpload.MinMargin) by PerimetreCategoryUpload.Category at Category.Category|]//same(PerimetreCategoryUpload.PricePercentChange) by PerimetreCategoryUpload.Category at Category.Category |]
+
+PerimetreCategory.Color = if PerimetreCategory.SelectedCategory then "lightgreen" else "lightgray"
+
+show table "Pricing Management By Category" a6d11 editable: "PerimetreCategoryUpload" {booleans: "✔️/❌" ; cellBackground: #[PerimetreCategory.Color] ; tileTab: #(currentTab)} with
+  PerimetreCategory.Category as "Category" {columnWidth: 0.5 ; columnReadOnly: "true"}
+  PerimetreCategory.SelectedCategory {columnWidth: 0.5}
+  PerimetreCategory.PricePercentChange as "PricePercentChange" {columnWidth: 0.5 ; textAlign: center ; columnTooltipText: "Change by X% the price of Items for the whole category"}
+  PerimetreCategory.PricingCompetitorAlignment {columnWidth: 0.5 ; textAlign: center ; columnTooltipText: "Align the price by X% by Category below the competitor price"}
+  PerimetreCategory.MinMargin {columnWidth: 0.5 ; textAlign: center ; columnTooltipText: "Define a Minimum X% Margin for the whole Category"}
+
+table PerimetreItems = with
+  [| as Item, as SelectedItem, as PricePercentChange, as PricingCompetitorAlignment, as MinMargin |]
+  [| "All Items", same(PerimetreItemsUpload.SelectedItem) by PerimetreItemsUpload.Item at "All Items", same(PerimetreItemsUpload.PricePercentChange) by PerimetreItemsUpload.Item at "All Items", same(PerimetreItemsUpload.PricingCompetitorAlignment) by PerimetreItemsUpload.Item at "All Items", same(PerimetreItemsUpload.MinMargin) by PerimetreItemsUpload.Item at "All Items"|]//same(PerimetreItemsUpload.PricePercentChange) by PerimetreItemsUpload.Item at "All Categories"|]
+  [| Items.Id, same(PerimetreItemsUpload.SelectedItem) by PerimetreItemsUpload.Item at Items.Id,same(PerimetreItemsUpload.PricePercentChange) by PerimetreItemsUpload.Item at Items.Id, same(PerimetreItemsUpload.PricingCompetitorAlignment) by PerimetreItemsUpload.Item at Items.Id, same(PerimetreItemsUpload.MinMargin) by PerimetreItemsUpload.Item at Items.Id|]//same(PerimetreItemsUpload.PricePercentChange) by PerimetreCategoryUpload.Category at Category.Category |]
+
+PerimetreItems.Color = if PerimetreItems.SelectedItem then "lightgreen" else "lightgray"
+
+show table "Pricing Management by Item" e6h11 editable: "PerimetreItemsUpload"  {booleans: "✔️/❌" ; cellBackground: #[PerimetreItems.Color] ; tileTab: #(currentTab)} with
+  PerimetreItems.Item as "Item"
+  PerimetreItems.SelectedItem as "SelectedItem"
+  PerimetreItems.PricePercentChange as "PricePercentChange" {columnWidth: 0.5 ; textAlign: center ; columnTooltipText: "Change by X% the price by Item"}
+  PerimetreItems.PricingCompetitorAlignment {columnWidth: 0.5 ; textAlign: center ; columnTooltipText: "Align the price by X% by Item below the competitor price"}
+  PerimetreItems.MinMargin  {columnWidth: 0.5 ; textAlign: center ; columnTooltipText: "Define a Minimum X% Margin for each item"}
+
+table ItemsWeek = cross(Items,Week)
+
+ItemsWeek.Monday = monday(ItemsWeek.week)
+ItemsWeek.QtySold = sum(Sales.Quantity)
+ItemsWeek.RanvarSales = ranvar.uniform(0,200)
+ItemsWeek.RandomForecastactor = random.ranvar(ItemsWeek.RanvarSales)
+ItemsWeek.InitialForecast = if ItemsWeek.Monday < monday(lastdate) then 0 else (round((Items.YTDSalesQty/nbweekstoday)*(ItemsWeek.RandomForecastactor)))/100
+ItemsWeek.Slice = Items.slice
+
+Items.SelectedAllCategories = single(PerimetreCategory.SelectedCategory) when (PerimetreCategory.Category == "All Categories") by PerimetreCategory.1 at Items.1
+Items.AllCategoryPricePercentChange = single(PerimetreCategory.PricePercentChange) when (PerimetreCategory.Category == "All Categories") by PerimetreCategory.1 at Items.1
+Items.AllCategoryPricingCompetitorAlignment = single(PerimetreCategory.PricingCompetitorAlignment) when (PerimetreCategory.Category == "All Categories") by PerimetreCategory.1 at Items.1
+Items.AllCategoryMinMargin = single(PerimetreCategory.MinMargin) when (PerimetreCategory.Category == "All Categories") by PerimetreCategory.1 at Items.1
+
+Items.SelectedCategory = single(PerimetreCategory.SelectedCategory) by PerimetreCategory.Category at Items.Category
+Items.CategoryPricePercentChange = single(PerimetreCategory.PricePercentChange) by PerimetreCategory.Category at Items.Category
+Items.CategoryPricingCompetitorAlignment = single(PerimetreCategory.PricingCompetitorAlignment) by PerimetreCategory.Category at Items.Category
+Items.CategoryMinMargin = single(PerimetreCategory.MinMargin) by PerimetreCategory.Category at Items.Category
+
+Items.SelectedAllItem = single(PerimetreItems.SelectedItem) when (PerimetreItems.Item == "All Items") by PerimetreItems.1 at Items.1
+Items.AllItemsPricePercentChange = single(PerimetreItems.PricePercentChange) when (PerimetreItems.Item == "All Items") by PerimetreItems.1 at Items.1
+Items.AllItemsPricingCompetitorAlignment = single(PerimetreItems.PricingCompetitorAlignment) when (PerimetreItems.Item == "All Items") by PerimetreItems.1 at Items.1
+Items.AllItemsMinMargin = single(PerimetreItems.MinMargin) when (PerimetreItems.Item == "All Items") by PerimetreItems.1 at Items.1
+
+Items.SelectedItem = single(PerimetreItems.SelectedItem) by PerimetreItems.Item at Items.Id
+Items.ItemsPricePercentChange = single(PerimetreItems.PricePercentChange) by PerimetreItems.Item at Items.Id
+Items.ItemsPricingCompetitorAlignment = single(PerimetreItems.PricingCompetitorAlignment) by PerimetreItems.Item at Items.Id
+Items.ItemsMinMargin = single(PerimetreItems.MinMargin) by PerimetreItems.Item at Items.Id
+
+///----Analysis back for Full Catalog
+
+show table "Full Catalog" a9h12 {tileTab: "Catalog"} with
+  Items.Id as "Ref"
+  Items.Name as "Name" {columnWidth: 0.25}
+  Items.Category as "Category"
+  Items.SubCategory
+  Items.StartDate
+  Items.StockOnHand {cellBackground: #(Colors.color5e) ; unit: #(GP.pcsUnit)}
+  Items.StockOnOrder {cellBackground: #(Colors.color5e) ; unit: #(GP.pcsUnit)}
+  Items.BuyPrice as "BuyPrice" {cellBackground: #(Colors.color5e) ; unit: #(GP.DcUnit)}
+  Items.SellPrice as "SellPrice" {cellBackground: #(Colors.color5e) ; unit: #(GP.DcUnit)}
+  Items.MarginRate {numbers: percent ; cellBackground: #(Colors.color5e)}
+  Items.YTDSalesQty {cellBackground: #(Colors.color5e) ; unit: #(GP.pcsUnit)}
+  Items.YTDSales {cellBackground: #(Colors.color5e) ; unit: #(GP.DcUnit)}
+  Items.LastYearSalesQty {cellBackground: #(Colors.color5e) ; unit: #(GP.pcsUnit)}
+  Items.LastYearSales {cellBackground: #(Colors.color5e) ; unit: #(GP.DcUnit)}
+  Items.SaleTrend {numbers: percent ; cellBackground: #[Items.GrowthColor]}
+  Items.NbDaysInStock {columnTooltipText: "Defined as StockAvailable divided by Daily Sales over 2024" ; unit: #(daysunit)}
+  Items.CompetitorSellPrice as "CompetitorPrice" {cellBackground: #(Colors.colorWarning4) ; unit: #(GP.DcUnit)}
+  Items.PricingRecommendationEmoji as "Price Change?" {columnTooltipText: "Depends on Number of Days of stock. If #Days< 30 then increase, if #Days > 90 then decrease else no change "}
+  Items.PricingRecommendation as "Recommendation"
+  if Items.SelectedItem or Items.SelectedCategory and Items.PricingRecommendation!="Stable Price"  then "✔️" else\
+  if not (Items.SelectedItem or Items.SelectedCategory) and Items.PricingRecommendation!="Stable Price" then "❌" else "" as "Reco Applied?"
+
+////Visualisation of results at Category Level
+
+currentTab = "CategoryResults"
+
+show form "Select Category" a5b6 {formButton: "OK" ; fieldChoices: #(Category.Category) ; tileTab: #(currentTab)} with
+  Category as ""
+
+Items.NewSellPriceIfCategorySelected = if Items.SelectedCategory then
+                  if Items.CategoryPricePercentChange != 0 then Items.SellPrice * (1+Items.CategoryPricePercentChange) else \
+                  if Items.CategoryPricingCompetitorAlignment !=  0 then Items.CompetitorSellPrice * (1-Items.CategoryPricingCompetitorAlignment) else \
+                  if Items.CategoryMinMargin != 0 then Items.BuyPrice / (1-Items.CategoryMinMargin) else Items.SellPrice
+                  else if Items.SelectedAllCategories then \
+                  if Items.AllCategoryPricePercentChange != 0 then Items.SellPrice * (1+Items.AllCategoryPricePercentChange) else \
+                  if Items.AllCategoryPricingCompetitorAlignment !=  0 then Items.CompetitorSellPrice * (1-Items.AllCategoryPricingCompetitorAlignment) else \
+                  if Items.AllCategoryMinMargin != 0 then Items.BuyPrice * (1-Items.AllCategoryMinMargin) else Items.SellPrice
+                  else Items.SellPrice
+
+Items.NewSellPrice =  if (Items.SelectedCategory or Items.SelectedAllCategories) then Items.NewSellPriceIfCategorySelected else Items.SellPrice
+Items.NewMarginRate = (Items.NewSellPrice - Items.BuyPrice)/Items.NewSellPrice
+Items.SellPriceComparison = (Items.SellPrice - Items.NewSellPrice)/Items.SellPrice
+Items.PriceElasticity = if Items.NewSellPrice != Items.SellPrice then Items.SellPriceComparison/2 else 0
+ItemsWeek.NewForecast = (1+Items.PriceElasticity) * ItemsWeek.InitialForecast
+Items.HasChanged = Items.NewSellPrice != Items.SellPrice
+
+
+where Items.Category == Category
+  show linechart "Weekly Sales and Future Forecast" a7h10 {tileTab: #(currentTab)}with
+    sum(ItemsWeek.QtySold) as "QtySold" {seriesSmooth: cubic ; unit: #(GP.pcsUnit) ; color: #(Colors.color1)}
+    sum(ItemsWeek.InitialForecast) as "Initial Forecast" {seriesSmooth: cubic ; unit: #(GP.pcsUnit) ; color: #(Colors.colorWarning4)}
+    sum(ItemsWeek.NewForecast) as "New Forecast" {seriesSmooth: cubic ; seriesPattern: dotted ; unit: #(GP.pcsUnit)}
+    group by ItemsWeek.week
+
+  show table "Item Price Changed" a11h13 {tileTab: #(currentTab)} with
+    Items.Id as "Ref"
+    Items.Name as "Name"
+    Items.Category
+    Items.SubCategory
+    Items.Brand
+    Items.StartDate
+    Items.StockOnHand {cellBackground: #(Colors.color5e) ; unit: #(GP.pcsUnit)}
+    Items.StockOnOrder {cellBackground: #(Colors.color5e) ; unit: #(GP.pcsUnit)}
+    Items.BuyPrice as "BuyPrice" {cellBackground: #(Colors.color5e) ; unit: #(GP.DcUnit)}
+    Items.SellPrice as "SellPrice" {cellBackground: #(Colors.color5e) ; unit: #(GP.DcUnit)}
+    Items.MarginRate {numbers: percent ; cellBackground: #(Colors.color5e)}
+    Items.NewSellPrice {cellBackground: #(Colors.color5e) ; unit: #(GP.DcUnit)}
+    Items.NewMarginRate {numbers: percent ; cellBackground: #(Colors.color5e)}
+    Items.HasChanged
+
+
+////Visualisation of results at Item Level
+
+currentTab = "ItemResults"
+
+Items.NewSellPriceIfItemSelected = if Items.SelectedItem then
+                  if Items.ItemsPricePercentChange != 0 then Items.SellPrice * (1+Items.ItemsPricePercentChange) else \
+                  if Items.ItemsPricingCompetitorAlignment != 0 then Items.CompetitorSellPrice * (1-Items.ItemsPricingCompetitorAlignment ) else \
+                  if Items.ItemsMinMargin != 0 then Items.BuyPrice / (1-Items.ItemsMinMargin) else Items.SellPrice
+                  else if Items.SelectedAllItem then
+                  if Items.AllItemsPricePercentChange != 0 then Items.SellPrice * (1+Items.AllItemsPricePercentChange) else \
+                  if Items.AllItemsPricingCompetitorAlignment != 0 then Items.CompetitorSellPrice * (1-Items.AllItemsPricingCompetitorAlignment ) else \
+                  if Items.AllItemsMinMargin != 0 then Items.BuyPrice / (1-Items.AllItemsMinMargin) else Items.SellPrice else Items.SellPrice
+
+Items.NewSellPrice = if (Items.SelectedItem or Items.SelectedAllItem) then Items.NewSellPriceIfItemSelected else \
+  if (Items.SelectedCategory or Items.SelectedAllCategories) then Items.NewSellPriceIfCategorySelected else Items.SellPrice
+
+Items.HasChanged = Items.NewSellPrice != Items.SellPrice
+
+Items.NewMarginRate = (Items.NewSellPrice - Items.BuyPrice)/Items.NewSellPrice
+
+show table "Item Price Changed" a9h11 slices: slice {tileTab: #(currentTab)} with
+  Items.Id as "Ref"
+  Items.Name as "Name"
+  Items.Category
+  Items.SubCategory
+  Items.Brand
+  Items.StartDate
+  Items.StockOnHand {cellBackground: #(Colors.color5e) ; unit: #(GP.pcsUnit)}
+  Items.StockOnOrder {cellBackground: #(Colors.color5e) ; unit: #(GP.pcsUnit)}
+  Items.BuyPrice as "BuyPrice" {cellBackground: #(Colors.color5e) ; unit: #(GP.DcUnit)}
+  Items.SellPrice as "SellPrice" {cellBackground: #(Colors.color5e) ; unit: #(GP.DcUnit)}
+  Items.MarginRate {numbers: percent ; cellBackground: #(Colors.color5e)}
+  Items.NewSellPrice {cellBackground: #(Colors.color5e) ; unit: #(GP.DcUnit)}
+  Items.NewMarginRate {numbers: percent ; cellBackground: #(Colors.color5e)}
+  Items.HasChanged
+
+Items.SellPriceComparison = (Items.SellPrice - Items.NewSellPrice)/Items.SellPrice
+Items.PriceElasticity = if Items.NewSellPrice != Items.SellPrice then Items.SellPriceComparison/2 else 0
+ItemsWeek.NewForecast = (1+Items.PriceElasticity) * ItemsWeek.InitialForecast
+
+show linechart "Weekly Sales and Future Forecast" a5h8 slices:ItemsWeek.Slice {tileTab: #(currentTab)}with
+  same(ItemsWeek.QtySold) as "QtySold" {seriesSmooth: cubic ; unit: #(GP.pcsUnit) ; color: #(Colors.color1)}
+  same(ItemsWeek.InitialForecast) as "Initial Forecast" {seriesSmooth: cubic ; unit: #(GP.pcsUnit) ; color: #(Colors.colorWarning4)}
+  same(ItemsWeek.NewForecast) as "New Forecast" {seriesSmooth: cubic ; seriesPattern: dotted ; unit: #(GP.pcsUnit)}
+  group by ItemsWeek.week
+
+////Visualisation of results at Global Level
+
+currentTab = "GlobalResults"
+
+show linechart "Weekly Sales and Future Forecast" a5h8 {tileTab: #(currentTab)}with
+  sum(ItemsWeek.QtySold) as "QtySold" {seriesSmooth: cubic ; unit: #(GP.pcsUnit) ; color: #(Colors.color1)}
+  sum(ItemsWeek.InitialForecast) as "Initial Forecast" {seriesSmooth: cubic ; unit: #(GP.pcsUnit) ; color: #(Colors.colorWarning4)}
+  sum(ItemsWeek.NewForecast) as "New Forecast" {seriesSmooth: cubic ; seriesPattern: dotted ; unit: #(GP.pcsUnit)}
+  group by ItemsWeek.week
+
+
+
+show table "Item Price Changed" a9h15  {tileTab: #(currentTab)} with
+  Items.Id as "Ref"
+  Items.Name as "Name"
+  Items.Category
+  Items.SubCategory
+  Items.Brand
+  Items.StartDate
+  Items.StockOnHand {cellBackground: #(Colors.color5e) ; unit: #(GP.pcsUnit)}
+  Items.StockOnOrder {cellBackground: #(Colors.color5e) ; unit: #(GP.pcsUnit)}
+  Items.BuyPrice as "BuyPrice" {cellBackground: #(Colors.color5e) ; unit: #(GP.DcUnit)}
+  Items.SellPrice as "SellPrice" {cellBackground: #(Colors.color5e) ; unit: #(GP.DcUnit)}
+  Items.MarginRate {numbers: percent ; cellBackground: #(Colors.color5e)}
+  Items.NewSellPrice {cellBackground: #(Colors.color5e) ; unit: #(GP.DcUnit)}
+  Items.NewMarginRate {numbers: percent ; cellBackground: #(Colors.color5e)}
+  Items.HasChanged

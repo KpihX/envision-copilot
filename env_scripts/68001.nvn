@@ -1,0 +1,875 @@
+/// Cleaning temp data-inputs. Input: /input/tmp/ , Output: /clean/ & /input/tmp2/
+//'__ ### __ BUSINESS PRE-PROCESSING __
+//'.. __ This script takes all inputs from the input folder /input/tmp/ and cleans data in agreement with the client. __
+import "/1. utilities/Modules/Global Parameters" as GP with
+  CompanyCurrency
+  DefaultImageUrl
+
+///--------------------------------- [ SHOW GENERIC HEADLINE ] -------------------------------------
+
+// Show Header
+/// ------------------------------------- [ READ INPUT TABLES ] ------------------------------------
+const testStorage = ""
+const path = "\{testStorage}/Clean/tmp/"
+
+read "\{path}Catalog.ion" as Catalog with
+  IsTopItem : boolean
+  CategoryDisplayRank : number
+  ItemDisplayRank : number
+
+  Sku : text
+  Loc : text
+  Ref : text
+  Name : text
+  Category : text
+  SubCategory : text
+  // SubCategory : text
+  Brand : text
+  Supplier : text
+  StartDate : date
+  EndDate : date
+  // StockOnHand : number
+  // StockOnOrder : number
+  // BackOrder : number
+  ImageName : text
+  IsActive : boolean
+  BuyPrice : number
+  SellPrice : number
+  MOQ : number
+  LotMultiplier : number
+  Volume : number
+  IsUniqueKey : boolean
+  IsInOrders : boolean
+  // IsInPO : boolean
+  IsInSupplier : boolean
+  InputDate : date
+  InputPath : text
+  IsBimodalDemand : boolean
+  ExtremeBimodalDemandFrequence : number
+  ExtremeBimodalDemandFactor : number
+  IsRightSkewedDemand : boolean
+  ExtremeRightSkewedDemandFrequence : number
+  ExtremeRightSkewedDemandFactor : number
+
+read "\{path}Orders.ion" as Orders with
+  Sku : text
+  OrderDate : date
+  Ref : text
+  Loc : text
+  RawQuantity : number
+  Quantity : number
+  NetAmount : number
+  OrderId : text
+  Currency : text
+  // Client : text
+  IsInCatalog : boolean
+  InputDate : date
+  InputPath : text
+
+read "/Clean/tmp/Purchaseorders.ion" as PO with
+  Sku : text
+  OrderDate : date
+  Loc : text
+  Ref : text
+  DeliveryDate : date
+  Quantity : number
+  Supplier : text
+  PONumber : text
+  IsInCatalog : boolean
+  InputDate : date
+  InputPath : text
+
+read "/Clean/tmp/Stock.ion" as Stock with
+  Sku : text
+  StockOnHand : number
+  StockOnOrder : number
+  StockDate : date
+  IsInCatalog : boolean
+  InputDate : date
+  InputPath : text
+
+
+read "\{path}Suppliers.ion" as Suppliers with
+  Supplier : text
+  LeadTime : number
+  ReorderCycle : number
+  MOV : number
+  ContainerM3 : number
+  IsUniqueKey : boolean
+  IsInCatalog : boolean
+  InputDate : date
+  InputPath : text
+
+//in order to have relevant stuff to display for dispatch
+// read "/Manual/ForceStockOnHand.xlsx" as ForceStockOnHand with
+//   Sku : text
+//   StockOnHand : number
+
+//manual inputs : from interface where user can manually override data
+//it prevails over anything else, to be applied last
+read "/Clean/Override/OverrideItems.ion" as OverrideItems with
+  Sku : text
+  Ref : text
+  Loc : text
+  Name : text
+  Category : text
+  BuyPrice : number
+  SellPrice : number
+  StockOnHand : number
+  LotMultiplier : number
+  LotMultiplierDispatch : number
+  MOQ : number
+  LeadTime : number
+  ReorderCycle : number
+  ReDispatchCycle : number
+  CopyDemandOfLoc : text
+read "/Clean/Override/OverrideLocations.ion" as OverrideLocations  with
+  Loc : text
+  CarryingCostWeight : number
+
+//manual file to get auto parts names and urls
+
+// read "/Manual/AutopartsListnames.xlsx" as AutoPartsNames with
+//   Name : text
+//   AutoPartsName : text
+//   AutoPartsItemUrl : text
+
+show label "Business Pre-Processing" a1e1
+
+show logo "logo" f1
+///------------------------------ [     GENERIC DOCUMENTATION     ] --------------------------------
+
+show markdown "Generic Documentation" a2f5 with """
+  #### 💡 Business Pre-Processing
+
+  __The Business Pre-Processing takes all inserted inputs from `/input/tmp/` and cleans data__
+  __in agreement with the client. Cleaning means that further data problems are identified,__
+  __highlighted and handled in a way, that the end-result is a representable data-set of the__
+  __companies business environment__
+
+
+  #### Steps:
+  1. Reading in Tables: Reading all tables to be cleaned
+  2. Pre Calculation: Calculating intermediate results
+  3. Solving Data Health Issues
+  4. Adding additional table informations
+  """
+
+
+/// ---------------------------------- [ SETUP PRE CALCULATIONS ] ----------------------------------
+
+today = max(Orders.OrderDate)/// USE TODAY IF DATA FLOW IS STABLE! today()
+placeHolderString = "N/A"
+separator = "| "
+
+Catalog.HealthLog = "" // This Log safes all data health findings
+Orders.HealthLog = "" // This Log safes all data health findings
+
+//'-. ----------------------------------------------------------------------
+///----------------------------------- [ KICK OUT LOOSE ENDS ] -------------------------------------
+//'__ ### Erase loose ends:
+//'__ __ Before the main processing can be started, elements that could break the script will be eliminated (Broken Keys). __
+
+//'__ * Catalog Key - Only keep the first Sku
+keep where argwhichever() by [Catalog.Sku]
+
+//'__ * Supplier Key - Only keep the first Supplier
+keep where argwhichever() by [Suppliers.Supplier]
+
+//'__ * Orphan Boms - Erase all parts and bundles if the Sku cannot be found in the Catalog
+// consider that other clients expect a differnt handling of Boms (e.g. to create a Catalog entry for them)
+// keep where BOM.IsBundleInCatalog
+// keep where BOM.IsPartInCatalog
+
+//'-. ----------------------------------------------------------------------
+///----------------------------------- [ APPLY GENERIC RULES ] -------------------------------------
+//'__ ### Apply Placeholders
+//'__ __ Before the data is validated, simple manipulations are applied to replace missing values with placeholders. __
+//'__ __ These placeholders must be setup in alignment with the client. All entered placeholders must be marked __
+// The Data Input Rules may be executed on an own script
+
+Catalog.HasPlaceholder = false
+Orders.HasPlaceholder = false
+// PO.HasPlaceholder = false
+
+//'__ * __ Catalog __ table should have `Category` filled.
+where Catalog.Category == ""
+  Catalog.Category = placeHolderString
+  Catalog.HasPlaceholder = true
+
+//'__ * __ Catalog __ table should have `Brand` filled.
+where Catalog.Brand == ""
+  Catalog.Brand = placeHolderString
+  Catalog.HasPlaceholder = true
+
+//'__ * __ Catalog __ table should have `MOQ` filled. If MOQ is missing, then just set it to 1
+where Catalog.MOQ == 0
+  Catalog.MOQ = 1
+  Catalog.HasPlaceholder = true
+//'__ * __ Catalog __ table should have `LotMultiplier` filled. If LotMultiplier is missing, then just set it to 1
+where Catalog.LotMultiplier == 0
+  Catalog.LotMultiplier = 1
+  Catalog.HasPlaceholder = true
+//Override value : ideally should be removed and results of purchase list checked to see if it behaves correctly
+Catalog.LotMultiplier = if Catalog.Sku == "DS-124-EDB" then 40 else 1
+
+//'__ * __ Orders __ table should have `OrderId` filled.
+where Orders.OrderId == ""
+  Orders.OrderId = placeHolderString
+  Orders.HasPlaceholder = true
+
+Catalog.HealthLog = concat(Catalog.HealthLog , "PLACE") where Catalog.HasPlaceholder
+Orders.HealthLog = concat(Orders.HealthLog , "PLACE") where Orders.HasPlaceholder
+// PO.HealthLog = concat(PO.HealthLog , "PLACE") where PO.HasPlaceholder
+
+//'-. ----------------------------------------------------------------------
+///------------------------------ [ DEFINE AND CHECK INPUT RULES ] ---------------------------------
+//'__ ### Check Data Input Rules
+//'__ __ In the first round of data validation, is should be defined with the client which input values are allowed. __
+//'__ __ If a rule is broken, it should be defined how to handle the scenario. Possible ways for handling are: __
+//'__ __ Exclude for all analysis (not `IsClean`) | Exclude from optimization | Modify input field __
+// The Data Input Rules may be executed on an own script
+
+//'__ #### Catalog Input Rules
+
+//'__ * `IsValidLocation` - A location must be filled
+Catalog.IsValidLocation = Catalog.Loc != ""
+
+//'__ * `IsValidRef` - A reference code must be filled
+Catalog.IsValidRef = Catalog.Ref != ""
+
+//'__ * `IsValidSupplier` - A reference must have a valid Supplier
+Catalog.IsValidSupplier = Catalog.Supplier != "" and Catalog.Supplier != placeHolderString
+
+//'__ * `IsValidBuyPrice` - The buyprice must be a decimal above 0
+Catalog.IsValidBuyPrice = Catalog.BuyPrice > 0
+
+//'__ * `IsValidSellPrice` - The offer price must be a decimal above 0
+Catalog.IsValidSellPrice = Catalog.SellPrice > 0 and Catalog.SellPrice > Catalog.BuyPrice
+
+//'__ * `IsValidMOQ` - The MOQ must be an integer above 0
+Catalog.IsValidMOQ = Catalog.MOQ > 0 and  ceiling(Catalog.MOQ) == Catalog.MOQ
+
+//'__ * `IsValidLotMulti` - The LotMultiplier must be an integer above 0
+Catalog.IsValidLotMulti = Catalog.LotMultiplier > 0 and ceiling(Catalog.LotMultiplier) == Catalog.LotMultiplier
+
+//'__ * `IsValidVolume` - The LotMultiplier must be a decimal above 0
+Catalog.IsValidVolume = Catalog.Volume > 0
+
+//----------------------------------------------------------------------
+//'|. #### BOM Input Rules
+
+//'__ * No Bom
+
+//----------------------------------------------------------------------
+//'|. #### Orders Input Rules
+
+//'__ * `IsValidODate` - The Order date must be readable as a date. The Date must not be in the future.
+Orders.IsValidODate = Orders.OrderDate > date(2001,01,01) and Orders.OrderDate <= today()
+
+//'__ * `IsValidDQty` - The Delivered Quantity must be an integer above 0
+Orders.IsValidDQty = Orders.Quantity > 0 and ceiling(Orders.Quantity) == Orders.Quantity
+
+//'__ * `IsPositiveNetAmount` - The NetAmount must be a decimal of 0 or higher
+Orders.IsPositiveNetAmount = Orders.NetAmount >= 0
+
+//'__ * `IsValidCurrency` - The Order Currency must be a valid forex currency
+Orders.IsValidCurrency = iscurrency(Orders.Currency)
+
+
+//----------------------------------------------------------------------
+//'|. #### Purchase Orders
+
+//'__ * No POs in account
+
+
+//----------------------------------------------------------------------
+//'|. #### Supplier
+
+//'__ * `IsValidMOV` - The supplier MOV must be a positive decimal. If the MOV is 0 then no minimum is assumed
+Suppliers.IsValidMOV = Suppliers.MOV > 0
+
+//'__ * `IsValidContVol` - The container volume constraint must be a decimal above 0
+Suppliers.IsValidContVol = Suppliers.ContainerM3 > 0
+
+
+//'-.-----------------------------------------------------------------------------------------------
+///------------------------------------ [ HANDLE FAILED INPUTS ] -----------------------------------
+//'-. ### Handling Violated Input Rules
+
+
+///------------------------------------- [ MARK UNCLEAN INPUTS ] -----------------------------------
+//'|. #### Mark Unclean Inputs
+
+//'__ __ `IsClean` - Records are considered as clean if all variable seem clean enough to be used for analysis __
+//'__ __ A record is clean, if all critical checks are passed: __
+
+//'__ * Clean Catalog: `IsValidLocation` & `IsValidRef` & `IsValidOnHand` & `IsValidOnOrder` & `IsValidBackOrder`
+Catalog.HealthLog = concat(Catalog.HealthLog , separator ,"!Loc") where not Catalog.IsValidLocation
+Catalog.HealthLog = concat(Catalog.HealthLog , separator ,"!Ref") where not Catalog.IsValidRef
+// Stock.HealthLog = concat(Stock.HealthLog , separator ,"!Stock") where not Stock.IsValidOnHand
+// Stock.HealthLog = concat(Stock.HealthLog , separator ,"!OStock") where not Stock.IsValidOnOrder
+// Stock.HealthLog = concat(Stock.HealthLog , separator ,"!BackO") where not Stock.IsValidBackOrder
+Catalog.IsClean = Catalog.IsValidLocation and
+                  Catalog.IsValidRef and
+                  Catalog.IsValidSupplier and
+                  Catalog.IsValidBuyPrice and
+                  Catalog.IsValidSellPrice
+// Stock.IsClean = Stock.IsValidOnOrder and Stock.IsValidBackOrder
+
+//'__ * Clean Orders: `IsValidODate` & `IsValidDQty` & `IsPositiveNetAmount` & `IsValidCurrency`
+Orders.HealthLog = concat(Orders.HealthLog , separator ,"!ODate") where not Orders.IsValidODate
+Orders.HealthLog = concat(Orders.HealthLog , separator ,"!DQty") where not Orders.IsValidDQty
+Orders.HealthLog = concat(Orders.HealthLog , separator ,"!NegNetAm") where not Orders.IsPositiveNetAmount
+Orders.HealthLog = concat(Orders.HealthLog , separator ,"!Currency") where not Orders.IsValidCurrency
+Orders.IsClean = Orders.IsValidODate and Orders.IsValidDQty and Orders.IsPositiveNetAmount and Orders.IsValidCurrency
+
+
+//'-.-----------------------------------------------------------------------------------------------
+///-------------------------------- [ MAKING BUSINESS CALCULATIONS ] -------------------------------
+//'|. ### Business Calculations
+//'__ __ Make additional calculations to align input values with business reality __
+
+//'|. #### Orders Calculations
+//'__ * `IsClosed` : An order is closed if it has a valid arrival date
+Orders.IsClosed = Orders.IsClean and Orders.IsValidDQty
+//'__ * `IsFirstOrder` : Flag the first order of a Sku
+Orders.IsFirstOrder = false
+where Orders.IsClean and Orders.IsClosed
+  Orders.IsFirstOrder = argfirst() by Orders.Sku scan Orders.OrderDate
+Orders.PaymentDay = Orders.OrderDate
+Orders.LokadNetAmount = forex(Orders.NetAmount , Orders.Currency , CompanyCurrency , Orders.PaymentDay)
+
+
+
+
+//'|. #### Catalog Calculations
+//'__ * `SupplierMOV` : Take over MOV from Supplier Table
+Catalog.SupplierMOV = same(Suppliers.MOV) by Suppliers.Supplier at Catalog.Supplier
+//'__ * `SupplierContainerM3` : Take over Container Volume from Supplier Table
+Catalog.SupplierContainerM3 = same(Suppliers.ContainerM3) by Suppliers.Supplier at Catalog.Supplier
+//'__ * `SupplierContainerM3` : Take over Data Health Booleans from Supplier Table
+Catalog.SupplierValidMOV = same(Suppliers.IsValidMOV) by Suppliers.Supplier at Catalog.Supplier default false
+Catalog.SupplierValidContVol = same(Suppliers.IsValidContVol) by Suppliers.Supplier at Catalog.Supplier default false
+
+imagePath = "https://go.lokad.com/DEMO/gateway/BigFiles/browse/Download?path=/Background/Graphics/ItemImages/Images_DrugStore/"
+
+Catalog.ImageUrl = if Catalog.ImageName == "" then DefaultImageUrl else concat(imagePath, Catalog.ImageName, ".png")
+Catalog.ImagePath = substr(Catalog.ImageUrl, indexOf(Catalog.ImageUrl, "path=")+5)
+
+//'__ * `IsDC` : Identifies if a stock location is a distributioncenter for dispatch.
+Catalog.IsDC = Catalog.Loc ~~"DC" // Lets assume for the business case that the headquarter is in Chicago
+
+//'__ * `LokadBuyPrice` : Define unit-buyprice for an item which is assumed for optimization.
+//'__ If an input price is missing for an item, then use the historic (last 365days) price.
+oend = max(Orders.OrderDate) when (Orders.IsClean)
+//'__ * `LokadSellPrice` : Define unit-sellprice for an item which is assumed for optimization.
+Catalog.OrdersNetAm365 = sum(Orders.LokadNetAmount) by Orders.Sku at Catalog.Sku when
+                                (Orders.OrderDate > oend - 365 and Orders.IsClean and Orders.IsClosed)
+Catalog.OrdersOqty365 = sum(Orders.Quantity) by Orders.Sku at Catalog.Sku when
+                                (Orders.OrderDate > oend - 365 and Orders.IsClean and Orders.IsClosed)
+Catalog.OrdersOqty30 = sum(Orders.Quantity) by Orders.Sku at Catalog.Sku when
+                                (Orders.OrderDate > oend - 30 and Orders.IsClean and Orders.IsClosed)
+Catalog.OrdersOqty90 = sum(Orders.Quantity) by Orders.Sku at Catalog.Sku when
+                                (Orders.OrderDate > oend - 90 and Orders.IsClean and Orders.IsClosed)
+Catalog.HistSellPrice = Catalog.OrdersNetAm365 / Catalog.OrdersOqty365
+Catalog.LokadSellPrice = if Catalog.IsValidSellPrice then Catalog.SellPrice else Catalog.HistSellPrice
+// Catalog.IsValidLokadSellPrice = Catalog.LokadSellPrice > 0 and Catalog.LokadSellPrice > Catalog.LokadBuyPrice
+
+//'__ * `LokadLotMultiplier` - Defines Allowed Purchase increment Quantity. If input invalid, then get the next higher integer.
+Catalog.LokadLotMultiplier = if Catalog.IsValidLotMulti then Catalog.LotMultiplier else max(ceiling(Catalog.LotMultiplier) , 1)
+Catalog.LotMultiplierDispatch = if Catalog.Sku == "DS-123-LON" then 10 else 1 //just to have 1 example for dispatch
+
+//'__ * `LokadMOQ` - Defines Minimum Order Quantity for a purchase of an item. If input invalid, then get the next higher multiple of the Lokad LotMultiplier.
+Catalog.MatchingLot = ((Catalog.MOQ / Catalog.LokadLotMultiplier) == ceiling(Catalog.MOQ / Catalog.LokadLotMultiplier))
+Catalog.LokadMOQ = if Catalog.IsValidMOQ and Catalog.MatchingLot then Catalog.MOQ else
+        ceiling(max(ceiling(Catalog.MOQ) , 1) / Catalog.LokadLotMultiplier) * Catalog.LokadLotMultiplier
+
+Catalog.LeadTime = max(Suppliers.LeadTime) by Suppliers.Supplier at Catalog.Supplier
+Catalog.ReorderCycle = max(Suppliers.ReorderCycle) by Suppliers.Supplier at Catalog.Supplier
+
+//assume transportation LT is a few days thus negligeable vs redspatchLT (constant for all products)
+Catalog.ReDispatchCycle = match Catalog.Loc with //dispatch from DC to other locations
+  "DC" -> Catalog.ReorderCycle //assume it is central warehouse : needs stock to cover before the next possible order
+  "EDB" -> 28
+  "LON" -> 21
+  "MAN" -> 21
+Catalog.DispatchLT = 7 //assume 7 days -> rounded to 1 week
+
+Catalog.DefaultStockOnHand = round((Catalog.OrdersOqty365 / 365) * Catalog.LeadTime) // Filler!
+
+///
+stockEnd = max(Stock.StockDate)
+
+Catalog.AvailStock = same(Stock.StockOnHand) by Stock.Sku at Catalog.Sku when (Stock.StockDate == stockEnd)
+
+//Rewrites of stock on hand to create stories in the dispatch
+
+
+
+
+Catalog.StockOnHand = max(Catalog.AvailStock,0) //Catalog.DefaultStockOnHand  /// OVERWRITE IF AN ITEM HAS A WANTED STOCK! // same(Stock.StockOnHand) by Stock.Sku at Catalog.Sku
+// Catalog.StockOnHand = single(ForceStockOnHand.StockOnHand) by ForceStockOnHand.Sku at Catalog.Sku default max(Catalog.AvailStock,0) //Catalog.DefaultStockOnHand  /// OVERWRITE IF AN ITEM HAS A WANTED STOCK! // same(Stock.StockOnHand) by Stock.Sku at Catalog.Sku
+Catalog.StockOnOrder = same(Stock.StockOnOrder) by Stock.Sku at Catalog.Sku when (Stock.StockDate == stockEnd) // same(Stock.StockOnOrder) by Stock.Sku at Catalog.Sku
+Catalog.BackOrder = abs(min(Catalog.AvailStock ,0))// same(Stock.BackOrder) by Stock.Sku at Catalog.Sku
+
+
+PO.IsInFuture = PO.DeliveryDate > oend
+// PO.Quantity = PO.IsInFuture ? 0 : PO.Quantity
+PO.IsClean = PO.IsInCatalog //PO.IsInFuture and
+//'-.-----------------------------------------------------------------------------------------------
+///--------------------------------- [ MAKING BUSINESS DECISION ] ----------------------------------
+//'-. ### Business Decisions
+//'__ __ After refining data. It must be decided if an input can be used for optimization __
+
+//'__ * `IsLokadBuyable` - The data quality of this article is good enough for being taken into account for the purchase suggestion.
+Catalog.IsLokadBuyable = Catalog.IsClean //and Catalog.IsValidVolume // and Catalog.HasSufficientOrders
+
+//'__ * `IsContainerReady` - The data quality of this article is good enough for being taken into account a dispatch suggestion.
+Catalog.IsContainerReady = Catalog.SupplierValidMOV and Catalog.SupplierValidContVol and Catalog.IsLokadBuyable
+
+
+///Creat locations table
+table Locations = by Catalog.Loc
+Locations.Loc = same(Catalog.Loc)
+
+/// Manual override from manual inputs dashboard (66794)
+
+Catalog.BuyPrice = single(OverrideItems.BuyPrice) by OverrideItems.Sku at Catalog.Sku  default Catalog.BuyPrice
+Catalog.SellPrice = single(OverrideItems.SellPrice) by OverrideItems.Sku at Catalog.Sku default Catalog.SellPrice
+Catalog.StockOnHand = single(OverrideItems.StockOnHand) by OverrideItems.Sku at Catalog.Sku default Catalog.StockOnHand
+Catalog.LotMultiplier = single(OverrideItems.LotMultiplier) by OverrideItems.Sku at Catalog.Sku default Catalog.LotMultiplier
+Catalog.LotMultiplierDispatch = single(OverrideItems.LotMultiplierDispatch) by OverrideItems.Sku at Catalog.Sku default Catalog.LotMultiplierDispatch
+Catalog.MOQ = single(OverrideItems.MOQ) by OverrideItems.Sku at Catalog.Sku default Catalog.MOQ
+Catalog.LeadTime = single(OverrideItems.LeadTime) by OverrideItems.Sku at Catalog.Sku default Catalog.LeadTime
+
+
+Catalog.StockOnHand = match Catalog.Sku with
+  "DS-128-DC" -> random.integer(Catalog.1,10)
+  "DS-125-DC" -> random.integer(Catalog.1,10)
+  "DS-146-DC" -> random.integer(Catalog.1,10)
+  "DS-119-DC" -> random.integer(Catalog.1,10)
+  "DS-144-DC" -> random.integer(Catalog.1,10)
+  "DS-157-DC" -> random.integer(Catalog.1,10)
+  "DS-126-DC" -> random.integer(Catalog.1,10)
+  "DS-127-DC" -> random.integer(Catalog.1,10)
+  "CT-118-DC" -> random.integer(Catalog.20,40)
+  "DS-116-DC" -> random.integer(Catalog.5,20)
+  .. -> Catalog.StockOnHand
+
+
+where argwhichever() by PO.PONumber
+  Catalog.RanvarLeadTime = ranvar(PO.DeliveryDate - PO.OrderDate) when(not PO.IsInFuture and PO.IsClean) by PO.Supplier at Catalog.Supplier
+
+
+Catalog.ReorderCycle = single(OverrideItems.ReorderCycle) by OverrideItems.Sku at Catalog.Sku default Catalog.ReorderCycle
+Catalog.ReDispatchCycle = single(OverrideItems.ReDispatchCycle) by OverrideItems.Sku at Catalog.Sku default Catalog.ReDispatchCycle
+Catalog.CopyDemandOfLoc = single(OverrideItems.CopyDemandOfLoc) by OverrideItems.Sku at Catalog.Sku default ""
+
+//Orders Copy
+Orders.CopyDemandOfLoc = single(Catalog.CopyDemandOfLoc) by Catalog.Sku at Orders.Sku
+Orders.CopyDemandOfLoc = if Orders.CopyDemandOfLoc == "" then Orders.Loc else Orders.CopyDemandOfLoc
+
+Orders.SkuToCopy = concat(Orders.Ref,"-",Orders.CopyDemandOfLoc)
+
+Orders.Extend = distinct(Orders.Sku) by Orders.SkuToCopy at Orders.Sku default 0 //0 is possible, it is ok to delete lines
+Orders.RankSku = rankd(Orders.Sku) by Orders.SkuToCopy
+table ExtOrders = extend.range(Orders.Extend)
+ExtOrders.SkuToCopy = Orders.Sku
+ExtOrders.Sku = same(Orders.Sku) by [Orders.SkuToCopy,Orders.RankSku] at [ExtOrders.SkuToCopy,ExtOrders.N]
+ExtOrders.Loc = field(ExtOrders.Sku, "-", 2)
+
+//CarryincostWeight represents by how much the classic carrying cost modeled by Lokad will be multiplied.
+//1 = neutral, 0 = no carrying cost
+Locations.CarryingCostWeight = single(OverrideLocations.CarryingCostWeight) by OverrideLocations.Loc at Locations.Loc default 1 //useful for manual inputs to model a warehouse that would be more expensive than another (FBA)
+
+///----Table References---
+
+table References = by Catalog.Ref
+References.Ref = same(Catalog.Ref)
+
+//'-.-----------------------------------------------------------------------------------------------
+///-------------------------------------- [ EXPORT TABLES ] ----------------------------------------
+show label "Export Tables" a10e10
+//'-. ### Exporting Tables
+
+projectFolder = ""
+exportPath = "\{projectFolder}/Clean/"
+show scalar "export path" f10 with exportPath
+
+// export Snapshot
+snapshotName = concat("Items_" , today )
+
+show table "Catalog" a11f11 write:"\{exportPath}Items.ion" with //export:"\{exportPath}snapshots/Items/\{snapshotName}.ion" {dateFormat: "yyyy-MM-dd"}
+  Catalog.IsTopItem
+  Catalog.CategoryDisplayRank
+  Catalog.ItemDisplayRank
+
+  Catalog.Sku
+  Catalog.Loc
+  Catalog.Ref
+  Catalog.Name
+  Catalog.Category
+  Catalog.SubCategory
+  Catalog.Brand
+  Catalog.Supplier
+  Catalog.StartDate
+  Catalog.EndDate
+  Catalog.StockOnHand
+  Catalog.StockOnOrder
+  Catalog.BackOrder
+  Catalog.BuyPrice
+  Catalog.SellPrice
+  Catalog.MOQ
+  Catalog.LotMultiplier
+  Catalog.LotMultiplierDispatch
+  Catalog.Volume
+  Catalog.IsActive
+  Catalog.LeadTime
+  Catalog.ReDispatchCycle
+  Catalog.ReorderCycle
+  Catalog.DispatchLT
+  Catalog.ImageUrl
+  Catalog.ImagePath
+  // Additional Calculations
+  Catalog.LokadMOQ
+  Catalog.LokadLotMultiplier
+  // Catalog.LokadBuyPrice
+  Catalog.LokadSellPrice
+  Catalog.SupplierMOV // [New] - MOV from the corresponding Supplier at the suppliers table
+  Catalog.SupplierContainerM3 // [New] - ContainerM3 from the corresponding Supplier at the suppliers table
+  Catalog.IsDC
+  // HEALTH PROCESSING:
+  Catalog.HealthLog
+  Catalog.IsClean
+  Catalog.IsValidLocation
+  Catalog.IsValidRef
+  Catalog.IsValidSupplier
+  Catalog.IsValidBuyPrice
+  Catalog.IsValidSellPrice
+  Catalog.IsLokadBuyable
+  Catalog.IsContainerReady
+  Catalog.IsBimodalDemand
+  Catalog.ExtremeBimodalDemandFrequence
+  Catalog.ExtremeBimodalDemandFactor
+  Catalog.IsRightSkewedDemand
+  Catalog.ExtremeRightSkewedDemandFrequence
+  Catalog.ExtremeRightSkewedDemandFactor
+  today as "SnapshotDate"
+  Catalog.RanvarLeadTime
+  Catalog.OrdersOqty30 as "Q30"
+  Catalog.OrdersOqty90 as "Q90"
+  Catalog.OrdersOqty365  as "Q365"
+
+show table "Orders" a14f14 write:"\{exportPath}Orders.ion" with
+  ExtOrders.Sku ///This is from EXTOrders !!
+  Orders.OrderDate
+  Orders.Ref
+  ExtOrders.Loc ///This is from EXTOrders !!
+  Orders.RawQuantity
+  Orders.Quantity
+  Orders.LokadNetAmount
+  Orders.OrderId
+  Orders.IsFirstOrder
+  // HEALTH PROCESSING:
+  Orders.HealthLog
+  Orders.IsClean
+
+show table "Suppliers" a16f16 write:"\{exportPath}Suppliers.ion" with
+  Suppliers.Supplier
+  Suppliers.MOV
+  Suppliers.ContainerM3
+
+show table "PO" write:"\{exportPath}PO.ion" with
+  PO.Sku
+  PO.OrderDate
+  PO.Loc
+  PO.Ref
+  PO.DeliveryDate
+  PO.Quantity
+  PO.Supplier
+  PO.PONumber
+  PO.IsInCatalog
+  PO.IsClean
+  PO.InputDate
+  PO.InputPath
+
+show table "Stock" write:"\{exportPath}Stock.ion" with
+  Stock.Sku
+  Stock.StockOnHand
+  Stock.StockOnOrder
+  Stock.StockDate
+  Stock.IsInCatalog
+  Stock.InputDate
+  Stock.InputPath
+
+show table "Locations" write:"\{exportPath}Locations.ion" with
+  Locations.Loc
+  Locations.CarryingCostWeight
+
+show table "References" write : "\{exportPath}References.ion" with
+  References.Ref
+  mode(Catalog.Name) into References as "Name"
+  same(Catalog.Category) into References as "Category"
+  same(Catalog.SubCategory) into References as "SubCategory"
+  same(Catalog.Brand) into References as "Brand"
+  same(Catalog.Supplier) into References as "Supplier"
+  min(Catalog.StartDate) into References as "StartDate"
+  max(Catalog.EndDate) into References as "EndDate"
+  sum(Catalog.StockOnHand) into References as "StockOnHand"
+  sum(Catalog.StockOnOrder) into References as "StockOnOrder"
+  same(Catalog.BackOrder) into References as "BackOrder"
+  max(Catalog.BuyPrice) into References as "BuyPrice"
+  max(Catalog.SellPrice) into References as "SellPrice"
+  same(Catalog.MOQ) into References as "MOQ"
+  same(Catalog.IsActive) into References as "IsActive"
+  same(Catalog.LeadTime) into References as "LeadTime"
+
+
+show markdown ""  a18f47 { tileColor: "#8c002a" } with  """
+
+ ### __ BUSINESS PRE-PROCESSING __
+ __ This script takes all inputs from the input folder /input/tmp/ and cleans data in agreement with the client. __
+
+
+
+ ----------------------------------------------------------------------
+ ### Erase loose ends:
+ __ Before the main processing can be started, elements that could break the script will be eliminated (Broken Keys). __
+ * Catalog Key - Only keep the first Sku
+ * Supplier Key - Only keep the first Supplier
+ * Orphan Boms - Erase all parts and bundles if the Sku cannot be found in the Catalog
+
+ ----------------------------------------------------------------------
+ ### Apply Placeholders
+ __ Before the data is validated, simple manipulations are applied to replace missing values with placeholders. __
+ __ These placeholders must be setup in alignment with the client. All entered placeholders must be marked __
+ * __ Catalog __ table should have `Category` filled.
+ * __ Catalog __ table should have `SubCategory` filled.
+ * __ Catalog __ table should have `Brand` filled.
+ * __ Catalog __ table should have `MOQ` filled. If MOQ is missing, then just set it to 1
+ * __ Catalog __ table should have `LotMultiplier` filled. If LotMultiplier is missing, then just set it to 1
+ * __ Orders __ table should have `OrderId` filled.
+ * __ Orders __ table should have `Client` filled.
+ * __ Purchase Order __ table should have `PONumber` filled.
+ * __ Prices __ table should have `MinQuantity` filled. If MinQuantity is missing, then just set it to 1
+
+ ----------------------------------------------------------------------
+ ### Check Data Input Rules
+ __ In the first round of data validation, is should be defined with the client which input values are allowed. __
+ __ If a rule is broken, it should be defined how to handle the scenario. Possible ways for handling are: __
+ __ Exclude for all analysis (not `IsClean`) | Exclude from optimization | Modify input field __
+ #### Catalog Input Rules
+ * `IsValidLocation` - A location must be filled
+ * `IsValidRef` - A reference code must be filled
+ * `IsValidOnHand` - The Stock on hand must be an integer above 0
+ * `IsValidOnOrder` - The Stock on order must be an integer above 0
+ * `IsValidBackOrder` - The backorder must be an integer above 0
+ * `IsValidBuyPrice` - The buyprice must be a decimal above 0
+ * `IsValidSellPrice` - The offer price must be a decimal above 0
+ * `IsValidMOQ` - The MOQ must be an integer above 0
+ * `IsValidLotMulti` - The LotMultiplier must be an integer above 0
+ * `IsValidVolume` - The LotMultiplier must be a decimal above 0
+
+
+ #### BOM Input Rules
+
+ * `IsValidQty` - The Bom Quantity must be an integer above 0
+
+
+ #### Prices Input Rules
+
+ * `IsValidMinQty` - The Minimum Quantity must be an integer above 0
+ * `IsPositivePrice` - The Price must be an integer above 0
+
+
+ #### Orders Input Rules
+
+ * `IsValidODate` - The Order date must be readable as a date. The Date must not be in the future.
+ * `IsValidDQty` - The Delivered Quantity must be an integer above 0
+ * `IsPositiveNetAmount` - The NetAmount must be a decimal of 0 or higher
+ * `IsValidCurrency` - The Order Currency must be a valid forex currency
+
+
+ #### Purchase Orders
+
+ * `IsValidDDate` - Identify if the delivery date is valid. If not, assume that there was no arrival
+ * `IsValidODate` - The order date must be a valid date
+ * `IsValidOQty` - Order Quantity must be an integer above 0
+ * `IsValidDQty` - Delivered Quantity must be a positive integer
+ * `IsPosititiveNetAmount` - NetAmount must be a decimal above 0
+ * `IsValidCurrency` - The used currency must be a valid forex currency
+
+
+ #### Supplier
+
+ * `IsValidMOV` - The supplier MOV must be a positive decimal. If the MOV is 0 then no minimum is assumed
+ * `IsValidContVol` - The container volume constraint must be a decimal above 0
+
+-----------------------------------------------------------------------------------------------
+
+ ### Handling Violated Input Rules
+
+
+ #### Mark Unclean Inputs
+
+ __ `IsClean` - Records are considered as clean if all variable seem clean enough to be used for analysis __
+ __ A record is clean, if all critical checks are passed: __
+ * Clean Catalog: `IsValidLocation` & `IsValidRef` & `IsValidOnHand` & `IsValidOnOrder` & `IsValidBackOrder`
+ * Clean BOM: `IsValidQty`
+ * Clean Prices: `IsValidMinQty` & `IsPositivePrice`
+ * Clean Orders: `IsValidODate` & `IsValidDQty` & `IsPositiveNetAmount` & `IsValidCurrency`
+ * Clean Purchase Orders: `IsValidODate` & `IsValidOQty` & `IsValidCurrency`
+
+-----------------------------------------------------------------------------------------------
+
+
+ ### Business Calculations
+
+ __ Make additional calculations to align input values with business reality __
+
+
+ #### PO Calculations
+
+ * `IsClosed` : A Purchase Order is closed if it has a valid arrival date
+
+
+ #### Orders Calculations
+
+ * `IsClosed` : An order is closed if it has a valid arrival date
+ * `IsFirstOrder` : Flag the first order of a Sku
+
+
+ #### Catalog Calculations
+
+ * `SupplierMOV` : Take over MOV from Supplier Table
+ * `SupplierContainerM3` : Take over Container Volume from Supplier Table
+ * `SupplierContainerM3` : Take over Data Health Booleans from Supplier Table
+ * `LokadBuyPrice` : Define unit-buyprice for an item which is assumed for optimization.
+ If an input price is missing for an item, then use the historic (last 365days) price.
+ * `HasSufficientOrders` : Check if the Sku has enough clean order lines in the last 365 days
+ * `LokadSellPrice` : Define unit-sellprice for an item which is assumed for optimization.
+ * `LokadLotMultiplier` - Defines Allowed Purchase increment Quantity. If input invalid, then get the next higher integer.
+ * `LokadMOQ` - Defines Minimum Order Quantity for a purchase of an item. If input invalid, then get the next higher multiple of the Lokad LotMultiplier.
+
+-----------------------------------------------------------------------------------------------
+
+ ### Business Decisions
+ __ After refining data. It must be decided if an input can be used for optimization __
+
+"""
+
+/////// ------------------------ Adaptation to generate dataset related to AutoParts -------------////
+
+
+// Catalog.AutoPartsCategoryname = match Catalog.Category with
+//   "Drugs" -> "Charging Accessories"
+//   "Medical Patient Care" -> "Winter Accessories"
+//   "Medical Supplies" -> "Car Mats"
+//   "Cosmetic" -> "Wheel & tyre accessories"
+//   "" -> ""
+
+// Catalog.AutoPartsCategoryname = if contains(Catalog.Name,"Placebo") then "Brakes" else Catalog.AutoPartsCategoryname
+
+// Catalog.AutoPartsSubCategoryname = match Catalog.SubCategory with
+//   "Antihistamines" -> "Charger"
+//   "Medication" -> "Charging adapter"
+//   "Vitamins" -> "Charging Cable"
+//   "First-aid kit" -> "Ice scraper"
+//   "HomeSupply" -> "Jump Starter"
+//   "MedicalEthanol" ->  "Snow Chains"
+//   "Orthopedic shoes" -> "Car Mats"
+//   "Anti Aging" -> "Car jack"
+//   "ChristmasItem" -> "Tyre Inflators"
+//   "SkinCare" -> "Wheel Brace"
+//   "Solar cream" -> "Wheel trims"
+//   "Teeth Cleaning" -> "Valve Tyre"
+//   "Toothbrush" -> "Tyre Sealant"
+//   "N/A" -> "N/A"
+//   "" -> ""
+
+// Catalog.AutoPartsSubCategoryname = if contains(Catalog.Name,"Placebo") then "Brake caliper" else Catalog.AutoPartsSubCategoryname
+
+// Catalog.AutoPartsBrandName = match Catalog.Brand with
+//   "GoodHealthForAll" -> "RIDEX"
+//   "MediCare" -> "YATO"
+//   "Redfarm" -> "CarCommerce"
+//   "Aspru" -> "Akyga"
+//   "MediDeal" -> "TAGRED"
+//   "Niveau" -> "AMiO"
+//   "SoftSkin" -> "ALLIGATOR"
+//   "N/A" -> "N/A"
+//   "" -> ""
+
+// Catalog.AutoPartsSupplier = Catalog.AutoPartsBrandName
+// Catalog.AutoPartsName = same(AutoPartsNames.AutoPartsName) by AutoPartsNames.Name at Catalog.Name
+// Catalog.AutoPartsImageUrl = same(AutoPartsNames.AutoPartsItemUrl) by AutoPartsNames.Name at Catalog.Name
+// Catalog.AutoPartsImagePathTmp = replace(substr(Catalog.AutoPartsImageUrl, indexOf(Catalog.AutoPartsImageUrl, "name=")+5), "%20", " ")
+// Catalog.AutoPartsImagePath = text("/Images/Autoparts/\{Catalog.AutoPartsImagePathTmp}")
+
+show table "Catalog" a11f11 write:"\{exportPath}AutoPartsItems.ion" with //export:"\{exportPath}snapshots/Items/\{snapshotName}.ion" {dateFormat: "yyyy-MM-dd"}
+  Catalog.IsTopItem
+  Catalog.CategoryDisplayRank
+  Catalog.ItemDisplayRank
+
+  Catalog.Sku
+  Catalog.Loc
+  Catalog.Ref
+  Catalog.Name
+  // Catalog.AutoPartsName
+  // Catalog.AutoPartsCategoryname
+  // Catalog.AutoPartsSubCategoryname
+  // Catalog.AutoPartsBrandName
+  // Catalog.AutoPartsSupplier
+  Catalog.StartDate
+  Catalog.EndDate
+  Catalog.StockOnHand
+  Catalog.StockOnOrder
+  Catalog.BackOrder
+  Catalog.BuyPrice
+  Catalog.SellPrice
+  Catalog.MOQ
+  Catalog.LotMultiplier
+  Catalog.LotMultiplierDispatch
+  Catalog.Volume
+  Catalog.IsActive
+  Catalog.LeadTime
+  Catalog.ReDispatchCycle
+  Catalog.ReorderCycle
+  Catalog.DispatchLT
+  // Catalog.AutoPartsImageUrl
+  Catalog.ImageUrl
+  Catalog.ImagePath
+  // Additional Calculations
+  Catalog.LokadMOQ
+  Catalog.LokadLotMultiplier
+  // Catalog.LokadBuyPrice
+  Catalog.LokadSellPrice
+  Catalog.SupplierMOV // [New] - MOV from the corresponding Supplier at the suppliers table
+  Catalog.SupplierContainerM3 // [New] - ContainerM3 from the corresponding Supplier at the suppliers table
+  Catalog.IsDC
+  // HEALTH PROCESSING:
+  Catalog.HealthLog
+  Catalog.IsClean
+  Catalog.IsValidLocation
+  Catalog.IsValidRef
+  Catalog.IsValidSupplier
+  Catalog.IsValidBuyPrice
+  Catalog.IsValidSellPrice
+  Catalog.IsLokadBuyable
+  Catalog.IsContainerReady
+  Catalog.IsBimodalDemand
+  Catalog.ExtremeBimodalDemandFrequence
+  Catalog.ExtremeBimodalDemandFactor
+  Catalog.IsRightSkewedDemand
+  Catalog.ExtremeRightSkewedDemandFrequence
+  Catalog.ExtremeRightSkewedDemandFactor
+  today as "SnapshotDate"
+  Catalog.RanvarLeadTime
+  Catalog.OrdersOqty30 as "Q30"
+  Catalog.OrdersOqty90 as "Q90"
+  Catalog.OrdersOqty365  as "Q365"
+
+show table "Liste names" with
+  same(Catalog.Name) as "Name"
+  group by Catalog.Name

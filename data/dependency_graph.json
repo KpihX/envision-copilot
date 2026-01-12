@@ -1,0 +1,4758 @@
+{
+  "directed": true,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "id": "/4. Optimization workflow/00 Home",
+      "type": "script",
+      "path": "env_scripts/77929.nvn",
+      "metadata": {
+        "filename": "77929.nvn"
+      }
+    },
+    {
+      "id": "/1. utilities/Modules/Global Parameters",
+      "type": "script",
+      "path": "/1. utilities/Modules/Global Parameters",
+      "metadata": {}
+    },
+    {
+      "id": "/3. Inspectors/2 - Sales Analysis",
+      "type": "script",
+      "path": "env_scripts/68010.nvn",
+      "metadata": {
+        "filename": "68010.nvn"
+      }
+    },
+    {
+      "id": "/Clean/Items.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/Orders.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "//Clean/Stock.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "//Clean/PO.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/3. Inspectors/2 - Sales Analysis::ItemsWeek",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "ItemsWeek"
+      }
+    },
+    {
+      "id": "/3. Inspectors/4 - Stores Analysis",
+      "type": "script",
+      "path": "env_scripts/68012.nvn",
+      "metadata": {
+        "filename": "68012.nvn"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/Category Menu",
+      "type": "script",
+      "path": "env_scripts/82466.nvn",
+      "metadata": {
+        "filename": "82466.nvn"
+      }
+    },
+    {
+      "id": "/1. utilities/Modules/Colors",
+      "type": "script",
+      "path": "/1. utilities/Modules/Colors",
+      "metadata": {}
+    },
+    {
+      "id": "/1. utilities/2. preprocess/[ 1 ] - Technical PreProcessing",
+      "type": "script",
+      "path": "env_scripts/68000.nvn",
+      "metadata": {
+        "filename": "68000.nvn"
+      }
+    },
+    {
+      "id": "/Input/Catalog/Catalog*",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Input//Orders/Orders*",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Input//PO/*.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Manual/Suppliers_Dashboard.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "Catalog.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "Orders.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "Purchaseorders.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "Suppliers.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "Stock.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Logs/LogDefault.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+      "type": "script",
+      "path": "env_scripts/68001.nvn",
+      "metadata": {
+        "filename": "68001.nvn"
+      }
+    },
+    {
+      "id": "/Clean/tmp/Catalog.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/tmp/Orders.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/tmp/Purchaseorders.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/tmp/Stock.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/tmp/Suppliers.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/Override/OverrideItems.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/Override/OverrideLocations.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "Items.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "PO.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "Locations.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "References.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "AutoPartsItems.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing::Locations",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Locations"
+      }
+    },
+    {
+      "id": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing::ExtOrders",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "ExtOrders"
+      }
+    },
+    {
+      "id": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing::References",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "References"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/Archive/General Vision V1",
+      "type": "script",
+      "path": "env_scripts/82169.nvn",
+      "metadata": {
+        "filename": "82169.nvn"
+      }
+    },
+    {
+      "id": "/Clean/LongTermPlanning/Catalog.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/LongTermPlanning/Forecast.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/5. Long Term Planning Module/Archive/General Vision V1::Category",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Category"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/Archive/General Vision V1::SliceParameters",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "SliceParameters"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/Archive/General Vision V1::CatalogExtend",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "CatalogExtend"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/Archive/General Vision V1::CategoryExtend",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "CategoryExtend"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/Archive/General Vision V1::CatalogExtendMonth",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "CatalogExtendMonth"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/06 Purchasing results",
+      "type": "script",
+      "path": "env_scripts/68022.nvn",
+      "metadata": {
+        "filename": "68022.nvn"
+      }
+    },
+    {
+      "id": "/Manual/TopItemsParameters.xlsx",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/PO.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/Stock.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/PurchaseResults/PORecommendations.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/PurchaseResults/MicroDecisions.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/Interface/DeletedSuppliers.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/Interface/InterfaceParameters.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/Interface/SuppliersToCheck.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/Interface/PurchasePerimeter.xlsx",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/4. Optimization workflow/06 Purchasing results::Suppliers",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Suppliers"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/FR/00 Menu General",
+      "type": "script",
+      "path": "env_scripts/87829.nvn",
+      "metadata": {
+        "filename": "87829.nvn"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/09.Simulation ROP and EOQ Dispatch",
+      "type": "script",
+      "path": "env_scripts/75853.nvn",
+      "metadata": {
+        "filename": "75853.nvn"
+      }
+    },
+    {
+      "id": "/Clean/Locations.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/Simulation/ROP.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/Simulation/SimulationStandard.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/4. Optimization workflow/09.Simulation ROP and EOQ Dispatch::SkusDay",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "SkusDay"
+      }
+    },
+    {
+      "id": "/1. utilities/Modules/Functions",
+      "type": "script",
+      "path": "/1. utilities/Modules/Functions",
+      "metadata": {}
+    },
+    {
+      "id": "/4. Optimization workflow/00 Home2",
+      "type": "script",
+      "path": "env_scripts/72915.nvn",
+      "metadata": {
+        "filename": "72915.nvn"
+      }
+    },
+    {
+      "id": "/2. Data sanity/1 - Data Integrity Check",
+      "type": "script",
+      "path": "env_scripts/68004.nvn",
+      "metadata": {
+        "filename": "68004.nvn"
+      }
+    },
+    {
+      "id": "/Input//*/*",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/2. Data sanity/1 - Data Integrity Check::Tests",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Tests"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+      "type": "script",
+      "path": "env_scripts/68021.nvn",
+      "metadata": {
+        "filename": "68021.nvn"
+      }
+    },
+    {
+      "id": "/Clean/PurchaseResults/DemandDistributions.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/PurchaseResults/TargetsPurchaseList.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/PurchaseResults/EconomicParametersCategories.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/PurchaseResults/EconomicParameters.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/4. Optimization workflow/05. Standard Purchase Suggestions::PlotInvestment",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "PlotInvestment"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/05. Standard Purchase Suggestions::Suppliers",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Suppliers"
+      }
+    },
+    {
+      "id": "/2. Data sanity/3 - High Level Data Health",
+      "type": "script",
+      "path": "env_scripts/68006.nvn",
+      "metadata": {
+        "filename": "68006.nvn"
+      }
+    },
+    {
+      "id": "/Clean/Suppliers.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/2. Data sanity/3 - High Level Data Health::SupplierLeadtimes",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "SupplierLeadtimes"
+      }
+    },
+    {
+      "id": "/1. utilities/Modules/Global Parameters::CategoryURL",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "CategoryURL"
+      }
+    },
+    {
+      "id": "/6. Rule Based Pricing/Pricing Rules",
+      "type": "script",
+      "path": "env_scripts/83121.nvn",
+      "metadata": {
+        "filename": "83121.nvn"
+      }
+    },
+    {
+      "id": "/Clean/References.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/PricingRuleBased/CompetitorCatalog.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/PricingRuleBased/Classeur1.xlsx",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/6. Rule Based Pricing/Pricing Rules::Category",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Category"
+      }
+    },
+    {
+      "id": "/6. Rule Based Pricing/Pricing Rules::PerimetreCategory",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "PerimetreCategory"
+      }
+    },
+    {
+      "id": "/6. Rule Based Pricing/Pricing Rules::PerimetreItems",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "PerimetreItems"
+      }
+    },
+    {
+      "id": "/6. Rule Based Pricing/Pricing Rules::ItemsWeek",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "ItemsWeek"
+      }
+    },
+    {
+      "id": "/7. Documentation/4 Production",
+      "type": "script",
+      "path": "env_scripts/68035.nvn",
+      "metadata": {
+        "filename": "68035.nvn"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/Long Term Planning Menu",
+      "type": "script",
+      "path": "env_scripts/82319.nvn",
+      "metadata": {
+        "filename": "82319.nvn"
+      }
+    },
+    {
+      "id": "/3. Inspectors/5 - Supplier Inspector",
+      "type": "script",
+      "path": "env_scripts/68013.nvn",
+      "metadata": {
+        "filename": "68013.nvn"
+      }
+    },
+    {
+      "id": "SupplierInspectorKPIs.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "SupplierInspectorPOs.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/3. Inspectors/5 - Supplier Inspector::FocusMonth",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "FocusMonth"
+      }
+    },
+    {
+      "id": "/7. Documentation/1 Project",
+      "type": "script",
+      "path": "env_scripts/68031.nvn",
+      "metadata": {
+        "filename": "68031.nvn"
+      }
+    },
+    {
+      "id": "/1. utilities/Modules/PathSchemas",
+      "type": "script",
+      "path": "/1. utilities/Modules/PathSchemas",
+      "metadata": {}
+    },
+    {
+      "id": "/8. Old/PurchaseOptimization",
+      "type": "script",
+      "path": "env_scripts/87608.nvn",
+      "metadata": {
+        "filename": "87608.nvn"
+      }
+    },
+    {
+      "id": "/8. Old/PurchaseOptimization::PlotInvestment",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "PlotInvestment"
+      }
+    },
+    {
+      "id": "/8. Old/PurchaseOptimization::Suppliers",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Suppliers"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/07 Standard Dispatch Suggestion",
+      "type": "script",
+      "path": "env_scripts/68023.nvn",
+      "metadata": {
+        "filename": "68023.nvn"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/07 Standard Dispatch Suggestion::SkusWeek",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "SkusWeek"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/07 Standard Dispatch Suggestion::Grid",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Grid"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/07 Standard Dispatch Suggestion::T",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "T"
+      }
+    },
+    {
+      "id": "/3. Inspectors/1 - Item Inspector",
+      "type": "script",
+      "path": "env_scripts/68009.nvn",
+      "metadata": {
+        "filename": "68009.nvn"
+      }
+    },
+    {
+      "id": "/Clean/Forecast/Periodic/FcItems.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/PurchaseResults/StockSimulation.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/DispatchResults/MicroDecisions.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/DispatchResults/DispatchRecommendations.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/DispatchResults/EconomicParameters.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions",
+      "type": "script",
+      "path": "env_scripts/76705.nvn",
+      "metadata": {
+        "filename": "76705.nvn"
+      }
+    },
+    {
+      "id": "/Clean/Parameters/max_date_placeholder.csv",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/PurchaseResults/LongTermSimulation/EconomicParametersCategories.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/PurchaseResults/LongTermSimulation/TargetsPurchaseList.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/PurchaseResults/LongTermSimulation/WeeklyPurchasesByRef.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions::ItemsWeek",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "ItemsWeek"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions::Grid",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Grid"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions::FilteredItemsWeek",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "FilteredItemsWeek"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions::Loop",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Loop"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions::NewFilteredItemsWeek",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "NewFilteredItemsWeek"
+      }
+    },
+    {
+      "id": "/1. utilities/1. populating dataset/02 - Automatic Stock and PO History Creation",
+      "type": "script",
+      "path": "env_scripts/67983.nvn",
+      "metadata": {
+        "filename": "67983.nvn"
+      }
+    },
+    {
+      "id": "/Input/Orders/Orders*",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Input/Stock/Stock_01.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Input/PO/ManualPO_01.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Input/PO/PO_01.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/1. utilities/1. populating dataset/02 - Automatic Stock and PO History Creation::ItemsWeek",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "ItemsWeek"
+      }
+    },
+    {
+      "id": "/1. utilities/1. populating dataset/02 - Automatic Stock and PO History Creation::ManualPO",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "ManualPO"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/Final Forecast Plan",
+      "type": "script",
+      "path": "env_scripts/82317.nvn",
+      "metadata": {
+        "filename": "82317.nvn"
+      }
+    },
+    {
+      "id": "/Clean/LongTermPlanning/DayFactor.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/LongTermPlanning/PO.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/LongTermPlanning/Parametrisation/General.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/LongTermPlanning/Parametrisation/Category_.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/5. Long Term Planning Module/Final Forecast Plan::CatalogExtend",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "CatalogExtend"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/Final Forecast Plan::CatalogExtendMonth",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "CatalogExtendMonth"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/Final Forecast Plan::WeekDay",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "WeekDay"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/Final Forecast Plan::ForecastDaily",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "ForecastDaily"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/Final Forecast Plan::CatalogExtendDay",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "CatalogExtendDay"
+      }
+    },
+    {
+      "id": "/1. utilities/1. populating dataset/03 - Manual Inputs",
+      "type": "script",
+      "path": "env_scripts/67984.nvn",
+      "metadata": {
+        "filename": "67984.nvn"
+      }
+    },
+    {
+      "id": "/1. utilities/1. populating dataset/03 - Manual Inputs::myfinalEditableItems",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "myfinalEditableItems"
+      }
+    },
+    {
+      "id": "/1. utilities/1. populating dataset/03 - Manual Inputs::myfinalEditableLocations",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "myfinalEditableLocations"
+      }
+    },
+    {
+      "id": "/7. Documentation/3 Forecasts & Optimization",
+      "type": "script",
+      "path": "env_scripts/68033.nvn",
+      "metadata": {
+        "filename": "68033.nvn"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/03.b. Forecasting",
+      "type": "script",
+      "path": "env_scripts/68019.nvn",
+      "metadata": {
+        "filename": "68019.nvn"
+      }
+    },
+    {
+      "id": "/Clean/validation/TestEditable.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/4. Optimization workflow/03.b. Forecasting::WeeklyFCModified",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "WeeklyFCModified"
+      }
+    },
+    {
+      "id": "/3. Inspectors/6 Compare to Min-Max strategy",
+      "type": "script",
+      "path": "env_scripts/68014.nvn",
+      "metadata": {
+        "filename": "68014.nvn"
+      }
+    },
+    {
+      "id": "/3. Inspectors/6 Compare to Min-Max strategy::StockMorph",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "StockMorph"
+      }
+    },
+    {
+      "id": "/3. Inspectors/6 Compare to Min-Max strategy::G",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "G"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/04 Economic Parameters",
+      "type": "script",
+      "path": "env_scripts/68020.nvn",
+      "metadata": {
+        "filename": "68020.nvn"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/04 Economic Parameters::ItemsWeek",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "ItemsWeek"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/04 Economic Parameters::Grid",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Grid"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/French/00 Home",
+      "type": "script",
+      "path": "env_scripts/78068.nvn",
+      "metadata": {
+        "filename": "78068.nvn"
+      }
+    },
+    {
+      "id": "/7. Documentation/0 General Organization",
+      "type": "script",
+      "path": "env_scripts/68030.nvn",
+      "metadata": {
+        "filename": "68030.nvn"
+      }
+    },
+    {
+      "id": "/Manual/Demo account project phases.xlsx",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/4. Optimization workflow/10 Audit Tools",
+      "type": "script",
+      "path": "env_scripts/68026.nvn",
+      "metadata": {
+        "filename": "68026.nvn"
+      }
+    },
+    {
+      "id": "/3. Inspectors/7 - Global Business Cockpit",
+      "type": "script",
+      "path": "env_scripts/79365.nvn",
+      "metadata": {
+        "filename": "79365.nvn"
+      }
+    },
+    {
+      "id": "/3. Inspectors/7 - Global Business Cockpit::ItemsWeek",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "ItemsWeek"
+      }
+    },
+    {
+      "id": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning",
+      "type": "script",
+      "path": "env_scripts/82166.nvn",
+      "metadata": {
+        "filename": "82166.nvn"
+      }
+    },
+    {
+      "id": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning::Category",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Category"
+      }
+    },
+    {
+      "id": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning::SubCategory",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "SubCategory"
+      }
+    },
+    {
+      "id": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning::Catalog",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Catalog"
+      }
+    },
+    {
+      "id": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning::Forecast",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Forecast"
+      }
+    },
+    {
+      "id": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning::PO",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "PO"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/01 Inventory Optimization Overview",
+      "type": "script",
+      "path": "env_scripts/68017.nvn",
+      "metadata": {
+        "filename": "68017.nvn"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/01 Inventory Optimization Overview::ItemsWeek",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "ItemsWeek"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/01 Inventory Optimization Overview::Grid",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Grid"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)",
+      "type": "script",
+      "path": "env_scripts/79367.nvn",
+      "metadata": {
+        "filename": "79367.nvn"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)::SkusWeek",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "SkusWeek"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)::Grid",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Grid"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)::T",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "T"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+      "type": "script",
+      "path": "env_scripts/80985.nvn",
+      "metadata": {
+        "filename": "80985.nvn"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/07 Standard Dispatch Suggestion New::SkusWeek",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "SkusWeek"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/07 Standard Dispatch Suggestion New::Grid",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Grid"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/07 Standard Dispatch Suggestion New::T",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "T"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+      "type": "script",
+      "path": "env_scripts/77988.nvn",
+      "metadata": {
+        "filename": "77988.nvn"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/05.New Standard Purchase Suggestions::PlotInvestment",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "PlotInvestment"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/05.New Standard Purchase Suggestions::Suppliers",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Suppliers"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+      "type": "script",
+      "path": "env_scripts/87830.nvn",
+      "metadata": {
+        "filename": "87830.nvn"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/FR/05. Suggestions d'achat::PlotInvestment",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "PlotInvestment"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/FR/05. Suggestions d'achat::Suppliers",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Suppliers"
+      }
+    },
+    {
+      "id": "/8. Old/00 Home",
+      "type": "script",
+      "path": "env_scripts/68016.nvn",
+      "metadata": {
+        "filename": "68016.nvn"
+      }
+    },
+    {
+      "id": "/3. Inspectors/3 - Stock Inspector",
+      "type": "script",
+      "path": "env_scripts/68011.nvn",
+      "metadata": {
+        "filename": "68011.nvn"
+      }
+    },
+    {
+      "id": "/Clean/Reporting/StockInspectorKPIs.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/3. Inspectors/3 - Stock Inspector::ItemsWeek",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "ItemsWeek"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/French/03 Forecasting",
+      "type": "script",
+      "path": "env_scripts/78069.nvn",
+      "metadata": {
+        "filename": "78069.nvn"
+      }
+    },
+    {
+      "id": "/Clean/validation/ManualForecasts.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/4. Optimization workflow/French/03 Forecasting::WeeklyFCModified",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "WeeklyFCModified"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/High Level Forecast Cockpit",
+      "type": "script",
+      "path": "env_scripts/82199.nvn",
+      "metadata": {
+        "filename": "82199.nvn"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/High Level Forecast Cockpit::Category",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Category"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/High Level Forecast Cockpit::SliceParameters",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "SliceParameters"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/High Level Forecast Cockpit::CatalogExtend",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "CatalogExtend"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/High Level Forecast Cockpit::CategoryExtend",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "CategoryExtend"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/High Level Forecast Cockpit::CatalogExtendMonth",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "CatalogExtendMonth"
+      }
+    },
+    {
+      "id": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+      "type": "script",
+      "path": "env_scripts/67982.nvn",
+      "metadata": {
+        "filename": "67982.nvn"
+      }
+    },
+    {
+      "id": "/Background/ItemSim/ItemToProgram_*",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Background/ItemSim/CategoryToProgram*",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Manual/TopSubCategoriesParameters.xlsx",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Input/Orders/Orders_.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Input/Catalog/Catalog_.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation::UserDefinedTimeOrders",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "UserDefinedTimeOrders"
+      }
+    },
+    {
+      "id": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation::NaturalWave",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "NaturalWave"
+      }
+    },
+    {
+      "id": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation::Orders",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Orders"
+      }
+    },
+    {
+      "id": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation::Seasons",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Seasons"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/French/07 Recommandations de Dispatch",
+      "type": "script",
+      "path": "env_scripts/78018.nvn",
+      "metadata": {
+        "filename": "78018.nvn"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/French/07 Recommandations de Dispatch::SkusWeek",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "SkusWeek"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/French/07 Recommandations de Dispatch::Grid",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Grid"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/French/07 Recommandations de Dispatch::T",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "T"
+      }
+    },
+    {
+      "id": "/7. Documentation/Fill Rate Example",
+      "type": "script",
+      "path": "env_scripts/68036.nvn",
+      "metadata": {
+        "filename": "68036.nvn"
+      }
+    },
+    {
+      "id": "/Input/Documentation/Fill Rate/FakeCatalog.csv",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Input/Documentation/Fill Rate/fillrate.csv",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/7. Documentation/2 Data phase",
+      "type": "script",
+      "path": "env_scripts/68032.nvn",
+      "metadata": {
+        "filename": "68032.nvn"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/08. Dispatch ROP definition",
+      "type": "script",
+      "path": "env_scripts/75854.nvn",
+      "metadata": {
+        "filename": "75854.nvn"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/08. Dispatch ROP definition::SkusWeek",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "SkusWeek"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/08. Dispatch ROP definition::Grid",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Grid"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/Category Vision",
+      "type": "script",
+      "path": "env_scripts/82299.nvn",
+      "metadata": {
+        "filename": "82299.nvn"
+      }
+    },
+    {
+      "id": "/Clean/LongTermPlanning/Trigger/General.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/5. Long Term Planning Module/Category Vision::SubCategory",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "SubCategory"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/Category Vision::SliceParameters",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "SliceParameters"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/Category Vision::CatalogExtend",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "CatalogExtend"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/Category Vision::SubCategoryExtend",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "SubCategoryExtend"
+      }
+    },
+    {
+      "id": "/5. Long Term Planning Module/Category Vision::CatalogExtendMonth",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "CatalogExtendMonth"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/03 Forecast Menu",
+      "type": "script",
+      "path": "env_scripts/86092.nvn",
+      "metadata": {
+        "filename": "86092.nvn"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+      "type": "script",
+      "path": "env_scripts/78023.nvn",
+      "metadata": {
+        "filename": "78023.nvn"
+      }
+    },
+    {
+      "id": "/Clean/French/PurchaseResults/PORecommendations.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Clean/French/PurchaseResults/TargetsPurchaseList.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/4. Optimization workflow/French/05.Recommandations d'Achats::PlotInvestment",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "PlotInvestment"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/French/05.Recommandations d'Achats::Suppliers",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Suppliers"
+      }
+    },
+    {
+      "id": "/2. Data sanity/2 - Low Level Data Health",
+      "type": "script",
+      "path": "env_scripts/68005.nvn",
+      "metadata": {
+        "filename": "68005.nvn"
+      }
+    },
+    {
+      "id": "/4. Optimization workflow/02 Suppliers",
+      "type": "script",
+      "path": "env_scripts/68018.nvn",
+      "metadata": {
+        "filename": "68018.nvn"
+      }
+    },
+    {
+      "id": "/7. Documentation/3.1 Action Reward Example",
+      "type": "script",
+      "path": "env_scripts/68034.nvn",
+      "metadata": {
+        "filename": "68034.nvn"
+      }
+    },
+    {
+      "id": "/Input/Documentation/ActRwd Example/ActRwdDocsItems.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Input/Documentation/ActRwd Example/ActRwdDocsOrders.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Input/Documentation/ActRwd Example/ActRwdDocsDemand.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/Input/Documentation/ActRwd Example/ActRwdDocsFC.ion",
+      "type": "file",
+      "path": null,
+      "metadata": {}
+    },
+    {
+      "id": "/7. Documentation/3.1 Action Reward Example::p",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "p"
+      }
+    },
+    {
+      "id": "/7. Documentation/3.1 Action Reward Example::dem",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "dem"
+      }
+    },
+    {
+      "id": "/7. Documentation/3.1 Action Reward Example::sales",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "sales"
+      }
+    },
+    {
+      "id": "/7. Documentation/3.1 Action Reward Example::Extend",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Extend"
+      }
+    },
+    {
+      "id": "/7. Documentation/3.1 Action Reward Example::test",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "test"
+      }
+    },
+    {
+      "id": "/7. Documentation/3.1 Action Reward Example::Extend2",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "Extend2"
+      }
+    },
+    {
+      "id": "/7. Documentation/3.1 Action Reward Example::G",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "G"
+      }
+    },
+    {
+      "id": "/7. Documentation/3.1 Action Reward Example::ObsWk",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "ObsWk"
+      }
+    },
+    {
+      "id": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+      "type": "script",
+      "path": "env_scripts/68002.nvn",
+      "metadata": {
+        "filename": "68002.nvn"
+      }
+    },
+    {
+      "id": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff::ItemsWeek",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "ItemsWeek"
+      }
+    },
+    {
+      "id": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff::ItemsYW",
+      "type": "table",
+      "path": null,
+      "metadata": {
+        "name": "ItemsYW"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/00 Home",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "defines",
+      "source": "/1. utilities/Modules/Global Parameters",
+      "target": "/1. utilities/Modules/Global Parameters::CategoryURL"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputFolder}Items.ion\"",
+      "raw_path": "\\{inputFolder}Items.ion",
+      "source": "/3. Inspectors/2 - Sales Analysis",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputFolder}Orders.ion\"",
+      "raw_path": "\\{inputFolder}Orders.ion",
+      "source": "/3. Inspectors/2 - Sales Analysis",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/\\{inputFolder}Stock.ion\"",
+      "raw_path": "/\\{inputFolder}Stock.ion",
+      "source": "/3. Inspectors/2 - Sales Analysis",
+      "target": "//Clean/Stock.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/\\{inputFolder}PO.ion\"",
+      "raw_path": "/\\{inputFolder}PO.ion",
+      "source": "/3. Inspectors/2 - Sales Analysis",
+      "target": "//Clean/PO.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/3. Inspectors/2 - Sales Analysis",
+      "target": "/3. Inspectors/2 - Sales Analysis::ItemsWeek"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/3. Inspectors/2 - Sales Analysis",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Items.ion\"",
+      "raw_path": "/Clean/Items.ion",
+      "source": "/3. Inspectors/4 - Stores Analysis",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Orders.ion\"",
+      "raw_path": "/Clean/Orders.ion",
+      "source": "/3. Inspectors/4 - Stores Analysis",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/3. Inspectors/4 - Stores Analysis",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Colors\"",
+      "source": "/5. Long Term Planning Module/Category Menu",
+      "target": "/1. utilities/Modules/Colors"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/5. Long Term Planning Module/Category Menu",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{filestorage}Catalog/Catalog*\"",
+      "raw_path": "\\{filestorage}Catalog/Catalog*",
+      "source": "/1. utilities/2. preprocess/[ 1 ] - Technical PreProcessing",
+      "target": "/Input/Catalog/Catalog*"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{filestorage}/Orders/Orders*\"",
+      "raw_path": "\\{filestorage}/Orders/Orders*",
+      "source": "/1. utilities/2. preprocess/[ 1 ] - Technical PreProcessing",
+      "target": "/Input//Orders/Orders*"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{filestorage}/PO/*.ion\"",
+      "raw_path": "\\{filestorage}/PO/*.ion",
+      "source": "/1. utilities/2. preprocess/[ 1 ] - Technical PreProcessing",
+      "target": "/Input//PO/*.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{manualStorage}Suppliers_Dashboard.ion\"",
+      "raw_path": "\\{manualStorage}Suppliers_Dashboard.ion",
+      "source": "/1. utilities/2. preprocess/[ 1 ] - Technical PreProcessing",
+      "target": "/Manual/Suppliers_Dashboard.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"\\{exportPath}Catalog.ion\"",
+      "raw_path": "\\{exportPath}Catalog.ion",
+      "source": "/1. utilities/2. preprocess/[ 1 ] - Technical PreProcessing",
+      "target": "Catalog.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"\\{exportPath}Orders.ion\"",
+      "raw_path": "\\{exportPath}Orders.ion",
+      "source": "/1. utilities/2. preprocess/[ 1 ] - Technical PreProcessing",
+      "target": "Orders.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"\\{exportPath}Purchaseorders.ion\"",
+      "raw_path": "\\{exportPath}Purchaseorders.ion",
+      "source": "/1. utilities/2. preprocess/[ 1 ] - Technical PreProcessing",
+      "target": "Purchaseorders.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"\\{exportPath}Suppliers.ion\"",
+      "raw_path": "\\{exportPath}Suppliers.ion",
+      "source": "/1. utilities/2. preprocess/[ 1 ] - Technical PreProcessing",
+      "target": "Suppliers.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"\\{exportPath}Stock.ion\"",
+      "raw_path": "\\{exportPath}Stock.ion",
+      "source": "/1. utilities/2. preprocess/[ 1 ] - Technical PreProcessing",
+      "target": "Stock.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write: \"\\{exportPath}Logs/LogDefault.ion\"",
+      "raw_path": "\\{exportPath}Logs/LogDefault.ion",
+      "source": "/1. utilities/2. preprocess/[ 1 ] - Technical PreProcessing",
+      "target": "/Logs/LogDefault.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{path}Catalog.ion\"",
+      "raw_path": "\\{path}Catalog.ion",
+      "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+      "target": "/Clean/tmp/Catalog.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{path}Orders.ion\"",
+      "raw_path": "\\{path}Orders.ion",
+      "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+      "target": "/Clean/tmp/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/tmp/Purchaseorders.ion\"",
+      "raw_path": "/Clean/tmp/Purchaseorders.ion",
+      "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+      "target": "/Clean/tmp/Purchaseorders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/tmp/Stock.ion\"",
+      "raw_path": "/Clean/tmp/Stock.ion",
+      "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+      "target": "/Clean/tmp/Stock.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{path}Suppliers.ion\"",
+      "raw_path": "\\{path}Suppliers.ion",
+      "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+      "target": "/Clean/tmp/Suppliers.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Override/OverrideItems.ion\"",
+      "raw_path": "/Clean/Override/OverrideItems.ion",
+      "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+      "target": "/Clean/Override/OverrideItems.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Override/OverrideLocations.ion\"",
+      "raw_path": "/Clean/Override/OverrideLocations.ion",
+      "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+      "target": "/Clean/Override/OverrideLocations.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"\\{exportPath}Items.ion\"",
+      "raw_path": "\\{exportPath}Items.ion",
+      "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+      "target": "Items.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"\\{exportPath}Orders.ion\"",
+      "raw_path": "\\{exportPath}Orders.ion",
+      "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+      "target": "Orders.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"\\{exportPath}Suppliers.ion\"",
+      "raw_path": "\\{exportPath}Suppliers.ion",
+      "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+      "target": "Suppliers.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"\\{exportPath}PO.ion\"",
+      "raw_path": "\\{exportPath}PO.ion",
+      "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+      "target": "PO.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"\\{exportPath}Stock.ion\"",
+      "raw_path": "\\{exportPath}Stock.ion",
+      "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+      "target": "Stock.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"\\{exportPath}Locations.ion\"",
+      "raw_path": "\\{exportPath}Locations.ion",
+      "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+      "target": "Locations.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write : \"\\{exportPath}References.ion\"",
+      "raw_path": "\\{exportPath}References.ion",
+      "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+      "target": "References.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"\\{exportPath}AutoPartsItems.ion\"",
+      "raw_path": "\\{exportPath}AutoPartsItems.ion",
+      "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+      "target": "AutoPartsItems.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+      "target": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing::Locations"
+    },
+    {
+      "type": "defines",
+      "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+      "target": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing::ExtOrders"
+    },
+    {
+      "type": "defines",
+      "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+      "target": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing::References"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/LongTermPlanning/Catalog.ion\"",
+      "raw_path": "/Clean/LongTermPlanning/Catalog.ion",
+      "source": "/5. Long Term Planning Module/Archive/General Vision V1",
+      "target": "/Clean/LongTermPlanning/Catalog.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/LongTermPlanning/Forecast.ion\"",
+      "raw_path": "/Clean/LongTermPlanning/Forecast.ion",
+      "source": "/5. Long Term Planning Module/Archive/General Vision V1",
+      "target": "/Clean/LongTermPlanning/Forecast.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/5. Long Term Planning Module/Archive/General Vision V1",
+      "target": "/5. Long Term Planning Module/Archive/General Vision V1::Category"
+    },
+    {
+      "type": "defines",
+      "source": "/5. Long Term Planning Module/Archive/General Vision V1",
+      "target": "/5. Long Term Planning Module/Archive/General Vision V1::SliceParameters"
+    },
+    {
+      "type": "defines",
+      "source": "/5. Long Term Planning Module/Archive/General Vision V1",
+      "target": "/5. Long Term Planning Module/Archive/General Vision V1::CatalogExtend"
+    },
+    {
+      "type": "defines",
+      "source": "/5. Long Term Planning Module/Archive/General Vision V1",
+      "target": "/5. Long Term Planning Module/Archive/General Vision V1::CategoryExtend"
+    },
+    {
+      "type": "defines",
+      "source": "/5. Long Term Planning Module/Archive/General Vision V1",
+      "target": "/5. Long Term Planning Module/Archive/General Vision V1::CatalogExtendMonth"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Items.ion\"",
+      "raw_path": "\\{inputPath}Items.ion",
+      "source": "/4. Optimization workflow/06 Purchasing results",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopItemsParameters.xlsx\"",
+      "raw_path": "/Manual/TopItemsParameters.xlsx",
+      "source": "/4. Optimization workflow/06 Purchasing results",
+      "target": "/Manual/TopItemsParameters.xlsx"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{testStorage}Clean/Orders.ion\"",
+      "raw_path": "\\{testStorage}Clean/Orders.ion",
+      "source": "/4. Optimization workflow/06 Purchasing results",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PO.ion\"",
+      "raw_path": "/Clean/PO.ion",
+      "source": "/4. Optimization workflow/06 Purchasing results",
+      "target": "/Clean/PO.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Stock.ion\"",
+      "raw_path": "/Clean/Stock.ion",
+      "source": "/4. Optimization workflow/06 Purchasing results",
+      "target": "/Clean/Stock.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+      "source": "/4. Optimization workflow/06 Purchasing results",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/PurchaseResults/PORecommendations.ion\"",
+      "raw_path": "Clean/PurchaseResults/PORecommendations.ion",
+      "source": "/4. Optimization workflow/06 Purchasing results",
+      "target": "/Clean/PurchaseResults/PORecommendations.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/PurchaseResults/MicroDecisions.ion\"",
+      "raw_path": "Clean/PurchaseResults/MicroDecisions.ion",
+      "source": "/4. Optimization workflow/06 Purchasing results",
+      "target": "/Clean/PurchaseResults/MicroDecisions.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/DeletedSuppliers.ion\"",
+      "raw_path": "/Clean/Interface/DeletedSuppliers.ion",
+      "source": "/4. Optimization workflow/06 Purchasing results",
+      "target": "/Clean/Interface/DeletedSuppliers.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/InterfaceParameters.ion\"",
+      "raw_path": "/Clean/Interface/InterfaceParameters.ion",
+      "source": "/4. Optimization workflow/06 Purchasing results",
+      "target": "/Clean/Interface/InterfaceParameters.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/SuppliersToCheck.ion\"",
+      "raw_path": "/Clean/Interface/SuppliersToCheck.ion",
+      "source": "/4. Optimization workflow/06 Purchasing results",
+      "target": "/Clean/Interface/SuppliersToCheck.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/PurchasePerimeter.xlsx\"",
+      "raw_path": "/Clean/Interface/PurchasePerimeter.xlsx",
+      "source": "/4. Optimization workflow/06 Purchasing results",
+      "target": "/Clean/Interface/PurchasePerimeter.xlsx"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/06 Purchasing results",
+      "target": "/4. Optimization workflow/06 Purchasing results::Suppliers"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/06 Purchasing results",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/FR/00 Menu General",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Locations.ion\"",
+      "raw_path": "/Clean/Locations.ion",
+      "source": "/4. Optimization workflow/09.Simulation ROP and EOQ Dispatch",
+      "target": "/Clean/Locations.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Items.ion\"",
+      "raw_path": "/Clean/Items.ion",
+      "source": "/4. Optimization workflow/09.Simulation ROP and EOQ Dispatch",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+      "source": "/4. Optimization workflow/09.Simulation ROP and EOQ Dispatch",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Simulation/ROP.ion\"",
+      "raw_path": "/Clean/Simulation/ROP.ion",
+      "source": "/4. Optimization workflow/09.Simulation ROP and EOQ Dispatch",
+      "target": "/Clean/Simulation/ROP.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"/Clean/Simulation/SimulationStandard.ion\"",
+      "raw_path": "/Clean/Simulation/SimulationStandard.ion",
+      "source": "/4. Optimization workflow/09.Simulation ROP and EOQ Dispatch",
+      "target": "/Clean/Simulation/SimulationStandard.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/09.Simulation ROP and EOQ Dispatch",
+      "target": "/4. Optimization workflow/09.Simulation ROP and EOQ Dispatch::SkusDay"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Functions\"",
+      "source": "/4. Optimization workflow/09.Simulation ROP and EOQ Dispatch",
+      "target": "/1. utilities/Modules/Functions"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/09.Simulation ROP and EOQ Dispatch",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputFolder}/*/*\\{usedIFF}\"",
+      "raw_path": "\\{inputFolder}/*/*\\{usedIFF}",
+      "source": "/2. Data sanity/1 - Data Integrity Check",
+      "target": "/Input//*/*"
+    },
+    {
+      "type": "defines",
+      "source": "/2. Data sanity/1 - Data Integrity Check",
+      "target": "/2. Data sanity/1 - Data Integrity Check::Tests"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Items.ion\"",
+      "raw_path": "/Clean/Items.ion",
+      "source": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopItemsParameters.xlsx\"",
+      "raw_path": "/Manual/TopItemsParameters.xlsx",
+      "source": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+      "target": "/Manual/TopItemsParameters.xlsx"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{testStorage}Clean/Orders.ion\"",
+      "raw_path": "\\{testStorage}Clean/Orders.ion",
+      "source": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PO.ion\"",
+      "raw_path": "/Clean/PO.ion",
+      "source": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+      "target": "/Clean/PO.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Stock.ion\"",
+      "raw_path": "/Clean/Stock.ion",
+      "source": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+      "target": "/Clean/Stock.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+      "source": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write Items as \"Clean/PurchaseResults/PORecommendations.ion\"",
+      "raw_path": "Clean/PurchaseResults/PORecommendations.ion",
+      "source": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+      "target": "/Clean/PurchaseResults/PORecommendations.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/PurchaseResults/DemandDistributions.ion\"",
+      "raw_path": "Clean/PurchaseResults/DemandDistributions.ion",
+      "source": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+      "target": "/Clean/PurchaseResults/DemandDistributions.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/PurchaseResults/MicroDecisions.ion\"",
+      "raw_path": "Clean/PurchaseResults/MicroDecisions.ion",
+      "source": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+      "target": "/Clean/PurchaseResults/MicroDecisions.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write Scalar as \"Clean/PurchaseResults/TargetsPurchaseList.ion\"",
+      "raw_path": "Clean/PurchaseResults/TargetsPurchaseList.ion",
+      "source": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+      "target": "/Clean/PurchaseResults/TargetsPurchaseList.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/DeletedSuppliers.ion\"",
+      "raw_path": "/Clean/Interface/DeletedSuppliers.ion",
+      "source": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+      "target": "/Clean/Interface/DeletedSuppliers.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/InterfaceParameters.ion\"",
+      "raw_path": "/Clean/Interface/InterfaceParameters.ion",
+      "source": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+      "target": "/Clean/Interface/InterfaceParameters.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/SuppliersToCheck.ion\"",
+      "raw_path": "/Clean/Interface/SuppliersToCheck.ion",
+      "source": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+      "target": "/Clean/Interface/SuppliersToCheck.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/PurchasePerimeter.xlsx\"",
+      "raw_path": "/Clean/Interface/PurchasePerimeter.xlsx",
+      "source": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+      "target": "/Clean/Interface/PurchasePerimeter.xlsx"
+    },
+    {
+      "type": "writes",
+      "context": "write Categories as \"Clean/PurchaseResults/EconomicParametersCategories.ion\"",
+      "raw_path": "Clean/PurchaseResults/EconomicParametersCategories.ion",
+      "source": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+      "target": "/Clean/PurchaseResults/EconomicParametersCategories.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"Clean/PurchaseResults/EconomicParameters.ion\"",
+      "raw_path": "Clean/PurchaseResults/EconomicParameters.ion",
+      "source": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+      "target": "/Clean/PurchaseResults/EconomicParameters.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+      "target": "/4. Optimization workflow/05. Standard Purchase Suggestions::PlotInvestment"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+      "target": "/4. Optimization workflow/05. Standard Purchase Suggestions::Suppliers"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Items.ion\"",
+      "raw_path": "/Clean/Items.ion",
+      "source": "/2. Data sanity/3 - High Level Data Health",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Orders.ion\"",
+      "raw_path": "/Clean/Orders.ion",
+      "source": "/2. Data sanity/3 - High Level Data Health",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PO.ion\"",
+      "raw_path": "/Clean/PO.ion",
+      "source": "/2. Data sanity/3 - High Level Data Health",
+      "target": "/Clean/PO.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Suppliers.ion\"",
+      "raw_path": "/Clean/Suppliers.ion",
+      "source": "/2. Data sanity/3 - High Level Data Health",
+      "target": "/Clean/Suppliers.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Stock.ion\"",
+      "raw_path": "/Clean/Stock.ion",
+      "source": "/2. Data sanity/3 - High Level Data Health",
+      "target": "/Clean/Stock.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/2. Data sanity/3 - High Level Data Health",
+      "target": "/2. Data sanity/3 - High Level Data Health::SupplierLeadtimes"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/2. Data sanity/3 - High Level Data Health",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Colors\"",
+      "source": "/2. Data sanity/3 - High Level Data Health",
+      "target": "/1. utilities/Modules/Colors"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/References.ion\"",
+      "raw_path": "/Clean/References.ion",
+      "source": "/6. Rule Based Pricing/Pricing Rules",
+      "target": "/Clean/References.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PricingRuleBased/CompetitorCatalog.ion\"",
+      "raw_path": "/Clean/PricingRuleBased/CompetitorCatalog.ion",
+      "source": "/6. Rule Based Pricing/Pricing Rules",
+      "target": "/Clean/PricingRuleBased/CompetitorCatalog.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Orders.ion\"",
+      "raw_path": "/Clean/Orders.ion",
+      "source": "/6. Rule Based Pricing/Pricing Rules",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PricingRuleBased/Classeur1.xlsx\"",
+      "raw_path": "/Clean/PricingRuleBased/Classeur1.xlsx",
+      "source": "/6. Rule Based Pricing/Pricing Rules",
+      "target": "/Clean/PricingRuleBased/Classeur1.xlsx"
+    },
+    {
+      "type": "defines",
+      "source": "/6. Rule Based Pricing/Pricing Rules",
+      "target": "/6. Rule Based Pricing/Pricing Rules::Category"
+    },
+    {
+      "type": "defines",
+      "source": "/6. Rule Based Pricing/Pricing Rules",
+      "target": "/6. Rule Based Pricing/Pricing Rules::PerimetreCategory"
+    },
+    {
+      "type": "defines",
+      "source": "/6. Rule Based Pricing/Pricing Rules",
+      "target": "/6. Rule Based Pricing/Pricing Rules::PerimetreItems"
+    },
+    {
+      "type": "defines",
+      "source": "/6. Rule Based Pricing/Pricing Rules",
+      "target": "/6. Rule Based Pricing/Pricing Rules::ItemsWeek"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/6. Rule Based Pricing/Pricing Rules",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Colors\"",
+      "source": "/6. Rule Based Pricing/Pricing Rules",
+      "target": "/1. utilities/Modules/Colors"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/5. Long Term Planning Module/Long Term Planning Menu",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Items.ion\"",
+      "raw_path": "/Clean/Items.ion",
+      "source": "/3. Inspectors/5 - Supplier Inspector",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PO.ion\"",
+      "raw_path": "/Clean/PO.ion",
+      "source": "/3. Inspectors/5 - Supplier Inspector",
+      "target": "/Clean/PO.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Orders.ion\"",
+      "raw_path": "/Clean/Orders.ion",
+      "source": "/3. Inspectors/5 - Supplier Inspector",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+      "source": "/3. Inspectors/5 - Supplier Inspector",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"\\{path}SupplierInspectorKPIs.ion\"",
+      "raw_path": "\\{path}SupplierInspectorKPIs.ion",
+      "source": "/3. Inspectors/5 - Supplier Inspector",
+      "target": "SupplierInspectorKPIs.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"\\{path}SupplierInspectorPOs.ion\"",
+      "raw_path": "\\{path}SupplierInspectorPOs.ion",
+      "source": "/3. Inspectors/5 - Supplier Inspector",
+      "target": "SupplierInspectorPOs.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/3. Inspectors/5 - Supplier Inspector",
+      "target": "/3. Inspectors/5 - Supplier Inspector::FocusMonth"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/3. Inspectors/5 - Supplier Inspector",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Items.ion\"",
+      "raw_path": "/Clean/Items.ion",
+      "source": "/8. Old/PurchaseOptimization",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopItemsParameters.xlsx\"",
+      "raw_path": "/Manual/TopItemsParameters.xlsx",
+      "source": "/8. Old/PurchaseOptimization",
+      "target": "/Manual/TopItemsParameters.xlsx"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{testStorage}Clean/Orders.ion\"",
+      "raw_path": "\\{testStorage}Clean/Orders.ion",
+      "source": "/8. Old/PurchaseOptimization",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PO.ion\"",
+      "raw_path": "/Clean/PO.ion",
+      "source": "/8. Old/PurchaseOptimization",
+      "target": "/Clean/PO.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Stock.ion\"",
+      "raw_path": "/Clean/Stock.ion",
+      "source": "/8. Old/PurchaseOptimization",
+      "target": "/Clean/Stock.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+      "source": "/8. Old/PurchaseOptimization",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write Items as \"Clean/PurchaseResults/PORecommendations.ion\"",
+      "raw_path": "Clean/PurchaseResults/PORecommendations.ion",
+      "source": "/8. Old/PurchaseOptimization",
+      "target": "/Clean/PurchaseResults/PORecommendations.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/PurchaseResults/DemandDistributions.ion\"",
+      "raw_path": "Clean/PurchaseResults/DemandDistributions.ion",
+      "source": "/8. Old/PurchaseOptimization",
+      "target": "/Clean/PurchaseResults/DemandDistributions.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/PurchaseResults/MicroDecisions.ion\"",
+      "raw_path": "Clean/PurchaseResults/MicroDecisions.ion",
+      "source": "/8. Old/PurchaseOptimization",
+      "target": "/Clean/PurchaseResults/MicroDecisions.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write Scalar as \"Clean/PurchaseResults/TargetsPurchaseList.ion\"",
+      "raw_path": "Clean/PurchaseResults/TargetsPurchaseList.ion",
+      "source": "/8. Old/PurchaseOptimization",
+      "target": "/Clean/PurchaseResults/TargetsPurchaseList.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/DeletedSuppliers.ion\"",
+      "raw_path": "/Clean/Interface/DeletedSuppliers.ion",
+      "source": "/8. Old/PurchaseOptimization",
+      "target": "/Clean/Interface/DeletedSuppliers.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/InterfaceParameters.ion\"",
+      "raw_path": "/Clean/Interface/InterfaceParameters.ion",
+      "source": "/8. Old/PurchaseOptimization",
+      "target": "/Clean/Interface/InterfaceParameters.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/SuppliersToCheck.ion\"",
+      "raw_path": "/Clean/Interface/SuppliersToCheck.ion",
+      "source": "/8. Old/PurchaseOptimization",
+      "target": "/Clean/Interface/SuppliersToCheck.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/PurchasePerimeter.xlsx\"",
+      "raw_path": "/Clean/Interface/PurchasePerimeter.xlsx",
+      "source": "/8. Old/PurchaseOptimization",
+      "target": "/Clean/Interface/PurchasePerimeter.xlsx"
+    },
+    {
+      "type": "writes",
+      "context": "write Categories as \"Clean/PurchaseResults/EconomicParametersCategories.ion\"",
+      "raw_path": "Clean/PurchaseResults/EconomicParametersCategories.ion",
+      "source": "/8. Old/PurchaseOptimization",
+      "target": "/Clean/PurchaseResults/EconomicParametersCategories.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"Clean/PurchaseResults/EconomicParameters.ion\"",
+      "raw_path": "Clean/PurchaseResults/EconomicParameters.ion",
+      "source": "/8. Old/PurchaseOptimization",
+      "target": "/Clean/PurchaseResults/EconomicParameters.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/8. Old/PurchaseOptimization",
+      "target": "/8. Old/PurchaseOptimization::PlotInvestment"
+    },
+    {
+      "type": "defines",
+      "source": "/8. Old/PurchaseOptimization",
+      "target": "/8. Old/PurchaseOptimization::Suppliers"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/8. Old/PurchaseOptimization",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Locations.ion\"",
+      "raw_path": "\\{inputPath}Locations.ion",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion",
+      "target": "/Clean/Locations.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Items.ion\"",
+      "raw_path": "\\{inputPath}Items.ion",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{testStorage}Clean/Orders.ion\"",
+      "raw_path": "\\{testStorage}Clean/Orders.ion",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PO.ion\"",
+      "raw_path": "/Clean/PO.ion",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion",
+      "target": "/Clean/PO.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopItemsParameters.xlsx\"",
+      "raw_path": "/Manual/TopItemsParameters.xlsx",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion",
+      "target": "/Manual/TopItemsParameters.xlsx"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Simulation/SimulationStandard.ion\"",
+      "raw_path": "/Clean/Simulation/SimulationStandard.ion",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion",
+      "target": "/Clean/Simulation/SimulationStandard.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion",
+      "target": "/4. Optimization workflow/07 Standard Dispatch Suggestion::SkusWeek"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion",
+      "target": "/4. Optimization workflow/07 Standard Dispatch Suggestion::Grid"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion",
+      "target": "/4. Optimization workflow/07 Standard Dispatch Suggestion::T"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Items.ion\"",
+      "raw_path": "/Clean/Items.ion",
+      "source": "/3. Inspectors/1 - Item Inspector",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Orders.ion\"",
+      "raw_path": "/Clean/Orders.ion",
+      "source": "/3. Inspectors/1 - Item Inspector",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PO.ion\"",
+      "raw_path": "/Clean/PO.ion",
+      "source": "/3. Inspectors/1 - Item Inspector",
+      "target": "/Clean/PO.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+      "source": "/3. Inspectors/1 - Item Inspector",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Forecast/Periodic/FcItems.ion\"",
+      "raw_path": "/Clean/Forecast/Periodic/FcItems.ion",
+      "source": "/3. Inspectors/1 - Item Inspector",
+      "target": "/Clean/Forecast/Periodic/FcItems.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Stock.ion\"",
+      "raw_path": "/Clean/Stock.ion",
+      "source": "/3. Inspectors/1 - Item Inspector",
+      "target": "/Clean/Stock.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/PurchaseResults/PORecommendations.ion\"",
+      "raw_path": "Clean/PurchaseResults/PORecommendations.ion",
+      "source": "/3. Inspectors/1 - Item Inspector",
+      "target": "/Clean/PurchaseResults/PORecommendations.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/PurchaseResults/MicroDecisions.ion\"",
+      "raw_path": "Clean/PurchaseResults/MicroDecisions.ion",
+      "source": "/3. Inspectors/1 - Item Inspector",
+      "target": "/Clean/PurchaseResults/MicroDecisions.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/PurchaseResults/StockSimulation.ion\"",
+      "raw_path": "Clean/PurchaseResults/StockSimulation.ion",
+      "source": "/3. Inspectors/1 - Item Inspector",
+      "target": "/Clean/PurchaseResults/StockSimulation.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/PurchaseResults/EconomicParameters.ion\"",
+      "raw_path": "Clean/PurchaseResults/EconomicParameters.ion",
+      "source": "/3. Inspectors/1 - Item Inspector",
+      "target": "/Clean/PurchaseResults/EconomicParameters.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/DispatchResults/MicroDecisions.ion\"",
+      "raw_path": "Clean/DispatchResults/MicroDecisions.ion",
+      "source": "/3. Inspectors/1 - Item Inspector",
+      "target": "/Clean/DispatchResults/MicroDecisions.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/DispatchResults/DispatchRecommendations.ion\"",
+      "raw_path": "Clean/DispatchResults/DispatchRecommendations.ion",
+      "source": "/3. Inspectors/1 - Item Inspector",
+      "target": "/Clean/DispatchResults/DispatchRecommendations.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/DispatchResults/EconomicParameters.ion\"",
+      "raw_path": "Clean/DispatchResults/EconomicParameters.ion",
+      "source": "/3. Inspectors/1 - Item Inspector",
+      "target": "/Clean/DispatchResults/EconomicParameters.ion"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/3. Inspectors/1 - Item Inspector",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Items.ion\"",
+      "raw_path": "\\{inputPath}Items.ion",
+      "source": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopItemsParameters.xlsx\"",
+      "raw_path": "/Manual/TopItemsParameters.xlsx",
+      "source": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions",
+      "target": "/Manual/TopItemsParameters.xlsx"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{testStorage}Clean/Orders.ion\"",
+      "raw_path": "\\{testStorage}Clean/Orders.ion",
+      "source": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PO.ion\"",
+      "raw_path": "/Clean/PO.ion",
+      "source": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions",
+      "target": "/Clean/PO.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Stock.ion\"",
+      "raw_path": "/Clean/Stock.ion",
+      "source": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions",
+      "target": "/Clean/Stock.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+      "source": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Parameters/max_date_placeholder.csv\"",
+      "raw_path": "/Clean/Parameters/max_date_placeholder.csv",
+      "source": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions",
+      "target": "/Clean/Parameters/max_date_placeholder.csv"
+    },
+    {
+      "type": "writes",
+      "context": "write Categories as \"\\{exportPath}EconomicParametersCategories.ion\"",
+      "raw_path": "\\{exportPath}EconomicParametersCategories.ion",
+      "source": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions",
+      "target": "/Clean/PurchaseResults/LongTermSimulation/EconomicParametersCategories.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write Scalar as \"\\{exportPath}TargetsPurchaseList.ion\"",
+      "raw_path": "\\{exportPath}TargetsPurchaseList.ion",
+      "source": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions",
+      "target": "/Clean/PurchaseResults/LongTermSimulation/TargetsPurchaseList.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write ItemsWeek as \"\\{exportPath}WeeklyPurchasesByRef.ion\"",
+      "raw_path": "\\{exportPath}WeeklyPurchasesByRef.ion",
+      "source": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions",
+      "target": "/Clean/PurchaseResults/LongTermSimulation/WeeklyPurchasesByRef.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions",
+      "target": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions::ItemsWeek"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions",
+      "target": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions::Grid"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions",
+      "target": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions::FilteredItemsWeek"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions",
+      "target": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions::Loop"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions",
+      "target": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions::NewFilteredItemsWeek"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Input/Catalog/Catalog*\"",
+      "raw_path": "/Input/Catalog/Catalog*",
+      "source": "/1. utilities/1. populating dataset/02 - Automatic Stock and PO History Creation",
+      "target": "/Input/Catalog/Catalog*"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Input/Orders/Orders*\"",
+      "raw_path": "/Input/Orders/Orders*",
+      "source": "/1. utilities/1. populating dataset/02 - Automatic Stock and PO History Creation",
+      "target": "/Input/Orders/Orders*"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/Suppliers_Dashboard.ion\"",
+      "raw_path": "/Manual/Suppliers_Dashboard.ion",
+      "source": "/1. utilities/1. populating dataset/02 - Automatic Stock and PO History Creation",
+      "target": "/Manual/Suppliers_Dashboard.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write: \"Input/Stock/Stock_01.ion\"",
+      "raw_path": "Input/Stock/Stock_01.ion",
+      "source": "/1. utilities/1. populating dataset/02 - Automatic Stock and PO History Creation",
+      "target": "/Input/Stock/Stock_01.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write: \"Input/PO/ManualPO_01.ion\"",
+      "raw_path": "Input/PO/ManualPO_01.ion",
+      "source": "/1. utilities/1. populating dataset/02 - Automatic Stock and PO History Creation",
+      "target": "/Input/PO/ManualPO_01.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write: \"Input/PO/PO_01.ion\"",
+      "raw_path": "Input/PO/PO_01.ion",
+      "source": "/1. utilities/1. populating dataset/02 - Automatic Stock and PO History Creation",
+      "target": "/Input/PO/PO_01.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/1. utilities/1. populating dataset/02 - Automatic Stock and PO History Creation",
+      "target": "/1. utilities/1. populating dataset/02 - Automatic Stock and PO History Creation::ItemsWeek"
+    },
+    {
+      "type": "defines",
+      "source": "/1. utilities/1. populating dataset/02 - Automatic Stock and PO History Creation",
+      "target": "/1. utilities/1. populating dataset/02 - Automatic Stock and PO History Creation::ManualPO"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Functions\"",
+      "source": "/1. utilities/1. populating dataset/02 - Automatic Stock and PO History Creation",
+      "target": "/1. utilities/Modules/Functions"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/1. utilities/1. populating dataset/02 - Automatic Stock and PO History Creation",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/LongTermPlanning/Catalog.ion\"",
+      "raw_path": "/Clean/LongTermPlanning/Catalog.ion",
+      "source": "/5. Long Term Planning Module/Final Forecast Plan",
+      "target": "/Clean/LongTermPlanning/Catalog.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/LongTermPlanning/Forecast.ion\"",
+      "raw_path": "/Clean/LongTermPlanning/Forecast.ion",
+      "source": "/5. Long Term Planning Module/Final Forecast Plan",
+      "target": "/Clean/LongTermPlanning/Forecast.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/LongTermPlanning/DayFactor.ion\"",
+      "raw_path": "/Clean/LongTermPlanning/DayFactor.ion",
+      "source": "/5. Long Term Planning Module/Final Forecast Plan",
+      "target": "/Clean/LongTermPlanning/DayFactor.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/LongTermPlanning/PO.ion\"",
+      "raw_path": "/Clean/LongTermPlanning/PO.ion",
+      "source": "/5. Long Term Planning Module/Final Forecast Plan",
+      "target": "/Clean/LongTermPlanning/PO.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/LongTermPlanning/Parametrisation/General.ion\"",
+      "raw_path": "/Clean/LongTermPlanning/Parametrisation/General.ion",
+      "source": "/5. Long Term Planning Module/Final Forecast Plan",
+      "target": "/Clean/LongTermPlanning/Parametrisation/General.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read '/Clean/LongTermPlanning/Parametrisation/Category_\\{..}.ion'",
+      "raw_path": "/Clean/LongTermPlanning/Parametrisation/Category_\\{..}.ion",
+      "source": "/5. Long Term Planning Module/Final Forecast Plan",
+      "target": "/Clean/LongTermPlanning/Parametrisation/Category_.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/5. Long Term Planning Module/Final Forecast Plan",
+      "target": "/5. Long Term Planning Module/Final Forecast Plan::CatalogExtend"
+    },
+    {
+      "type": "defines",
+      "source": "/5. Long Term Planning Module/Final Forecast Plan",
+      "target": "/5. Long Term Planning Module/Final Forecast Plan::CatalogExtendMonth"
+    },
+    {
+      "type": "defines",
+      "source": "/5. Long Term Planning Module/Final Forecast Plan",
+      "target": "/5. Long Term Planning Module/Final Forecast Plan::WeekDay"
+    },
+    {
+      "type": "defines",
+      "source": "/5. Long Term Planning Module/Final Forecast Plan",
+      "target": "/5. Long Term Planning Module/Final Forecast Plan::ForecastDaily"
+    },
+    {
+      "type": "defines",
+      "source": "/5. Long Term Planning Module/Final Forecast Plan",
+      "target": "/5. Long Term Planning Module/Final Forecast Plan::CatalogExtendDay"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Functions\"",
+      "source": "/5. Long Term Planning Module/Final Forecast Plan",
+      "target": "/1. utilities/Modules/Functions"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Colors\"",
+      "source": "/5. Long Term Planning Module/Final Forecast Plan",
+      "target": "/1. utilities/Modules/Colors"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/PathSchemas\"",
+      "source": "/5. Long Term Planning Module/Final Forecast Plan",
+      "target": "/1. utilities/Modules/PathSchemas"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/5. Long Term Planning Module/Final Forecast Plan",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Items.ion\"",
+      "raw_path": "\\{inputPath}Items.ion",
+      "source": "/1. utilities/1. populating dataset/03 - Manual Inputs",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Locations.ion\"",
+      "raw_path": "/Clean/Locations.ion",
+      "source": "/1. utilities/1. populating dataset/03 - Manual Inputs",
+      "target": "/Clean/Locations.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write myfinalEditableItems as \"\\{exportPath}OverrideItems.ion\"",
+      "raw_path": "\\{exportPath}OverrideItems.ion",
+      "source": "/1. utilities/1. populating dataset/03 - Manual Inputs",
+      "target": "/Clean/Override/OverrideItems.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write myfinalEditableLocations as \"\\{exportPath}OverrideLocations.ion\"",
+      "raw_path": "\\{exportPath}OverrideLocations.ion",
+      "source": "/1. utilities/1. populating dataset/03 - Manual Inputs",
+      "target": "/Clean/Override/OverrideLocations.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/1. utilities/1. populating dataset/03 - Manual Inputs",
+      "target": "/1. utilities/1. populating dataset/03 - Manual Inputs::myfinalEditableItems"
+    },
+    {
+      "type": "defines",
+      "source": "/1. utilities/1. populating dataset/03 - Manual Inputs",
+      "target": "/1. utilities/1. populating dataset/03 - Manual Inputs::myfinalEditableLocations"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/1. utilities/1. populating dataset/03 - Manual Inputs",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Items.ion\"",
+      "raw_path": "/Clean/Items.ion",
+      "source": "/4. Optimization workflow/03.b. Forecasting",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopItemsParameters.xlsx\"",
+      "raw_path": "/Manual/TopItemsParameters.xlsx",
+      "source": "/4. Optimization workflow/03.b. Forecasting",
+      "target": "/Manual/TopItemsParameters.xlsx"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+      "source": "/4. Optimization workflow/03.b. Forecasting",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Forecast/Periodic/FcItems.ion\"",
+      "raw_path": "\\{inputPath}Forecast/Periodic/FcItems.ion",
+      "source": "/4. Optimization workflow/03.b. Forecasting",
+      "target": "/Clean/Forecast/Periodic/FcItems.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"\\{exportFile}TestEditable.ion\"",
+      "raw_path": "\\{exportFile}TestEditable.ion",
+      "source": "/4. Optimization workflow/03.b. Forecasting",
+      "target": "/Clean/validation/TestEditable.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/03.b. Forecasting",
+      "target": "/4. Optimization workflow/03.b. Forecasting::WeeklyFCModified"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/03.b. Forecasting",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Items.ion\"",
+      "raw_path": "\\{inputPath}Items.ion",
+      "source": "/3. Inspectors/6 Compare to Min-Max strategy",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopItemsParameters.xlsx\"",
+      "raw_path": "/Manual/TopItemsParameters.xlsx",
+      "source": "/3. Inspectors/6 Compare to Min-Max strategy",
+      "target": "/Manual/TopItemsParameters.xlsx"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{testStorage}Clean/Orders.ion\"",
+      "raw_path": "\\{testStorage}Clean/Orders.ion",
+      "source": "/3. Inspectors/6 Compare to Min-Max strategy",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PO.ion\"",
+      "raw_path": "/Clean/PO.ion",
+      "source": "/3. Inspectors/6 Compare to Min-Max strategy",
+      "target": "/Clean/PO.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Stock.ion\"",
+      "raw_path": "/Clean/Stock.ion",
+      "source": "/3. Inspectors/6 Compare to Min-Max strategy",
+      "target": "/Clean/Stock.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+      "source": "/3. Inspectors/6 Compare to Min-Max strategy",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/PurchaseResults/PORecommendations.ion\"",
+      "raw_path": "Clean/PurchaseResults/PORecommendations.ion",
+      "source": "/3. Inspectors/6 Compare to Min-Max strategy",
+      "target": "/Clean/PurchaseResults/PORecommendations.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/PurchaseResults/MicroDecisions.ion\"",
+      "raw_path": "Clean/PurchaseResults/MicroDecisions.ion",
+      "source": "/3. Inspectors/6 Compare to Min-Max strategy",
+      "target": "/Clean/PurchaseResults/MicroDecisions.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/3. Inspectors/6 Compare to Min-Max strategy",
+      "target": "/3. Inspectors/6 Compare to Min-Max strategy::StockMorph"
+    },
+    {
+      "type": "defines",
+      "source": "/3. Inspectors/6 Compare to Min-Max strategy",
+      "target": "/3. Inspectors/6 Compare to Min-Max strategy::G"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/3. Inspectors/6 Compare to Min-Max strategy",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Items.ion\"",
+      "raw_path": "\\{inputPath}Items.ion",
+      "source": "/4. Optimization workflow/04 Economic Parameters",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopItemsParameters.xlsx\"",
+      "raw_path": "/Manual/TopItemsParameters.xlsx",
+      "source": "/4. Optimization workflow/04 Economic Parameters",
+      "target": "/Manual/TopItemsParameters.xlsx"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{testStorage}Clean/Orders.ion\"",
+      "raw_path": "\\{testStorage}Clean/Orders.ion",
+      "source": "/4. Optimization workflow/04 Economic Parameters",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PO.ion\"",
+      "raw_path": "/Clean/PO.ion",
+      "source": "/4. Optimization workflow/04 Economic Parameters",
+      "target": "/Clean/PO.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Stock.ion\"",
+      "raw_path": "/Clean/Stock.ion",
+      "source": "/4. Optimization workflow/04 Economic Parameters",
+      "target": "/Clean/Stock.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+      "source": "/4. Optimization workflow/04 Economic Parameters",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Parameters/max_date_placeholder.csv\"",
+      "raw_path": "/Clean/Parameters/max_date_placeholder.csv",
+      "source": "/4. Optimization workflow/04 Economic Parameters",
+      "target": "/Clean/Parameters/max_date_placeholder.csv"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PurchaseResults/EconomicParametersCategories.ion\"",
+      "raw_path": "/Clean/PurchaseResults/EconomicParametersCategories.ion",
+      "source": "/4. Optimization workflow/04 Economic Parameters",
+      "target": "/Clean/PurchaseResults/EconomicParametersCategories.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PurchaseResults/TargetsPurchaseList.ion\"",
+      "raw_path": "/Clean/PurchaseResults/TargetsPurchaseList.ion",
+      "source": "/4. Optimization workflow/04 Economic Parameters",
+      "target": "/Clean/PurchaseResults/TargetsPurchaseList.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write Items as \"Clean/PurchaseResults/DemandDistributions.ion\"",
+      "raw_path": "Clean/PurchaseResults/DemandDistributions.ion",
+      "source": "/4. Optimization workflow/04 Economic Parameters",
+      "target": "/Clean/PurchaseResults/DemandDistributions.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"Clean/PurchaseResults/MicroDecisions.ion\"",
+      "raw_path": "Clean/PurchaseResults/MicroDecisions.ion",
+      "source": "/4. Optimization workflow/04 Economic Parameters",
+      "target": "/Clean/PurchaseResults/MicroDecisions.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"Clean/PurchaseResults/StockSimulation.ion\"",
+      "raw_path": "Clean/PurchaseResults/StockSimulation.ion",
+      "source": "/4. Optimization workflow/04 Economic Parameters",
+      "target": "/Clean/PurchaseResults/StockSimulation.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/04 Economic Parameters",
+      "target": "/4. Optimization workflow/04 Economic Parameters::ItemsWeek"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/04 Economic Parameters",
+      "target": "/4. Optimization workflow/04 Economic Parameters::Grid"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/04 Economic Parameters",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/French/00 Home",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/Demo account project phases.xlsx\"",
+      "raw_path": "/Manual/Demo account project phases.xlsx",
+      "source": "/7. Documentation/0 General Organization",
+      "target": "/Manual/Demo account project phases.xlsx"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/10 Audit Tools",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Items.ion\"",
+      "raw_path": "/Clean/Items.ion",
+      "source": "/3. Inspectors/7 - Global Business Cockpit",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputFolder}Orders.ion\"",
+      "raw_path": "\\{inputFolder}Orders.ion",
+      "source": "/3. Inspectors/7 - Global Business Cockpit",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/\\{inputFolder}Stock.ion\"",
+      "raw_path": "/\\{inputFolder}Stock.ion",
+      "source": "/3. Inspectors/7 - Global Business Cockpit",
+      "target": "//Clean/Stock.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputFolder}Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "\\{inputFolder}Forecast/Periodic/WeeklyFc.ion",
+      "source": "/3. Inspectors/7 - Global Business Cockpit",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/\\{inputFolder}PO.ion\"",
+      "raw_path": "/\\{inputFolder}PO.ion",
+      "source": "/3. Inspectors/7 - Global Business Cockpit",
+      "target": "//Clean/PO.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/3. Inspectors/7 - Global Business Cockpit",
+      "target": "/3. Inspectors/7 - Global Business Cockpit::ItemsWeek"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/3. Inspectors/7 - Global Business Cockpit",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"/Clean/LongTermPlanning/Forecast.ion\"",
+      "raw_path": "/Clean/LongTermPlanning/Forecast.ion",
+      "source": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning",
+      "target": "/Clean/LongTermPlanning/Forecast.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"/Clean/LongTermPlanning/Catalog.ion\"",
+      "raw_path": "/Clean/LongTermPlanning/Catalog.ion",
+      "source": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning",
+      "target": "/Clean/LongTermPlanning/Catalog.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"/Clean/LongTermPlanning/DayFactor.ion\"",
+      "raw_path": "/Clean/LongTermPlanning/DayFactor.ion",
+      "source": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning",
+      "target": "/Clean/LongTermPlanning/DayFactor.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"/Clean/LongTermPlanning/PO.ion\"",
+      "raw_path": "/Clean/LongTermPlanning/PO.ion",
+      "source": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning",
+      "target": "/Clean/LongTermPlanning/PO.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning",
+      "target": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning::Category"
+    },
+    {
+      "type": "defines",
+      "source": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning",
+      "target": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning::SubCategory"
+    },
+    {
+      "type": "defines",
+      "source": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning",
+      "target": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning::Catalog"
+    },
+    {
+      "type": "defines",
+      "source": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning",
+      "target": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning::Forecast"
+    },
+    {
+      "type": "defines",
+      "source": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning",
+      "target": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning::PO"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Items.ion\"",
+      "raw_path": "\\{inputPath}Items.ion",
+      "source": "/4. Optimization workflow/01 Inventory Optimization Overview",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopItemsParameters.xlsx\"",
+      "raw_path": "/Manual/TopItemsParameters.xlsx",
+      "source": "/4. Optimization workflow/01 Inventory Optimization Overview",
+      "target": "/Manual/TopItemsParameters.xlsx"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{testStorage}Clean/Orders.ion\"",
+      "raw_path": "\\{testStorage}Clean/Orders.ion",
+      "source": "/4. Optimization workflow/01 Inventory Optimization Overview",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PO.ion\"",
+      "raw_path": "/Clean/PO.ion",
+      "source": "/4. Optimization workflow/01 Inventory Optimization Overview",
+      "target": "/Clean/PO.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Stock.ion\"",
+      "raw_path": "/Clean/Stock.ion",
+      "source": "/4. Optimization workflow/01 Inventory Optimization Overview",
+      "target": "/Clean/Stock.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+      "source": "/4. Optimization workflow/01 Inventory Optimization Overview",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Parameters/max_date_placeholder.csv\"",
+      "raw_path": "/Clean/Parameters/max_date_placeholder.csv",
+      "source": "/4. Optimization workflow/01 Inventory Optimization Overview",
+      "target": "/Clean/Parameters/max_date_placeholder.csv"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/01 Inventory Optimization Overview",
+      "target": "/4. Optimization workflow/01 Inventory Optimization Overview::ItemsWeek"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/01 Inventory Optimization Overview",
+      "target": "/4. Optimization workflow/01 Inventory Optimization Overview::Grid"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/01 Inventory Optimization Overview",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Locations.ion\"",
+      "raw_path": "\\{inputPath}Locations.ion",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)",
+      "target": "/Clean/Locations.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Items.ion\"",
+      "raw_path": "\\{inputPath}Items.ion",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{testStorage}Clean/Orders.ion\"",
+      "raw_path": "\\{testStorage}Clean/Orders.ion",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PO.ion\"",
+      "raw_path": "/Clean/PO.ion",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)",
+      "target": "/Clean/PO.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopItemsParameters.xlsx\"",
+      "raw_path": "/Manual/TopItemsParameters.xlsx",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)",
+      "target": "/Manual/TopItemsParameters.xlsx"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Simulation/SimulationStandard.ion\"",
+      "raw_path": "/Clean/Simulation/SimulationStandard.ion",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)",
+      "target": "/Clean/Simulation/SimulationStandard.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)",
+      "target": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)::SkusWeek"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)",
+      "target": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)::Grid"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)",
+      "target": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)::T"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Locations.ion\"",
+      "raw_path": "\\{inputPath}Locations.ion",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+      "target": "/Clean/Locations.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Items.ion\"",
+      "raw_path": "/Clean/Items.ion",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{testStorage}Clean/Orders.ion\"",
+      "raw_path": "\\{testStorage}Clean/Orders.ion",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PO.ion\"",
+      "raw_path": "/Clean/PO.ion",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+      "target": "/Clean/PO.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopItemsParameters.xlsx\"",
+      "raw_path": "/Manual/TopItemsParameters.xlsx",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+      "target": "/Manual/TopItemsParameters.xlsx"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Simulation/SimulationStandard.ion\"",
+      "raw_path": "/Clean/Simulation/SimulationStandard.ion",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+      "target": "/Clean/Simulation/SimulationStandard.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"Clean/DispatchResults/EconomicParameters.ion\"",
+      "raw_path": "Clean/DispatchResults/EconomicParameters.ion",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+      "target": "/Clean/DispatchResults/EconomicParameters.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write: \"Clean/DispatchResults/MicroDecisions.ion\"",
+      "raw_path": "Clean/DispatchResults/MicroDecisions.ion",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+      "target": "/Clean/DispatchResults/MicroDecisions.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write : \"Clean/DispatchResults/DispatchRecommendations.ion\"",
+      "raw_path": "Clean/DispatchResults/DispatchRecommendations.ion",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+      "target": "/Clean/DispatchResults/DispatchRecommendations.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+      "target": "/4. Optimization workflow/07 Standard Dispatch Suggestion New::SkusWeek"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+      "target": "/4. Optimization workflow/07 Standard Dispatch Suggestion New::Grid"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+      "target": "/4. Optimization workflow/07 Standard Dispatch Suggestion New::T"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Items.ion\"",
+      "raw_path": "\\{inputPath}Items.ion",
+      "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopItemsParameters.xlsx\"",
+      "raw_path": "/Manual/TopItemsParameters.xlsx",
+      "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+      "target": "/Manual/TopItemsParameters.xlsx"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{testStorage}Clean/Orders.ion\"",
+      "raw_path": "\\{testStorage}Clean/Orders.ion",
+      "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PO.ion\"",
+      "raw_path": "/Clean/PO.ion",
+      "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+      "target": "/Clean/PO.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Stock.ion\"",
+      "raw_path": "/Clean/Stock.ion",
+      "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+      "target": "/Clean/Stock.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+      "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write Items as \"Clean/PurchaseResults/PORecommendations.ion\"",
+      "raw_path": "Clean/PurchaseResults/PORecommendations.ion",
+      "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+      "target": "/Clean/PurchaseResults/PORecommendations.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/PurchaseResults/DemandDistributions.ion\"",
+      "raw_path": "Clean/PurchaseResults/DemandDistributions.ion",
+      "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+      "target": "/Clean/PurchaseResults/DemandDistributions.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/PurchaseResults/MicroDecisions.ion\"",
+      "raw_path": "Clean/PurchaseResults/MicroDecisions.ion",
+      "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+      "target": "/Clean/PurchaseResults/MicroDecisions.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write Scalar as \"Clean/PurchaseResults/TargetsPurchaseList.ion\"",
+      "raw_path": "Clean/PurchaseResults/TargetsPurchaseList.ion",
+      "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+      "target": "/Clean/PurchaseResults/TargetsPurchaseList.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/DeletedSuppliers.ion\"",
+      "raw_path": "/Clean/Interface/DeletedSuppliers.ion",
+      "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+      "target": "/Clean/Interface/DeletedSuppliers.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/InterfaceParameters.ion\"",
+      "raw_path": "/Clean/Interface/InterfaceParameters.ion",
+      "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+      "target": "/Clean/Interface/InterfaceParameters.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/SuppliersToCheck.ion\"",
+      "raw_path": "/Clean/Interface/SuppliersToCheck.ion",
+      "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+      "target": "/Clean/Interface/SuppliersToCheck.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/PurchasePerimeter.xlsx\"",
+      "raw_path": "/Clean/Interface/PurchasePerimeter.xlsx",
+      "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+      "target": "/Clean/Interface/PurchasePerimeter.xlsx"
+    },
+    {
+      "type": "writes",
+      "context": "write Categories as \"Clean/PurchaseResults/EconomicParametersCategories.ion\"",
+      "raw_path": "Clean/PurchaseResults/EconomicParametersCategories.ion",
+      "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+      "target": "/Clean/PurchaseResults/EconomicParametersCategories.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"Clean/PurchaseResults/EconomicParameters.ion\"",
+      "raw_path": "Clean/PurchaseResults/EconomicParameters.ion",
+      "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+      "target": "/Clean/PurchaseResults/EconomicParameters.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+      "target": "/4. Optimization workflow/05.New Standard Purchase Suggestions::PlotInvestment"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+      "target": "/4. Optimization workflow/05.New Standard Purchase Suggestions::Suppliers"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Items.ion\"",
+      "raw_path": "/Clean/Items.ion",
+      "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopItemsParameters.xlsx\"",
+      "raw_path": "/Manual/TopItemsParameters.xlsx",
+      "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+      "target": "/Manual/TopItemsParameters.xlsx"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{testStorage}Clean/Orders.ion\"",
+      "raw_path": "\\{testStorage}Clean/Orders.ion",
+      "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PO.ion\"",
+      "raw_path": "/Clean/PO.ion",
+      "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+      "target": "/Clean/PO.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Stock.ion\"",
+      "raw_path": "/Clean/Stock.ion",
+      "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+      "target": "/Clean/Stock.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+      "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write Items as \"Clean/PurchaseResults/PORecommendations.ion\"",
+      "raw_path": "Clean/PurchaseResults/PORecommendations.ion",
+      "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+      "target": "/Clean/PurchaseResults/PORecommendations.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/PurchaseResults/DemandDistributions.ion\"",
+      "raw_path": "Clean/PurchaseResults/DemandDistributions.ion",
+      "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+      "target": "/Clean/PurchaseResults/DemandDistributions.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/PurchaseResults/MicroDecisions.ion\"",
+      "raw_path": "Clean/PurchaseResults/MicroDecisions.ion",
+      "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+      "target": "/Clean/PurchaseResults/MicroDecisions.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write Scalar as \"Clean/PurchaseResults/TargetsPurchaseList.ion\"",
+      "raw_path": "Clean/PurchaseResults/TargetsPurchaseList.ion",
+      "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+      "target": "/Clean/PurchaseResults/TargetsPurchaseList.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/DeletedSuppliers.ion\"",
+      "raw_path": "/Clean/Interface/DeletedSuppliers.ion",
+      "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+      "target": "/Clean/Interface/DeletedSuppliers.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/InterfaceParameters.ion\"",
+      "raw_path": "/Clean/Interface/InterfaceParameters.ion",
+      "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+      "target": "/Clean/Interface/InterfaceParameters.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/SuppliersToCheck.ion\"",
+      "raw_path": "/Clean/Interface/SuppliersToCheck.ion",
+      "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+      "target": "/Clean/Interface/SuppliersToCheck.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/PurchasePerimeter.xlsx\"",
+      "raw_path": "/Clean/Interface/PurchasePerimeter.xlsx",
+      "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+      "target": "/Clean/Interface/PurchasePerimeter.xlsx"
+    },
+    {
+      "type": "writes",
+      "context": "write Categories as \"Clean/PurchaseResults/EconomicParametersCategories.ion\"",
+      "raw_path": "Clean/PurchaseResults/EconomicParametersCategories.ion",
+      "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+      "target": "/Clean/PurchaseResults/EconomicParametersCategories.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"Clean/PurchaseResults/EconomicParameters.ion\"",
+      "raw_path": "Clean/PurchaseResults/EconomicParameters.ion",
+      "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+      "target": "/Clean/PurchaseResults/EconomicParameters.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+      "target": "/4. Optimization workflow/FR/05. Suggestions d'achat::PlotInvestment"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+      "target": "/4. Optimization workflow/FR/05. Suggestions d'achat::Suppliers"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputFolder}Items.ion\"",
+      "raw_path": "\\{inputFolder}Items.ion",
+      "source": "/3. Inspectors/3 - Stock Inspector",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputFolder}Orders.ion\"",
+      "raw_path": "\\{inputFolder}Orders.ion",
+      "source": "/3. Inspectors/3 - Stock Inspector",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/\\{inputFolder}Stock.ion\"",
+      "raw_path": "/\\{inputFolder}Stock.ion",
+      "source": "/3. Inspectors/3 - Stock Inspector",
+      "target": "//Clean/Stock.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputFolder}Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "\\{inputFolder}Forecast/Periodic/WeeklyFc.ion",
+      "source": "/3. Inspectors/3 - Stock Inspector",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/\\{inputFolder}PO.ion\"",
+      "raw_path": "/\\{inputFolder}PO.ion",
+      "source": "/3. Inspectors/3 - Stock Inspector",
+      "target": "//Clean/PO.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"\\{path}StockInspectorKPIs.ion\"",
+      "raw_path": "\\{path}StockInspectorKPIs.ion",
+      "source": "/3. Inspectors/3 - Stock Inspector",
+      "target": "/Clean/Reporting/StockInspectorKPIs.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/3. Inspectors/3 - Stock Inspector",
+      "target": "/3. Inspectors/3 - Stock Inspector::ItemsWeek"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/3. Inspectors/3 - Stock Inspector",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Items.ion\"",
+      "raw_path": "\\{inputPath}Items.ion",
+      "source": "/4. Optimization workflow/French/03 Forecasting",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopItemsParameters.xlsx\"",
+      "raw_path": "/Manual/TopItemsParameters.xlsx",
+      "source": "/4. Optimization workflow/French/03 Forecasting",
+      "target": "/Manual/TopItemsParameters.xlsx"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+      "source": "/4. Optimization workflow/French/03 Forecasting",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Forecast/Periodic/FcItems.ion\"",
+      "raw_path": "\\{inputPath}Forecast/Periodic/FcItems.ion",
+      "source": "/4. Optimization workflow/French/03 Forecasting",
+      "target": "/Clean/Forecast/Periodic/FcItems.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{exportFile}TestEditable.ion\"",
+      "raw_path": "\\{exportFile}TestEditable.ion",
+      "source": "/4. Optimization workflow/French/03 Forecasting",
+      "target": "/Clean/validation/TestEditable.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{exportFile}ManualForecasts.ion\"",
+      "raw_path": "\\{exportFile}ManualForecasts.ion",
+      "source": "/4. Optimization workflow/French/03 Forecasting",
+      "target": "/Clean/validation/ManualForecasts.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/French/03 Forecasting",
+      "target": "/4. Optimization workflow/French/03 Forecasting::WeeklyFCModified"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/French/03 Forecasting",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/LongTermPlanning/Catalog.ion\"",
+      "raw_path": "/Clean/LongTermPlanning/Catalog.ion",
+      "source": "/5. Long Term Planning Module/High Level Forecast Cockpit",
+      "target": "/Clean/LongTermPlanning/Catalog.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/LongTermPlanning/Forecast.ion\"",
+      "raw_path": "/Clean/LongTermPlanning/Forecast.ion",
+      "source": "/5. Long Term Planning Module/High Level Forecast Cockpit",
+      "target": "/Clean/LongTermPlanning/Forecast.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write Category as \"/Clean/LongTermPlanning/Parametrisation/General.ion\"",
+      "raw_path": "/Clean/LongTermPlanning/Parametrisation/General.ion",
+      "source": "/5. Long Term Planning Module/High Level Forecast Cockpit",
+      "target": "/Clean/LongTermPlanning/Parametrisation/General.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read '/Clean/LongTermPlanning/Parametrisation/Category_\\{..}.ion'",
+      "raw_path": "/Clean/LongTermPlanning/Parametrisation/Category_\\{..}.ion",
+      "source": "/5. Long Term Planning Module/High Level Forecast Cockpit",
+      "target": "/Clean/LongTermPlanning/Parametrisation/Category_.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/5. Long Term Planning Module/High Level Forecast Cockpit",
+      "target": "/5. Long Term Planning Module/High Level Forecast Cockpit::Category"
+    },
+    {
+      "type": "defines",
+      "source": "/5. Long Term Planning Module/High Level Forecast Cockpit",
+      "target": "/5. Long Term Planning Module/High Level Forecast Cockpit::SliceParameters"
+    },
+    {
+      "type": "defines",
+      "source": "/5. Long Term Planning Module/High Level Forecast Cockpit",
+      "target": "/5. Long Term Planning Module/High Level Forecast Cockpit::CatalogExtend"
+    },
+    {
+      "type": "defines",
+      "source": "/5. Long Term Planning Module/High Level Forecast Cockpit",
+      "target": "/5. Long Term Planning Module/High Level Forecast Cockpit::CategoryExtend"
+    },
+    {
+      "type": "defines",
+      "source": "/5. Long Term Planning Module/High Level Forecast Cockpit",
+      "target": "/5. Long Term Planning Module/High Level Forecast Cockpit::CatalogExtendMonth"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Functions\"",
+      "source": "/5. Long Term Planning Module/High Level Forecast Cockpit",
+      "target": "/1. utilities/Modules/Functions"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Colors\"",
+      "source": "/5. Long Term Planning Module/High Level Forecast Cockpit",
+      "target": "/1. utilities/Modules/Colors"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/PathSchemas\"",
+      "source": "/5. Long Term Planning Module/High Level Forecast Cockpit",
+      "target": "/1. utilities/Modules/PathSchemas"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/5. Long Term Planning Module/High Level Forecast Cockpit",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{myPath}\\{itemName}*\"",
+      "raw_path": "\\{myPath}\\{itemName}*",
+      "source": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+      "target": "/Background/ItemSim/ItemToProgram_*"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{myPath}\\{categoryName}*\"",
+      "raw_path": "\\{myPath}\\{categoryName}*",
+      "source": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+      "target": "/Background/ItemSim/CategoryToProgram*"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopSubCategoriesParameters.xlsx\"",
+      "raw_path": "/Manual/TopSubCategoriesParameters.xlsx",
+      "source": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+      "target": "/Manual/TopSubCategoriesParameters.xlsx"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopItemsParameters.xlsx\"",
+      "raw_path": "/Manual/TopItemsParameters.xlsx",
+      "source": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+      "target": "/Manual/TopItemsParameters.xlsx"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/Suppliers_Dashboard.ion\"",
+      "raw_path": "/Manual/Suppliers_Dashboard.ion",
+      "source": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+      "target": "/Manual/Suppliers_Dashboard.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write: \"\\{projectFolder}Input/Orders/Orders_\\{itText}.ion\"",
+      "raw_path": "\\{projectFolder}Input/Orders/Orders_\\{itText}.ion",
+      "source": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+      "target": "/Input/Orders/Orders_.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write: \"\\{projectFolder}Input/Catalog/Catalog_\\{itText}.ion\"",
+      "raw_path": "\\{projectFolder}Input/Catalog/Catalog_\\{itText}.ion",
+      "source": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+      "target": "/Input/Catalog/Catalog_.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+      "target": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation::UserDefinedTimeOrders"
+    },
+    {
+      "type": "defines",
+      "source": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+      "target": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation::NaturalWave"
+    },
+    {
+      "type": "defines",
+      "source": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+      "target": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation::Orders"
+    },
+    {
+      "type": "defines",
+      "source": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+      "target": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation::Seasons"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Locations.ion\"",
+      "raw_path": "\\{inputPath}Locations.ion",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch",
+      "target": "/Clean/Locations.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Items.ion\"",
+      "raw_path": "\\{inputPath}Items.ion",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{testStorage}Clean/Orders.ion\"",
+      "raw_path": "\\{testStorage}Clean/Orders.ion",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PO.ion\"",
+      "raw_path": "/Clean/PO.ion",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch",
+      "target": "/Clean/PO.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopItemsParameters.xlsx\"",
+      "raw_path": "/Manual/TopItemsParameters.xlsx",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch",
+      "target": "/Manual/TopItemsParameters.xlsx"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Simulation/SimulationStandard.ion\"",
+      "raw_path": "/Clean/Simulation/SimulationStandard.ion",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch",
+      "target": "/Clean/Simulation/SimulationStandard.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch",
+      "target": "/4. Optimization workflow/French/07 Recommandations de Dispatch::SkusWeek"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch",
+      "target": "/4. Optimization workflow/French/07 Recommandations de Dispatch::Grid"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch",
+      "target": "/4. Optimization workflow/French/07 Recommandations de Dispatch::T"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Input/Documentation/Fill Rate/FakeCatalog.csv\"",
+      "raw_path": "/Input/Documentation/Fill Rate/FakeCatalog.csv",
+      "source": "/7. Documentation/Fill Rate Example",
+      "target": "/Input/Documentation/Fill Rate/FakeCatalog.csv"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Input/Documentation/Fill Rate/fillrate.csv\"",
+      "raw_path": "/Input/Documentation/Fill Rate/fillrate.csv",
+      "source": "/7. Documentation/Fill Rate Example",
+      "target": "/Input/Documentation/Fill Rate/fillrate.csv"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Locations.ion\"",
+      "raw_path": "\\{inputPath}Locations.ion",
+      "source": "/4. Optimization workflow/08. Dispatch ROP definition",
+      "target": "/Clean/Locations.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Items.ion\"",
+      "raw_path": "\\{inputPath}Items.ion",
+      "source": "/4. Optimization workflow/08. Dispatch ROP definition",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{testStorage}Clean/Orders.ion\"",
+      "raw_path": "\\{testStorage}Clean/Orders.ion",
+      "source": "/4. Optimization workflow/08. Dispatch ROP definition",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PO.ion\"",
+      "raw_path": "/Clean/PO.ion",
+      "source": "/4. Optimization workflow/08. Dispatch ROP definition",
+      "target": "/Clean/PO.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+      "source": "/4. Optimization workflow/08. Dispatch ROP definition",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopItemsParameters.xlsx\"",
+      "raw_path": "/Manual/TopItemsParameters.xlsx",
+      "source": "/4. Optimization workflow/08. Dispatch ROP definition",
+      "target": "/Manual/TopItemsParameters.xlsx"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"/Clean/Simulation/ROP.ion\"",
+      "raw_path": "/Clean/Simulation/ROP.ion",
+      "source": "/4. Optimization workflow/08. Dispatch ROP definition",
+      "target": "/Clean/Simulation/ROP.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/08. Dispatch ROP definition",
+      "target": "/4. Optimization workflow/08. Dispatch ROP definition::SkusWeek"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/08. Dispatch ROP definition",
+      "target": "/4. Optimization workflow/08. Dispatch ROP definition::Grid"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/08. Dispatch ROP definition",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/LongTermPlanning/Catalog.ion\"",
+      "raw_path": "/Clean/LongTermPlanning/Catalog.ion",
+      "source": "/5. Long Term Planning Module/Category Vision",
+      "target": "/Clean/LongTermPlanning/Catalog.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/LongTermPlanning/Forecast.ion\"",
+      "raw_path": "/Clean/LongTermPlanning/Forecast.ion",
+      "source": "/5. Long Term Planning Module/Category Vision",
+      "target": "/Clean/LongTermPlanning/Forecast.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/LongTermPlanning/Parametrisation/General.ion\"",
+      "raw_path": "/Clean/LongTermPlanning/Parametrisation/General.ion",
+      "source": "/5. Long Term Planning Module/Category Vision",
+      "target": "/Clean/LongTermPlanning/Parametrisation/General.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write SubCategory as '/Clean/LongTermPlanning/Parametrisation/Category_\\{Category}.ion'",
+      "raw_path": "/Clean/LongTermPlanning/Parametrisation/Category_\\{Category}.ion",
+      "source": "/5. Long Term Planning Module/Category Vision",
+      "target": "/Clean/LongTermPlanning/Parametrisation/Category_.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write Scalar as \"/Clean/LongTermPlanning/Trigger/General.ion\"",
+      "raw_path": "/Clean/LongTermPlanning/Trigger/General.ion",
+      "source": "/5. Long Term Planning Module/Category Vision",
+      "target": "/Clean/LongTermPlanning/Trigger/General.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/5. Long Term Planning Module/Category Vision",
+      "target": "/5. Long Term Planning Module/Category Vision::SubCategory"
+    },
+    {
+      "type": "defines",
+      "source": "/5. Long Term Planning Module/Category Vision",
+      "target": "/5. Long Term Planning Module/Category Vision::SliceParameters"
+    },
+    {
+      "type": "defines",
+      "source": "/5. Long Term Planning Module/Category Vision",
+      "target": "/5. Long Term Planning Module/Category Vision::CatalogExtend"
+    },
+    {
+      "type": "defines",
+      "source": "/5. Long Term Planning Module/Category Vision",
+      "target": "/5. Long Term Planning Module/Category Vision::SubCategoryExtend"
+    },
+    {
+      "type": "defines",
+      "source": "/5. Long Term Planning Module/Category Vision",
+      "target": "/5. Long Term Planning Module/Category Vision::CatalogExtendMonth"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Functions\"",
+      "source": "/5. Long Term Planning Module/Category Vision",
+      "target": "/1. utilities/Modules/Functions"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Colors\"",
+      "source": "/5. Long Term Planning Module/Category Vision",
+      "target": "/1. utilities/Modules/Colors"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/PathSchemas\"",
+      "source": "/5. Long Term Planning Module/Category Vision",
+      "target": "/1. utilities/Modules/PathSchemas"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/5. Long Term Planning Module/Category Vision",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/03 Forecast Menu",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Items.ion\"",
+      "raw_path": "\\{inputPath}Items.ion",
+      "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopItemsParameters.xlsx\"",
+      "raw_path": "/Manual/TopItemsParameters.xlsx",
+      "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+      "target": "/Manual/TopItemsParameters.xlsx"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{testStorage}Clean/Orders.ion\"",
+      "raw_path": "\\{testStorage}Clean/Orders.ion",
+      "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/PO.ion\"",
+      "raw_path": "/Clean/PO.ion",
+      "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+      "target": "/Clean/PO.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Stock.ion\"",
+      "raw_path": "/Clean/Stock.ion",
+      "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+      "target": "/Clean/Stock.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+      "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write Items as \"Clean/French/PurchaseResults/PORecommendations.ion\"",
+      "raw_path": "Clean/French/PurchaseResults/PORecommendations.ion",
+      "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+      "target": "/Clean/French/PurchaseResults/PORecommendations.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/PurchaseResults/DemandDistributions.ion\"",
+      "raw_path": "Clean/PurchaseResults/DemandDistributions.ion",
+      "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+      "target": "/Clean/PurchaseResults/DemandDistributions.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"Clean/PurchaseResults/MicroDecisions.ion\"",
+      "raw_path": "Clean/PurchaseResults/MicroDecisions.ion",
+      "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+      "target": "/Clean/PurchaseResults/MicroDecisions.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write Scalar as \"Clean/French/PurchaseResults/TargetsPurchaseList.ion\"",
+      "raw_path": "Clean/French/PurchaseResults/TargetsPurchaseList.ion",
+      "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+      "target": "/Clean/French/PurchaseResults/TargetsPurchaseList.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/DeletedSuppliers.ion\"",
+      "raw_path": "/Clean/Interface/DeletedSuppliers.ion",
+      "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+      "target": "/Clean/Interface/DeletedSuppliers.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/InterfaceParameters.ion\"",
+      "raw_path": "/Clean/Interface/InterfaceParameters.ion",
+      "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+      "target": "/Clean/Interface/InterfaceParameters.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/SuppliersToCheck.ion\"",
+      "raw_path": "/Clean/Interface/SuppliersToCheck.ion",
+      "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+      "target": "/Clean/Interface/SuppliersToCheck.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Interface/PurchasePerimeter.xlsx\"",
+      "raw_path": "/Clean/Interface/PurchasePerimeter.xlsx",
+      "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+      "target": "/Clean/Interface/PurchasePerimeter.xlsx"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+      "target": "/4. Optimization workflow/French/05.Recommandations d'Achats::PlotInvestment"
+    },
+    {
+      "type": "defines",
+      "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+      "target": "/4. Optimization workflow/French/05.Recommandations d'Achats::Suppliers"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Catalog.ion\"",
+      "raw_path": "\\{inputPath}Catalog.ion",
+      "source": "/2. Data sanity/2 - Low Level Data Health",
+      "target": "/Clean/tmp/Catalog.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Orders.ion\"",
+      "raw_path": "\\{inputPath}Orders.ion",
+      "source": "/2. Data sanity/2 - Low Level Data Health",
+      "target": "/Clean/tmp/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Purchaseorders.ion\"",
+      "raw_path": "\\{inputPath}Purchaseorders.ion",
+      "source": "/2. Data sanity/2 - Low Level Data Health",
+      "target": "/Clean/tmp/Purchaseorders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Suppliers.ion\"",
+      "raw_path": "\\{inputPath}Suppliers.ion",
+      "source": "/2. Data sanity/2 - Low Level Data Health",
+      "target": "/Clean/tmp/Suppliers.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{inputPath}Stock.ion\"",
+      "raw_path": "\\{inputPath}Stock.ion",
+      "source": "/2. Data sanity/2 - Low Level Data Health",
+      "target": "/Clean/tmp/Stock.ion"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/2. Data sanity/2 - Low Level Data Health",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Input/Catalog/Catalog*\"",
+      "raw_path": "/Input/Catalog/Catalog*",
+      "source": "/4. Optimization workflow/02 Suppliers",
+      "target": "/Input/Catalog/Catalog*"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Clean/Items.ion\"",
+      "raw_path": "/Clean/Items.ion",
+      "source": "/4. Optimization workflow/02 Suppliers",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "imports",
+      "context": "import \"/1. utilities/Modules/Global Parameters\"",
+      "source": "/4. Optimization workflow/02 Suppliers",
+      "target": "/1. utilities/Modules/Global Parameters"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Input/Documentation/ActRwd Example/ActRwdDocsItems.ion\"",
+      "raw_path": "/Input/Documentation/ActRwd Example/ActRwdDocsItems.ion",
+      "source": "/7. Documentation/3.1 Action Reward Example",
+      "target": "/Input/Documentation/ActRwd Example/ActRwdDocsItems.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Input/Documentation/ActRwd Example/ActRwdDocsOrders.ion\"",
+      "raw_path": "/Input/Documentation/ActRwd Example/ActRwdDocsOrders.ion",
+      "source": "/7. Documentation/3.1 Action Reward Example",
+      "target": "/Input/Documentation/ActRwd Example/ActRwdDocsOrders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Input/Documentation/ActRwd Example/ActRwdDocsDemand.ion\"",
+      "raw_path": "/Input/Documentation/ActRwd Example/ActRwdDocsDemand.ion",
+      "source": "/7. Documentation/3.1 Action Reward Example",
+      "target": "/Input/Documentation/ActRwd Example/ActRwdDocsDemand.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Input/Documentation/ActRwd Example/ActRwdDocsFC.ion\"",
+      "raw_path": "/Input/Documentation/ActRwd Example/ActRwdDocsFC.ion",
+      "source": "/7. Documentation/3.1 Action Reward Example",
+      "target": "/Input/Documentation/ActRwd Example/ActRwdDocsFC.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/7. Documentation/3.1 Action Reward Example",
+      "target": "/7. Documentation/3.1 Action Reward Example::p"
+    },
+    {
+      "type": "defines",
+      "source": "/7. Documentation/3.1 Action Reward Example",
+      "target": "/7. Documentation/3.1 Action Reward Example::dem"
+    },
+    {
+      "type": "defines",
+      "source": "/7. Documentation/3.1 Action Reward Example",
+      "target": "/7. Documentation/3.1 Action Reward Example::sales"
+    },
+    {
+      "type": "defines",
+      "source": "/7. Documentation/3.1 Action Reward Example",
+      "target": "/7. Documentation/3.1 Action Reward Example::Extend"
+    },
+    {
+      "type": "defines",
+      "source": "/7. Documentation/3.1 Action Reward Example",
+      "target": "/7. Documentation/3.1 Action Reward Example::test"
+    },
+    {
+      "type": "defines",
+      "source": "/7. Documentation/3.1 Action Reward Example",
+      "target": "/7. Documentation/3.1 Action Reward Example::Extend2"
+    },
+    {
+      "type": "defines",
+      "source": "/7. Documentation/3.1 Action Reward Example",
+      "target": "/7. Documentation/3.1 Action Reward Example::G"
+    },
+    {
+      "type": "defines",
+      "source": "/7. Documentation/3.1 Action Reward Example",
+      "target": "/7. Documentation/3.1 Action Reward Example::ObsWk"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{testStorage}Clean/Items.ion\"",
+      "raw_path": "\\{testStorage}Clean/Items.ion",
+      "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+      "target": "/Clean/Items.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{testStorage}Clean/Orders.ion\"",
+      "raw_path": "\\{testStorage}Clean/Orders.ion",
+      "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+      "target": "/Clean/Orders.ion"
+    },
+    {
+      "type": "reads",
+      "context": "read \"\\{testStorage}Clean/Parameters/max_date_placeholder.csv\"",
+      "raw_path": "\\{testStorage}Clean/Parameters/max_date_placeholder.csv",
+      "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+      "target": "/Clean/Parameters/max_date_placeholder.csv"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopSubCategoriesParameters.xlsx\"",
+      "raw_path": "/Manual/TopSubCategoriesParameters.xlsx",
+      "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+      "target": "/Manual/TopSubCategoriesParameters.xlsx"
+    },
+    {
+      "type": "reads",
+      "context": "read \"/Manual/TopItemsParameters.xlsx\"",
+      "raw_path": "/Manual/TopItemsParameters.xlsx",
+      "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+      "target": "/Manual/TopItemsParameters.xlsx"
+    },
+    {
+      "type": "writes",
+      "context": "write: \"\\{testStorage}Clean/Forecast/Periodic/WeeklyFc.ion\"",
+      "raw_path": "\\{testStorage}Clean/Forecast/Periodic/WeeklyFc.ion",
+      "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+      "target": "/Clean/Forecast/Periodic/WeeklyFc.ion"
+    },
+    {
+      "type": "writes",
+      "context": "write:\"\\{testStorage}Clean/Forecast/Periodic/FcItems.ion\"",
+      "raw_path": "\\{testStorage}Clean/Forecast/Periodic/FcItems.ion",
+      "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+      "target": "/Clean/Forecast/Periodic/FcItems.ion"
+    },
+    {
+      "type": "defines",
+      "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+      "target": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff::ItemsWeek"
+    },
+    {
+      "type": "defines",
+      "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+      "target": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff::ItemsYW"
+    }
+  ]
+}

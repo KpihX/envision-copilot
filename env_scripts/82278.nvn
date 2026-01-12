@@ -1,0 +1,17 @@
+
+
+///# Long Term Planning
+export schema '/Clean/LongTermPlanning/Parametrisation/Category_\{Category}.ion' with
+  Category: number
+  SubCategory: number
+  GrowthCat: number
+  GrowthSub: number
+  IsForcedCat: boolean
+  IsForcedSub: boolean
+  CommentCat: text
+
+export schema '/Clean/LongTermPlanning/Trigger/Category_\{Category}.ion' with
+  Category : number
+  GrowthChange : boolean
+  ForcedChanged : boolean
+  ForcedHighLevelChanged : boolean

@@ -1,0 +1,69 @@
+
+show logo "" a1
+
+show label "Documentation - Demo Company" a2h2 {textColor: #000000}
+
+show scalar "Current date" g1h1 {textAlign: right ; textBold: "true"} with today(-6)
+
+show label "Table of Contents" e3h3 353535
+
+show label "[1] Data Phase" e4h4 e41b1b {labelIcon: "cloud-upload" ; iconColor: #f5a623; href: #(dashUrl(68032))}
+
+show label "[2] Forecasting & Optimization Phase" e5h5 {labelIcon: "analytics-varied-diagrams" ; iconColor: #f5a623; href: #(dashUrl(68033))}
+
+show label "[2.1] Action Reward" e6h6 {labelIcon: "scale" ; iconColor: #f5a623; href: #(dashUrl(68034))}
+
+show label "[2.2] Fill Rate" e7h7 {labelIcon: "histogram" ; iconColor: #f5a623; href: #(dashUrl(68036))}
+
+show label "[3] Production Phase" e8h8 {labelIcon: "gauge-dollar" ; iconColor: #f5a623; href: #(dashUrl(68035))}
+
+show label "https://go.lokad.com/DEMO/gateway/BigFiles/browse/Download?hash=08C3EE25F92710DDAF354295F5198192&path=%2FBackground%2FGraphics%2FProject&name=supplychainoverview.PNG" a15h19
+
+// show label "https://go.lokad.com/gateway/BigFiles/browse/Download?hash=B48D74E4A1F22F02B95CA99B87ECF2FE&name=timeline.PNG" a25h30
+
+show markdown "" a3d6 with """
+  This documentation will be an online source for quick and easy referencing regarding the Lokad solution while using the LOKAD application.
+  This page goes over the general project overview and project timeline and has links to pages that go into detail on each phase of the onboarding process
+  until reaching production.
+
+  __Project Kickoff:__ 27 January 2022
+
+  __Phase I - Data:__ 2 February 2022
+
+  __Phase II - Forecast & Optimization:__ 4 April 2022
+
+  __Phase III - Finetuning & Testing:__ 7 August 2022
+
+  __Phase IV - Production:__ 3 October 2022
+  """
+
+show markdown "Project Overview" a10h14 with """
+  # Project Overview
+
+  __Project Kickoff Date:__ 27 January 2022
+
+  The company is an online cosmetics and medical supplies retailer, based in the United States. Through four distribution centers,
+  a selection of about 350 products is offered to the end consumer through different online sales channels.
+  The company has concentrated its assortment on the high movers and introduced its own brand in the majority of available items.
+  The company sources 80% of its references from suppliers across China and Taiwan, while the remainder is sourced domestically in the United States.
+  Operations are carried out of a central warehouse located in Leicester, and three other Distribution Centers located in London, Manchester, and Edinburgh.
+  A diagram mapping the company's supply chain from suppliers to customers can be seen below.
+
+  Three initial decision scopes are proposed:
+
+  1. Recommended purchase quantities at the DC level.
+  2. Dispatch and inventory movements from Leicester to London, Manchester and Edinburgh.
+  3. Recommended price adjustments at the DC level.
+
+  The goal of the first scope will be an optimized list of recommended items and order quantities on a regular
+  basis for purchasing. The goal of the second scope will be to ensure dispatch between the entire distribution
+  network. The goal of the third scope will be to adjust the prices of the items based on their stock levels
+  to optimise the return over investment in stockout or overstock situations.
+  Lokad's deliverables will be online analysis and reporting dashboards in the LOKAD application and file exports that consolidate
+  all decisions recommended by Lokad, consolidated documentation that goes in detail of all project elements
+  (data, process, strategy, drivers, etc.), and general indicators and dashboards for "whiteboxing" and
+  explaining each decision at the micro and macro level.
+"""
+
+show markdown "" a9h9 white  with """-----------------------------------"""
+show markdown "" a20h20 white  with """-----------------------------------"""

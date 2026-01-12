@@ -1,0 +1,296 @@
+/// Dashboard to choose target ambition - All Granularity Level
+
+import "/1. utilities/Modules/Functions" as F
+import "/1. utilities/Modules/Colors" as C
+import "/1. utilities/Modules/PathSchemas" as PS
+import "/1. utilities/Modules/Global Parameters" as GP with
+  ColorB
+  ColorBlight
+  CategoryURL
+
+read "/Clean/LongTermPlanning/Catalog.ion" as Catalog[Ref] small 1k with
+  Ref : text
+  Category : number
+  SubCategory : number
+  BuyPrice : number
+  SellPrice : number
+  Supplier: text
+  StockOnHand: number
+read "/Clean/LongTermPlanning/Forecast.ion" as Forecast small 100k expect[Ref]  with
+  "Month" as MonthF : month
+  Ref : text
+  Baseline : number
+read "/Clean/LongTermPlanning/DayFactor.ion" as DayFactor with
+  "Date" as Day : date
+  Factor : number
+read "/Clean/LongTermPlanning/PO.ion" as PO small 1k expect[Ref] with
+  Ref: text
+  Id: text
+  DatePO: date
+  OrderQty: number
+
+read "/Clean/LongTermPlanning/Parametrisation/General.ion" as GeneralParametrisation with
+  Category: number
+  GrowthCat: number
+  GrowthGeneral: number
+  IsCatForced: boolean
+  IsCatForcedHighLevel: boolean
+read '/Clean/LongTermPlanning/Parametrisation/Category_\{..}.ion' as CategoryParametrisation
+
+/// ----------------------------------------------------------------------------------------------------
+///# 0. Display
+/// ----------------------------------------------------------------------------------------------------
+
+show logo "" g1h2
+show label "Final Forecast Plan" b1f1 {labelIcon: "analytics-magnifier" ; textAlign: center ; textBold: "true" ; textColor: "black" ; tileColor: #(ColorB)}
+show label "🏠 Home" a1 {hrefAspect: white ; textAlign: center ; href: #(dashUrl(GP.LinkHomeLongTerm))}
+
+show markdown "Generic Documentation" a2f2 {tileZoom: "false"} with """
+__This cockpit enables to see the Final Forecast Plan parametrized at various granularity Level. From there it is possible to deduce the purchase amount that will be necessary for specific periods of time.__"""
+
+show tabs "" a3h3 {textColor: "black" ; backgroundColor: #(C.ColorLokadLight) ; tabBackgroundColor: "white"} with
+  "forecast" as "📈 Final Forecast Parametrized"
+  "purchase" as "🛒 Corresponding Purchase"
+
+highlightColor = ColorB
+Catalog.Color = match Catalog.Category with
+  1 -> C.color1b
+  2 -> C.color2b
+  3 -> C.color3b
+  4 -> C.color4b
+  5 -> C.color5b
+  6 -> C.color6b
+
+@{ dashButton: ""}
+
+/// ----------------------------------------------------------------------------------------------------
+///# 1. Creation of the Slicing
+/// ----------------------------------------------------------------------------------------------------
+
+def const pure SlicingKey (N: number, Slicer: number, defaultArg: text, Arg: text) with
+  reste = N - floor(N/(2^Slicer))
+  key = if reste mod 2 == 0 then concat("1 - ", defaultArg) else concat("2 - ", Arg)
+  return key
+
+def const pure SlicingName (Arg: text) with
+  prefixe = field(Arg," - ",0)
+  suffixe = field(Arg," - ",1)
+  return(if prefixe == "1" then "" else concat(suffixe," x "))
+
+table CatalogExtend = extend.range(Catalog.32)  /// 2^nb_dim * nb_horizons (2/4/6/12 months)
+CatalogExtend.N = CatalogExtend.N - 1
+
+CatalogExtend.Category = SlicingKey(CatalogExtend.N, 1, "All Categories", concat("Category ",Catalog.Category))
+CatalogExtend.Section = SlicingKey(CatalogExtend.N, 2, "All Sections", concat("Section ",Catalog.SubCategory))
+CatalogExtend.Supplier = SlicingKey(CatalogExtend.N, 3, "All Suppliers", Catalog.Supplier)
+
+CatalogExtend.NbMonth = if CatalogExtend.N < 8 then 2 else
+                        if CatalogExtend.N < 16 then 4 else
+                        if CatalogExtend.N < 24 then 6
+                        else 12
+
+CatalogExtend.Slicer = concat(CatalogExtend.Category," x ",CatalogExtend.Section," x ",CatalogExtend.Supplier," x ",CatalogExtend.NbMonth)
+
+table Slices [slice] = slice by CatalogExtend.Slicer title: CatalogExtend.Slicer
+
+show slicepicker "Aggregation Choice" a4b7  with
+  same(CatalogExtend.Category) as "Category" {sliceHierarchy: ask}
+  same(CatalogExtend.Section) as "Section" {sliceHierarchy: ask}
+  same(CatalogExtend.Supplier) as "Supplier" {sliceHierarchy: ask}
+  same(CatalogExtend.NbMonth) as "Duration of the Purchase Horizon" {sliceHierarchy: ask ; unit: " months"}
+
+Slices.NameSlice = if same(CatalogExtend.N) mod 16 == 0 or same(CatalogExtend.N) mod 16 == 15 then "All Scope"
+                   else same(field(concat(SlicingName(CatalogExtend.Category), SlicingName(CatalogExtend.Section), SlicingName(CatalogExtend.Supplier),"END")," x END",0))
+Slices.Duration = same(concat(CatalogExtend.NbMonth, " months horizon"))
+
+/// ----------------------------------------------------------------------------------------------------
+///# 2. Forecast
+/// ----------------------------------------------------------------------------------------------------
+
+///## A] Looking at data parametrized at Category and Global level
+
+Catalog.CatGrowthReason = if same(GeneralParametrisation.IsCatForcedHighLevel) by GeneralParametrisation.Category at Catalog.Category then "Forced at High Level" else
+                          if same(GeneralParametrisation.IsCatForced) by GeneralParametrisation.Category at Catalog.Category then "Forced at Category Level"
+                          else "Adjustment with respect general growth"
+Catalog.SectionGrowthReason = if same(CategoryParametrisation.IsForcedSub) by [CategoryParametrisation.Category, CategoryParametrisation.SubCategory] at [Catalog.Category, Catalog.SubCategory] then "Forced at Category Level"
+                              else "Adjustment with respect to category growth"
+
+Catalog.Growth = same(CategoryParametrisation.GrowthSub) by [CategoryParametrisation.Category, CategoryParametrisation.SubCategory] at [Catalog.Category, Catalog.SubCategory]
+Catalog.CA = sum(Forecast.Baseline * Catalog.SellPrice)
+
+show table  "List of Growth by Reference - \{Slices.NameSlice}" a18h18 slices: CatalogExtend.slice {tileTab: "forecast" ; tileColor: #(highlightColor)} with
+  Catalog.Ref into CatalogExtend as "Ref"
+  concat("Category ",Catalog.Category) as "Category"
+  concat("Section ",Catalog.SubCategory) as "Section"
+  Catalog.Supplier
+  Catalog.Growth as "Growth parametrized" {numbers: percent}
+
+show table  "List of Growth by Section - \{Slices.NameSlice}" e14h17 slices: CatalogExtend.slice {tileTab: "forecast" ; tileColor: #(highlightColor)} with
+  same(concat("Category ",Catalog.Category) into CatalogExtend) as "Category"
+  same(concat("Section ",Catalog.SubCategory) into CatalogExtend) as "Section"
+  (sum(Catalog.Growth*Catalog.CA into CatalogExtend) / sum(Catalog.CA into CatalogExtend)) as "Growth parametrized" {numbers: percent ; plusSign: nonzero}
+  same(Catalog.SectionGrowthReason into CatalogExtend) as "Reason for Growth" {textBold: #[not same(contains(Catalog.SectionGrowthReason,"Adjustment") into CatalogExtend)]}
+  group by [Catalog.Category, Catalog.SubCategory]
+
+show table  "List of Growth by Category - \{Slices.NameSlice}" a14d17 slices: CatalogExtend.slice {tileTab: "forecast" ; tileColor: #(highlightColor)} with
+  concat("Category ",Catalog.Category) as "Category"
+  (sum(Catalog.Growth*Catalog.CA into CatalogExtend) / sum(Catalog.CA into CatalogExtend)) as "Growth parametrized" {numbers: percent ; plusSign: nonzero}
+  same(Catalog.CatGrowthReason into CatalogExtend) as "Reason for Growth" {textBold: #[not same(contains(Catalog.CatGrowthReason,"Adjustment") into CatalogExtend)]}
+  group by concat("Category ",Catalog.Category)
+
+
+/// ----------------------------------------------------------------------------------------------------
+///## B] Visualisation of Forecast
+
+table CatalogExtendMonth = extend.range(CatalogExtend.12)
+CatalogExtendMonth.MonthF = month(2025,CatalogExtendMonth.N)
+CatalogExtendMonth.Baseline = single(Forecast.Baseline) by [Forecast.Ref, Forecast.MonthF] at [Catalog.Ref, CatalogExtendMonth.MonthF]
+
+show linechart "Sales Forecast - 2025" a8h12 slices: CatalogExtend.slice {tileTab: "forecast"} with
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * (Catalog.Growth +1)) when (Catalog.Category == 1) as "Cat. 1" {unit: "€" ; seriesType: bar ; seriesStack: bar ; color: #(C.color1b)}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * (Catalog.Growth +1)) when (Catalog.Category == 2) as "Cat. 2" {unit: "€" ; seriesType: bar ; seriesStack: bar ; color: #(C.color2b)}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * (Catalog.Growth +1)) when (Catalog.Category == 3) as "Cat. 3" {unit: "€" ; seriesType: bar ; seriesStack: bar ; color: #(C.color3b)}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * (Catalog.Growth +1)) when (Catalog.Category == 4) as "Cat. 4" {unit: "€" ; seriesType: bar ; seriesStack: bar ; color: #(C.color4b)}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * (Catalog.Growth +1)) when (Catalog.Category == 5) as "Cat. 5" {unit: "€" ; seriesType: bar ; seriesStack: bar ; color: #(C.color5b)}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * (Catalog.Growth +1)) when (Catalog.Category == 6) as "Cat. 6" {unit: "€" ; seriesType: bar ; seriesStack: bar ; color: #(C.color6b)}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * (Catalog.Growth +1)) as "Total Forecast" {unit: "€" ; seriesType: legend}
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice) as "2024 Base" {unit: "€" ; seriesPattern: dashed}
+  group by CatalogExtendMonth.MonthF
+
+show table "Detailed Forecast by Reference" a13h13 slices: CatalogExtend.slice {tileTab: "forecast"} with
+  CatalogExtend.Ref as "Reference"
+  concat("Category ",Catalog.Category) as "Category"
+  concat("Section ",Catalog.SubCategory) as "Section"
+  Catalog.Supplier
+  CatalogExtendMonth.MonthF as "Month"
+  CatalogExtendMonth.Baseline * (Catalog.Growth +1) as "Forecast (qty)" {unit: " units"}
+  CatalogExtendMonth.Baseline * Catalog.SellPrice * (Catalog.Growth +1) as "Forecast (€)" {unit: "€"}
+  order by [sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * (Catalog.Growth +1)) by Ref, month(2025,1) - CatalogExtendMonth.MonthF] desc
+
+show scalar "Total Forecast - \{Slices.Duration}" c4e4 slices: CatalogExtend.slice {textAlign: left ; textBold: "true"} with
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * (Catalog.Growth +1)) when (CatalogExtendMonth.N <= CatalogExtend.NbMonth) {unit: "€" ; precision: 0 ; numbers: thousands}
+
+show piechart "Total Forecast by Category - \{Slices.Duration}" f5h7 slices: CatalogExtend.slice {unit: "€" ; precision: 0} with
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * (Catalog.Growth +1)) when (CatalogExtendMonth.N <= CatalogExtend.NbMonth) {color: #[same(Catalog.Color into CatalogExtendMonth)]}
+  group by concat("Category ",Catalog.Category) into CatalogExtendMonth
+  order by sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * (Catalog.Growth +1)) when (CatalogExtendMonth.N <= CatalogExtend.NbMonth) desc
+
+show table "Total Forecast by Section - \{Slices.Duration}" f4h4 slices: CatalogExtend.slice {unit: "€" ; precision: 0} with
+  same(concat("Category ",Catalog.Category into CatalogExtendMonth)) as "Category"
+  same(concat("Section ",Catalog.SubCategory into CatalogExtendMonth)) as "Section"
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * (Catalog.Growth +1)) when (CatalogExtendMonth.N <= CatalogExtend.NbMonth) as "Total Forecast on \{Slices.Duration}"
+  group by [Catalog.Category, Catalog.SubCategory into CatalogExtendMonth]
+  order by sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * (Catalog.Growth +1)) when (CatalogExtendMonth.N <= CatalogExtend.NbMonth) desc
+
+show piechart "Total Forecast by Supplier - \{Slices.Duration}" c5e7 slices: CatalogExtend.slice {unit: "€" ; precision: 0 ; tileColor: #(highlightColor)} with
+  sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * (Catalog.Growth +1)) when (CatalogExtendMonth.N <= CatalogExtend.NbMonth)
+  group by Catalog.Supplier into CatalogExtendMonth
+  order by sum(CatalogExtendMonth.Baseline * Catalog.SellPrice * (Catalog.Growth +1)) when (CatalogExtendMonth.N <= CatalogExtend.NbMonth) desc
+
+/// --------------------------------------------------------------------------------------------------
+///# 3. Purchase Recommendations
+/// ----------------------------------------------------------------------------------------------------
+
+///## A] Stock Flowing
+
+/// Weight Sales
+table WeekDay = extend.range(7)
+WeekDay.DayWeight = match WeekDay.N with
+  1 -> 2
+  2 -> 1
+  3 -> 1
+  4 -> 3
+  5 -> 2
+  6 -> 15
+  7 -> 10
+// Daily Forecast
+table ForecastDaily = extend.range(Catalog.365)
+ForecastDaily.Ref = Catalog.Ref
+ForecastDaily.DayDate = date(2025,1,1) + ForecastDaily.N - 1
+ForecastDaily.DayOfWeek = weekDayNum(ForecastDaily.DayDate)
+ForecastDaily.WeightDay = single(WeekDay.DayWeight) by WeekDay.N at ForecastDaily.DayOfWeek * single(DayFactor.Factor) by DayFactor.Day at ForecastDaily.DayDate
+ForecastDaily.PonderationDay = ForecastDaily.WeightDay / sum(ForecastDaily.WeightDay) by [month(ForecastDaily.DayDate), Ref]
+ForecastDaily.DailyForecast = same(Forecast.Baseline * (Catalog.Growth +1)) by [Forecast.Ref, Forecast.MonthF] at [ForecastDaily.Ref, month(ForecastDaily.DayDate)] * ForecastDaily.PonderationDay
+
+ForecastDaily.StockOnOrderDelivering = sum(PO.OrderQty) by [PO.DatePO,PO.Ref] at [ForecastDaily.DayDate,ForecastDaily.Ref]
+ForecastDaily.RelativeDailyDemand = ForecastDaily.DailyForecast - ForecastDaily.StockOnOrderDelivering
+
+/// Remainings Days of Stocks at the Ref Level
+def process StockEvolution(x : number, CanHaveNegativeStock: boolean) with
+  keep s = 0
+  s = if CanHaveNegativeStock then s-x else max(min(0,s),s-x)
+  return s
+
+ForecastDaily.IsNegativeStockAllowed = true
+where ForecastDaily.DayDate == date(2025,1,1)
+  ForecastDaily.RelativeDailyDemand = ForecastDaily.RelativeDailyDemand - Catalog.StockOnHand
+ForecastDaily.RemainingStock = StockEvolution(ForecastDaily.RelativeDailyDemand, ForecastDaily.IsNegativeStockAllowed) scan ForecastDaily.DayDate by ForecastDaily.Ref
+
+table CatalogExtendDay = extend.range(CatalogExtend.365)
+CatalogExtendDay.DayDate = date(2025,1,1) + CatalogExtendDay.N - 1
+CatalogExtendDay.RemainingStock = single(ForecastDaily.RemainingStock) by [ForecastDaily.Ref, ForecastDaily.DayDate] at [Catalog.Ref, CatalogExtendDay.DayDate]
+
+threshold = 5
+CatalogExtend.EndHorizon = monthEnd(month(2025,CatalogExtend.NbMonth))
+CatalogExtendDay.IsInCoverageWindow = CatalogExtendDay.DayDate <= CatalogExtend.EndHorizon
+CatalogExtend.LokadOrderQty = round(- min(0, single(CatalogExtendDay.RemainingStock - threshold) by [Catalog.Ref, CatalogExtendDay.DayDate, CatalogExtend.slice] at [Catalog.Ref, CatalogExtend.EndHorizon, CatalogExtend.slice]),0)
+CatalogExtend.DateEndStock = max(CatalogExtendDay.DayDate) when (CatalogExtendDay.RemainingStock >= threshold)
+CatalogExtendDay.RemainingLokadStock = CatalogExtendDay.RemainingStock + (if (CatalogExtendDay.DayDate > CatalogExtend.DateEndStock) then CatalogExtend.LokadOrderQty else 0)
+
+keep where CatalogExtendDay.DayDate <= CatalogExtend.EndHorizon + 30
+
+tip = "As an example, for each Reference the PO of the recommended quantity is placed when needed in a single PO. This would not be the case in reality and would be depending on Business strategy, Supplier constraints and economic costs."
+show linechart "Mean Forecasted Stock" a12h16 slices: CatalogExtend.slice {tileTab: "purchase" ; precision: 0 ; unit: "€"; tileTooltipText: #(tip)} with
+  sum(max(CatalogExtendDay.RemainingStock,0) * Catalog.BuyPrice) as "Mean Forecasted Stock" {seriesType: area ; color: "gold"}
+  sum(CatalogExtendDay.RemainingStock * Catalog.BuyPrice) as "Mean Forecasted Stock with BO" {seriesType: legend; color: "lightcoral"}
+  if any(CatalogExtendDay.IsInCoverageWindow) then 1 else 0 as "Horizon"  {seriesType: background ; seriesOpacity: 0.5 ; color: "lightskyblue"}
+  sum(max(CatalogExtendDay.RemainingLokadStock,0) * Catalog.BuyPrice) as "Mean Forecasted Stock with Lokad Recommendation" {seriesPattern: dotted}
+  group by CatalogExtendDay.DayDate
+
+Catalog.OnOrderQty = sum(PO.OrderQty)
+
+show table "Purchase Budget by Reference - \{Slices.Duration}" a17h17 slices: CatalogExtend.slice {tileTab: "purchase"} with
+  CatalogExtend.Ref as "Reference"
+  concat("Category ",Catalog.Category) as "Category"
+  concat("Section ",Catalog.SubCategory) as "Section"
+  Catalog.Supplier
+  Catalog.BuyPrice {unit: "€"}
+  Catalog.SellPrice {unit: "€"}
+  "" as "Forecast - \{Slices.Duration}"
+  Catalog.StockOnHand as "Stock On Hand" {unit: " units"}
+  Catalog.OnOrderQty as "Stock On Order" {unit: " units"}
+  CatalogExtend.LokadOrderQty as "Purchase Recommendation" {unit: " units"}
+  CatalogExtend.LokadOrderQty * Catalog.BuyPrice as "Purchase Budget" {unit: "€" ; precision: 0}
+  order by [CatalogExtend.LokadOrderQty * Catalog.BuyPrice] desc
+
+
+show scalar "Total Purchase Budget - \{Slices.Duration}" a8b8 slices: CatalogExtend.slice {textAlign: left ; textBold: "true" ; tileTab: "purchase"} with
+  sum(CatalogExtend.LokadOrderQty * Catalog.BuyPrice) {unit: "€" ; precision: 0 ; numbers: thousands}
+show scalar "Total Current Stock" a9b9 slices: CatalogExtend.slice {textAlign: left ; tileTab: "purchase" ; tileTooltipText: "Including incoming PO"} with
+  sum((Catalog.StockOnHand + Catalog.OnOrderQty) * Catalog.BuyPrice into CatalogExtend) {unit: "€" ; precision: 0 ; numbers: thousands}
+show scalar "Total Target Stock after \{Slices.Duration}" a10b10 slices: CatalogExtend.slice {textAlign: left ; tileTab: "purchase" ; tileTooltipText: "Including incoming PO and Purchase Recommendation"} with
+  sum(CatalogExtendDay.RemainingLokadStock * Catalog.BuyPrice) when (CatalogExtendDay.DayDate == CatalogExtend.EndHorizon) {unit: "€" ; precision: 0 ; numbers: thousands}
+
+show barchart "Total Purchase Budget by Category - \{Slices.Duration}" f8h10 slices: CatalogExtend.slice {unit: "€" ; precision: 0 ; tileTab: "purchase"} with
+  sum(CatalogExtend.LokadOrderQty * Catalog.BuyPrice) {color: #[same(Catalog.Color into CatalogExtend)]}
+  group by concat("Category ",Catalog.Category)
+  order by sum(CatalogExtend.LokadOrderQty * Catalog.BuyPrice) desc
+
+show table "Purchase Budget by Section - \{Slices.Duration}" f11h11 slices: CatalogExtend.slice {unit: "€" ; precision: 0 ; tileTab: "purchase"} with
+  same(concat("Category ",Catalog.Category) into CatalogExtend) as "Category"
+  same(concat("Section ",Catalog.SubCategory) into CatalogExtend) as "Section"
+  sum(CatalogExtend.LokadOrderQty * Catalog.BuyPrice) as "Purchase Budget"
+  group by [Catalog.Category, Catalog.SubCategory]
+  order by sum(CatalogExtend.LokadOrderQty * Catalog.BuyPrice) desc
+
+show barchart "Total Purchase Budget by Supplier - \{Slices.Duration}" c8e10 slices: CatalogExtend.slice {unit: "€" ; precision: 0 ; tileTab: "purchase" ; tileColor: #(highlightColor)} with
+  sum(CatalogExtend.LokadOrderQty * Catalog.BuyPrice)
+  group by Catalog.Supplier
+  order by sum(CatalogExtend.LokadOrderQty * Catalog.BuyPrice) desc
+
+show table "Purchase Budget by Category x Supplier - \{Slices.Duration}" c11e11 slices: CatalogExtend.slice {unit: "€" ; precision: 0 ; tileTab: "purchase"} with
+  same(concat("Category ",Catalog.Category) into CatalogExtend) as "Category"
+  Catalog.Supplier
+  sum(CatalogExtend.LokadOrderQty * Catalog.BuyPrice) as "Purchase Budget"
+  group by [Catalog.Category, Catalog.Supplier]
+  order by sum(CatalogExtend.LokadOrderQty * Catalog.BuyPrice) desc

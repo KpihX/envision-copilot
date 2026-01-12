@@ -1,0 +1,210 @@
+/// input: /clean/
+import "/1. utilities/Modules/Global Parameters" as GP with
+  DcUnit
+  ColorA
+  ColorAlight
+  ColorAdark
+  LinkLocationItemInspector
+  LinkHomeDashboard
+
+const inputFolder = "/Clean/"
+
+read "\{inputFolder}Items.ion" as Items[Id unsafe] with
+  Name : text
+  "Sku" as Id : text
+  StockOnHand : number
+  BackOrder : number
+  StockOnOrder : number
+  Ref : text
+  BuyPrice : number
+  SellPrice : number
+  Leadtime : number
+  ReorderCycle : number
+  Supplier : text
+  Category : text
+  Brand : text
+  Loc : text
+
+read "\{inputFolder}Orders.ion" as Orders expect [Id, date] with
+  "Sku" as Id : text
+  "OrderDate" as date: date
+  Quantity : number
+  "LokadNetAmount" as NetAmount : number
+  IsClean : boolean
+
+read "/\{inputFolder}Stock.ion" as Stock expect [Id, date] with
+  "StockDate" as date: date
+  "SKU" as Id : text
+  StockOnHand : number
+  StockOnOrder : number
+  // CostPrice : number
+  // const(false) as IsLegacy
+
+read "/\{inputFolder}PO.ion" as PO expect [Id, date] with
+  "Sku" as Id : text
+  "OrderDate" as date: date
+  Loc : text
+  Ref : text
+  DeliveryDate : date
+  Quantity : number
+  Supplier : text
+  PONumber : text
+  IsInCatalog : boolean
+  IsClean : boolean
+  InputDate : date
+  InputPath : text
+
+
+oend = max(Orders.date)
+
+table ItemsWeek = cross(Items, Week)
+
+keep where Orders.IsClean
+
+///------------------------------------- [ SETUP COLORS ] ---------------------------------------
+
+linechartAlight = ColorAlight
+linechartAdark = ColorAdark
+linechartA = ColorA
+
+/// --------------------------------------- [ SETUP-Parameters ] -----------------------------------
+
+@{ dashButton: ""}
+
+inspectorId = LinkLocationItemInspector
+selectedTab = concat("&t=", "Info")
+Items.hRefUrlRaw = sliceSearchUrl(inspectorId, Items.Id)
+Items.hRefUrl = concat(Items.hRefUrlRaw, selectedTab)
+
+Items.Url = replace(Items.hRefUrl , "~" , "https://go.lokad.com" )
+
+show label "https://go.lokad.com/gateway/BigFiles/browse/Download?hash=40CFFAD92212E05F5135738E228D6E4B&path=%2FBackground%2FGraphics%2FInterface%2FLocation&name=Select_DC.png" a12b14
+
+/// ---------------------------------------- [ HEADLINE ] ---------------------------------------
+
+show logo "" a1
+
+show markdown "Sales Analysis" b1c1 with """
+  ### **Sales Analysis**
+"""
+
+show label "To home" h1                             {hrefAspect: white ; textAlign: center ; href: #("https://go.lokad.com/d/\{LinkHomeDashboard}/")}
+
+show markdown "" b2e2 black with """
+ __This provides an overview over sales developments__
+"""
+
+show markdown "Documentation" a15h25 with
+  """
+  ### Documentation
+
+  __Overall view__:
+
+  First sale: first sale date across all references
+
+  Last sale: last sale date across all references
+
+  Turnover last 365 d: overall turnover over the last 365 days
+
+  Avg qty per order: average quantity sold by reference x order
+
+  __Weekly Sales by category__: weekly turnover by category in dollars over the last 2 years
+
+  __Last 365 days Best Sellers__: list of all references by decreasing order of best seller in total turnover value over the last 365 days
+
+  Rank: best seller rank
+
+  Inspect: link to the item inspector dashboard which displays all information of the given reference
+
+  Ref: reference code
+
+  Name : reference name
+
+  Supplier: reference supplier
+
+  Qty sold last 365 d: reference quantity sold over the last 365 days
+
+  Value sold last 365 d: reference turnover in dollars over the last 365 days
+
+  Sales Weight: reference proportion of the overall turnover over the last 365 days
+
+  __Pareto on turnover last 365 days__: cumulative overall turnover percentage over the last 365 days depending on the best seller rank
+
+  __Turnover last 365 d by category__: turnover last 365 days split by category
+
+  __Turnover last 365 d by brand: turnover last 365 days split by brand
+
+  __Turnover last 365 d by location: turnover last 365 days split by location
+
+  """
+
+
+show label "" a2h2 9b9b9b
+
+keep where date >= oend - 3 * 365
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///------------------------------------------TOTAL OVERVIEW-----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Items.Sold365 = sum(Orders.Quantity) when(Orders.date >= oend - 365)
+Items.ValueSold365 = sum(Orders.NetAmount) when(Orders.date >= oend - 365)
+Items.CategoryValueSold365 = sum(Orders.NetAmount) by Items.Category at Items.Category when(Orders.date >= oend - 365)
+totalValueSold365 = sum(Orders.NetAmount) when(Orders.date >= oend - 365)
+
+show summary "Overall view" a3a6 with
+  min(Orders.date) as "First sale" {textBold: "true"}
+  max(Orders.date) as "Last sale" {textBold: "true"}
+  totalValueSold365 as "Turnover last 365 d" {numbers: simple ; textBold: "true" ; unit: #(DcUnit)}
+  sum(Orders.Quantity) / count(Orders.*) as "Avg qty per order" {textBold: "true"}
+
+Items.CategoryBestSellerRank = rankd(Items.CategoryValueSold365)
+firstCategory = same(Items.Category) when(Items.CategoryBestSellerRank == 1)
+secondCategory = same(Items.Category) when(Items.CategoryBestSellerRank == 2)
+thirdCategory = same(Items.Category) when(Items.CategoryBestSellerRank == 3)
+
+show linechart "Weekly Sales by category" b3h6 with
+  sum(Orders.NetAmount) as "Overall Turnover" {seriesType: legend}
+  sum(Orders.NetAmount) when(Items.Category == firstCategory) as "\{firstCategory} Turnover" {seriesType: bar ; seriesStack: bar ; color: #(linechartA) ; unit: #(DcUnit)}
+  sum(Orders.NetAmount) when(Items.Category == secondCategory) as "\{secondCategory} Turnover" {seriesType: bar ; seriesStack: bar ; color: #(linechartAlight) ; unit: #(DcUnit)}
+  sum(Orders.NetAmount) when(Items.Category == thirdCategory) as "\{thirdCategory} Turnover" {seriesType: bar ; seriesStack: bar ; color: #(linechartAdark) ; unit: #(DcUnit)}
+  group by Orders.week
+
+Items.SalesWeight = Items.ValueSold365 / totalValueSold365
+Items.BestSellerRank = rankrev () scan Items.SalesWeight
+
+Items.CumValueSold365 = sum(Items.ValueSold365) scan Items.BestSellerRank
+Items.CumSalesWeight = cumsum(Items.SalesWeight) scan Items.BestSellerRank
+Items.ABC_Category = if Items.CumSalesWeight <= 0.7 then "A" else
+                   if Items.CumSalesWeight <= 0.9 and Items.CumSalesWeight > 0.7 then "B" else "C"
+
+show table "Last 365 days Best Sellers" a7e9 with
+  Items.BestSellerRank as "Rank"
+  "🔎" as "Inspect" {columnReadOnly: "true" ; columnWidth: 2 ; value { textAlign: center } ; href: #[Items.Url]}
+  Items.Id as "Ref"
+  Items.Name
+  Items.Supplier
+  Items.Sold365 as "Qty sold last 365 d"
+  Items.ValueSold365 as "Value sold last 365 d" {unit: #(DcUnit)}
+  Items.SalesWeight as "Sales Weight" {numbers: percent}
+  Items.ABC_Category
+  order by Items.BestSellerRank
+
+where date >= oend - 365
+  show barchart "Turnover last 365 d by category" a10d11         {color: "grey" ; unit: #(DcUnit)} with
+    sum(Orders.NetAmount) as "Turnover"
+    group by Items.Category into Orders
+
+  // Per brand
+  show barchart "Turnover last 365 d by Brand" e10h11         {color: "grey" ; unit: #(DcUnit)} with
+    sum(Orders.NetAmount) as "Turnover"
+    group by Items.Brand into Orders
+
+  //Per location
+  show piechart "Turnover last 365 d by location" c12e14 f5a623       {unit: #(DcUnit)} with
+    sum(Orders.NetAmount) as "Turnover"
+    group by Items.Loc into Orders
+
+show plot "Pareto on turnover last 365 days" f7h9        {color: #(linechartA)} with
+  Items.BestSellerRank as ""
+  Items.CumValueSold365 / totalValueSold365 * 100 as "Cumulative Turnover %"

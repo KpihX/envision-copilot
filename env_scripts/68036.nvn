@@ -1,0 +1,126 @@
+read "/Input/Documentation/Fill Rate/FakeCatalog.csv" as Items[Id unsafe] with
+  Id : text
+
+read "/Input/Documentation/Fill Rate/fillrate.csv" as FR expect [Id] with
+  Id : text
+  Q : number
+  Probability : number
+  Expectancy : number
+  FR : number
+  "Local FR value" as LocalFR : number
+
+show label "Back" a1 {href: "https://go.lokad.com/d/68031" ; hrefAspect: white ; textAlign: center}
+show logo "" g1h1
+show label "Fill Rate" b1f1 {textAlign: center ; textBold: "true" ; textColor: #d0021b}
+show label "Calculation breakdown" a10h10 {textColor: #d0021b}
+show label "Example" a6h6 {textColor: #d0021b}
+
+keep where Id == "A"
+
+Items.Demand = ranvar.buckets(FR.Probability, FR.Q, FR.Q)
+Items.FillRate = fillrate(Items.Demand)
+
+show scalar "Demand" a16d19 4a90e2 with same(Items.Demand) as "PRobability"
+show scalar "Fill Rate" e16h19 417505 with same(Items.FillRate) as "FR"
+
+show table "FR" e13h15 black with
+  FR.Q as "S"
+  FR.Probability
+  FR.Expectancy
+  FR.FR
+  FR.LocalFR
+
+show markdown "" a2d5 black  with """
+---
+#### **Definition**
+
+- The fill rate is the fraction of customer demand that is met through immediate stock availability,
+without backorders or lost sales.
+- The fill rate differs from the SL indicator. The fill rate
+has a considerable appeal to practitioners because it represents the fraction of the demand that is likely
+to be recovered or better serviced if the inventory performance was to be improved.
+- The fill rate is measured
+empirically by averaging the number of correctly serviced requests over the total number of requests.
+- Entire fillrate definition and documentation can be found [[here]](https://www.lokad.com/fill-rate-definition).
+"""
+
+show markdown "" e2h5 black  with """
+---
+
+#### **Fill rate and service level are distinct**
+
+- The service level is often mistakenly confused with the fill rate, and vice-versa. Yet, the two indicators
+are numerically different.
+- While the two indicators are quite correlated, it is possible to find
+real-world situations were a high service level does not translate into a high fill rate, and the
+other way around.
+- Such situations tend to arise more frequently when demand is sparse
+(as for spare parts for example) or when demand is erratic (as in the case of books).
+
+"""
+show markdown "" a7d9 black with """
+
+---
+
+Let’s consider a bookseller selling a school manual.
+
+- There is 1 order per day on average.
+
+- Let’s assume that on average, out of 20 requests for the book, 19 requests come from
+individual students who require only a single copy of the book.
+
+- In addition to this, 1 request out of 20, comes from a school teacher
+(we are still looking at the average), and the
+teacher asks for 20 copies because she is buying for her whole classroom.
+
+---
+"""
+show markdown "" e7h9 black with """
+---
+    If the bookseller keeps 10 book units in stock, and if we assume the lead time to be of
+    1 day,then the service level is 95% (19/20=0.95) as nearly all the students will be
+    served withtheir book.
+
+    However, the teacher’s order request will be systematically declined as the stock never
+    gets big enough to cover a whole classroom. Thus, in this case, the fill rate is close
+    to 50% (19/(19+20) ≈ 0.5) as the teacher’s request accounts for slightly more than half
+    of the total demand.
+
+---
+"""
+
+show markdown "" a11d12 black with """
+---
+#### **Expectancy for each stock level**
+
+- Expected value is the weighted average value of a random variable.
+- Given the probabilities for every possible scenario (0...4), we calculate for each stock level
+position it's coverage expectancy
+
+---
+"""
+
+show markdown "" a13d15 black with """
+
+---
+
+      e.g. If I have 3 units in stock (s=3):
+      - demand X = 0 → units covered: 0 x probability (0.30) = 0
+      - demand X = 1 → units covered: 1 x probability (0.35) = 0.35
+      - demand X = 2 → units covered: 2 x probability (0.20) = 0.4
+      - demand X = 3 → units covered: 3 x probability (0.10) = 0.3
+      - demand X = 4 → units covered: 3 x probability (0.05) = 0.15
+
+---
+"""
+
+
+show markdown "" e11h12 black with """
+---
+E[min(X,s)] = 0 + 0.35 + 0.4 + 0.3 + 0.15 = **1.2**
+
+Total E[X] = 0 x 0.3 + 1 x 0.35 + 2 x 0.2 + 3 x 0.1 + 4 * 0.05 = **1.25**
+
+FR = 1.2 / 1.25 = **0.96**
+
+"""

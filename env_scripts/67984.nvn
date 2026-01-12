@@ -1,0 +1,232 @@
+///Override input values in order to build more interesting examples / see how the system react to changes
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// --------------------------------------READ INPUT TABLES-----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+import "/1. utilities/Modules/Global Parameters" as GP with
+  DcUnit
+  LinkLocationItemInspector
+  ConfirmButton
+  LinkHomeDashboard
+
+const testStorage = ""
+const inputPath = "\{testStorage}/Clean/"
+const exportPath = "Clean/Override/"
+
+read "\{inputPath}Items.ion" as Items with
+  IsTopItem : boolean
+  CategoryDisplayRank : number
+  ItemDisplayRank : number
+  Sku : text
+  Loc : text
+  Ref : text
+  Name : text
+  Category : text
+  SubCategory : text
+  Brand : text
+  Supplier : text
+  StartDate : date
+  EndDate : date
+  StockOnHand : number
+  StockOnOrder : number
+  BackOrder : number
+  BuyPrice : number
+  SellPrice : number
+  MOQ : number
+  LotMultiplier : number
+  LotMultiplierDispatch : number
+  Volume : number
+  IsActive : boolean
+  LeadTime : number
+  ReDispatchCycle : number
+  ReorderCycle : number
+  ImageUrl : text
+  LokadMOQ : number
+  LokadLotMultiplier : number
+  LokadSellPrice : number
+  SupplierMOV : number
+  SupplierContainerM3 : number
+  IsDC : boolean
+  HealthLog : text
+  IsClean : boolean
+  IsLokadBuyable : boolean
+  IsContainerReady : boolean
+  IsBimodalDemand : boolean
+  ExtremeBimodalDemandFrequence : number
+  ExtremeBimodalDemandFactor : number
+  IsRightSkewedDemand : boolean
+  ExtremeRightSkewedDemandFrequence : number
+  ExtremeRightSkewedDemandFactor : number
+  SnapshotDate : date
+
+read "/Clean/Locations.ion" as Locations with
+  Loc : text
+  CarryingCostWeight : number
+
+///Editables
+
+read upload "editablelocations" as EditableLocations with
+  Loc : text
+  CarryingCostWeight : number
+
+read upload "editableitems" as EditableItems with
+  Sku : text
+  Ref : text
+  Loc : text
+  Name : text
+  Category : text
+  BuyPrice : number
+  SellPrice : number
+  StockOnHand : number
+  LotMultiplier : number
+  LotMultiplierDispatch : number
+  MOQ : number
+  LeadTime : number
+  ReorderCycle : number
+  ReDispatchCycle : number
+  CopyDemandOfLoc : text
+
+
+read form with
+  ReinitializeModifications : boolean
+
+///Global parameters--------------------------------------------------------------------------------
+
+pcsUnit = " Pcs"
+dayUnit = " Days"
+
+///Editable body------------------------------------------------------------------------------------
+
+show logo "" a1
+show markdown "Manual inputs" b1f1 with """
+  ### **Manual inputs**
+"""
+
+show label "To home" g1h1           {href: #("https://go.lokad.com/d/\{LinkHomeDashboard}/") ; hrefAspect: white ; textAlign: center}
+
+show markdown "" c2h9 with """
+  The objective of this dashboard, is to enable the user to adjust some of the inputs consumed by the optimization scripts.
+
+  For **Sku dependent inputs**, we here enable to modify:
+  - Buy Price
+  - Sell Price
+  - Stock On Hand
+  - Lot Multiplier
+  - Lot Multiplier Dispatch
+  - MOQ
+  - LeadTime (ie Supplier Lead Time)
+  - Reorder Cycle
+  - ReDispatch Cycle
+
+  In a real word use case, it doesn't make sense to manually modify values such as the Stock, this is only enabled here
+  so that user can easily compare the behaviour of the optimizations in different cases.
+
+  There is also a column called CopyDemandOfLoc. This is a way to copy the demand of another location for a given Sku
+  so that users can see how other parameters affect the final suggestions in the same demand conditions. The expected input
+  is one of the 4 location codes.
+
+  It is also possible to modify the **carrying cost weight** of each Location.
+  The carryingCost is an economic force modelled by Lokad and used in the optimizations. It represents the storage cost
+  of each item per unit of time. The carrying cost weight enables the user to adjust the storage cost in each Location
+  comparatively to the base situation compared by Lokad. A weight of 1 means that the cost considered is still the default value,
+  a weight of 1.5 means that the cost is increased of 50% at this location.
+
+  The purpose of this feature is to see how the system reacts to higher storage costs that companies can face in an FBA warehouse for instance.
+  It is strongly discouraged to input a weight of 0 or very close to 0.
+
+  **Warning**:
+
+  1. If any value entered doesn't make sense (negative stock, price, leadtime...) the dashboard will fail and no modification will be exported
+  to other dashboards.
+
+  2. Overriding the stock on hand is possible, however, the stock evolution graphs won't be relevant anymore.
+
+  """
+show form "Reinitialize Modifications" a2b3 {formButton: #(ConfirmButton)} with
+  false as "Reinitialize Modifications" form : "ReinitializeModifications"
+
+show markdown "" a4b4 with """
+  Tick this box and click on the green button to reset all inputs to their default value.
+  """
+///Don't want to recompute every check from the start so only keep clean items and make sure changes don't make them unclean
+keep where Items.IsClean
+
+
+///--------------------------------------- Items ------------------------------------------------///
+show label "Skus" a10f10
+
+Items.Url_ItemInspector = sliceSearchUrl(LinkLocationItemInspector,Items.Sku)
+Items.CopyDemandOfLoc = single(EditableItems.CopyDemandOfLoc) by EditableItems.Sku at Items.Sku
+show table "Skus" a11h15 editable : "editableitems" with
+  Items.Sku {columnReadOnly: "true"; href: #[Items.Url_ItemInspector]}
+  Items.Ref {columnReadOnly: "true"}
+  Items.Loc {columnReadOnly: "true"}
+  Items.Name {columnReadOnly: "true"}
+  Items.Category {columnReadOnly: "true"}
+  Items.BuyPrice {unit: #(DcUnit);precision:2}
+  Items.SellPrice {unit: #(DcUnit);precision:2}
+  Items.StockOnHand {unit: #(pcsUnit)}
+  Items.LotMultiplier {unit: #(pcsUnit)}
+  Items.LotMultiplierDispatch {unit: #(pcsUnit)}
+  Items.MOQ  {unit: #(pcsUnit)}
+  Items.LeadTime {unit: #(dayUnit)}
+  Items.ReorderCycle {unit: #(dayUnit)}
+  Items.ReDispatchCycle {unit: #(dayUnit)}
+  Items.CopyDemandOfLoc
+  order by Items.Ref
+
+table myfinalEditableItems = with
+  [|as Sku, as Ref, as Loc, as Name, as Category, as BuyPrice, as SellPrice, as StockOnHand, as LotMultiplier, as LotMultiplierDispatch, as MOQ, as LeadTime, as ReorderCycle, as ReDispatchCycle, as CopyDemandOfLoc,as IsSelected|]
+  [|EditableItems.Sku, EditableItems.Ref, EditableItems.Loc, EditableItems.Name, EditableItems.Category, EditableItems.BuyPrice, EditableItems.SellPrice, EditableItems.StockOnHand, EditableItems.LotMultiplier, EditableItems.LotMultiplierDispatch, EditableItems.MOQ, EditableItems.LeadTime, EditableItems.ReorderCycle, EditableItems.ReDispatchCycle, EditableItems.CopyDemandOfLoc,not ReinitializeModifications |]
+  [|"", "", "", "", "", 0, 0, 0, 0, 0, 0, 0, 0, 0, "", ReinitializeModifications |]
+
+keep where myfinalEditableItems.IsSelected
+
+areItemsModificationsValid = all(myfinalEditableItems.Sku == "" or
+                                    myfinalEditableItems.StockOnHand >= 0 or
+                                    myfinalEditableItems.LotMultiplier >= 0 or
+                                    myfinalEditableItems.LotMultiplierDispatch >= 0 or
+                                    myfinalEditableItems.MOQ >= 0 or
+                                    myfinalEditableItems.LeadTime > 0 or
+                                    myfinalEditableItems.ReorderCycle > 0 or
+                                    myfinalEditableItems.ReDispatchCycle > 0)
+show assert "Error Sku inputs" g10h10 {tilePlacement : #(if areItemsModificationsValid then "hidden" else "fixed")} with  areItemsModificationsValid as "Error Sku inputs"
+
+write myfinalEditableItems as "\{exportPath}OverrideItems.ion" with
+  Sku = myfinalEditableItems.Sku
+  Ref = myfinalEditableItems.Ref
+  Loc = myfinalEditableItems.Loc
+  Name = myfinalEditableItems.Name
+  Category = myfinalEditableItems.Category
+  BuyPrice = myfinalEditableItems.BuyPrice
+  SellPrice = myfinalEditableItems.SellPrice
+  StockOnHand = myfinalEditableItems.StockOnHand
+  LotMultiplier = myfinalEditableItems.LotMultiplier
+  LotMultiplierDispatch = myfinalEditableItems.LotMultiplierDispatch
+  MOQ = myfinalEditableItems.MOQ
+  LeadTime = myfinalEditableItems.LeadTime
+  ReorderCycle = myfinalEditableItems.ReorderCycle
+  ReDispatchCycle = myfinalEditableItems.ReDispatchCycle
+  CopyDemandOfLoc = uppercase(myfinalEditableItems.CopyDemandOfLoc) //Locs are in upper case, just in case input is not correctly filled
+
+///------------------------------------ Locations -----------------------------------------------///
+show label "Locations" a16f16
+
+show table "Locations" a17b19 editable: "editablelocations" with
+  Locations.Loc {columnReadOnly: "true"}
+  Locations.CarryingCostWeight {minPrecision : 2}
+  order by Locations.Loc
+
+table myfinalEditableLocations = with
+  [|as Loc, as CarryingCostWeight, as IsSelected|]
+  [|EditableLocations.Loc,EditableLocations.CarryingCostWeight, not ReinitializeModifications |]
+  [|"",1, ReinitializeModifications |] //empty line for reinitialization in order to make sure we always export a file
+
+keep where myfinalEditableLocations.IsSelected
+
+areCCModificationsValid = all(myfinalEditableLocations.CarryingCostWeight >= 0)
+show assert "Error carrying cost weight" g16h16 {tilePlacement : #(if areItemsModificationsValid then "hidden" else "fixed")} with  areCCModificationsValid as "Error carrying cost weight"
+
+write myfinalEditableLocations as "\{exportPath}OverrideLocations.ion" with
+  Loc = myfinalEditableLocations.Loc
+  CarryingCostWeight = myfinalEditableLocations.CarryingCostWeight

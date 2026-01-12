@@ -39,7 +39,7 @@ data/sessions/
 # Source data directories (may contain proprietary DSL files)
 # NOTE: These files are searchable in VS Code (see .vscode/settings.json)
 #       but ignored by Git to avoid committing proprietary code
-env_scripts/
+# env_scripts/
 
 # Test outputs
 test_results.json

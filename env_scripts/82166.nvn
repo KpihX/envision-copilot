@@ -1,0 +1,167 @@
+/// Creating dummy data for the Long Term Planning Demo Part
+
+year = 2025
+
+/// ----------------------------------------------------------------------------------------------------
+/// # 1. Creation of the Catalog
+/// ----------------------------------------------------------------------------------------------------
+
+table Category = extend.range(6)
+Category.Category = Category.N
+
+Category.NbSubCategory = max(round(random.poisson(3.5 into Category),0),2)
+Category.MargeLevel = random.uniform(0.05 into Category, 0.45 into Category)
+Category.PeakSeasonal = round(random.uniform(3 into Category, 12 into Category),0)
+
+table SubCategory = extend.range(Category.NbSubCategory)
+SubCategory.SubCategory = SubCategory.N
+
+SubCategory.BuyPriceLevel = random.uniform(5 into SubCategory, 300 into SubCategory)
+SubCategory.NbItems = round(random.poisson(5.5 into SubCategory),0)
+SubCategory.IsSeasonal = random.uniform(0 into SubCategory, 1 into SubCategory) >= 0.5
+
+table Catalog = extend.range(SubCategory.NbItems)
+Catalog.Ref = concat(Category.Category,SubCategory.SubCategory,Catalog.N)
+
+Catalog.BuyPrice = SubCategory.BuyPriceLevel*random.uniform(0.8 into Catalog,1.2 into Catalog)
+Catalog.SellPrice = Catalog.BuyPrice / (1 - Category.MargeLevel*random.uniform(0.8 into Catalog,1.2 into Catalog))
+Catalog.SalesLevel = random.uniform(10 into Catalog, 750 into Catalog)
+Catalog.SeasonalForce = random.uniform(2.5 into Catalog, 7 into Catalog)
+
+show table "Category"  with
+  Category.Category as "Category"
+  Category.NbSubCategory as "NbSubCategory"
+  Category.MargeLevel as "MargeLevel"
+  Category.PeakSeasonal as "PeakSeasonal"
+
+show table "SubCategory"  with
+  SubCategory.SubCategory as "SubCategory"
+  SubCategory.BuyPriceLevel as "BuyPriceLevel"
+  SubCategory.NbItems as "NbItems"
+  SubCategory.IsSeasonal as "IsSeasonal"
+
+show piechart "Category" with
+  count(Catalog.*)
+  group by Category.Category into Catalog
+
+show table "SubCategory" with
+  Category.Category into Catalog
+  SubCategory.SubCategory into Catalog
+  count(Catalog.*) as "# Ref"
+  group by [Category.Category into Catalog, SubCategory.SubCategory into Catalog]
+  order by same(Category.Category into Catalog) desc
+
+Catalog.Supplier = concat("Supplier ", floor(random.uniform(1 into Catalog, 8 into Catalog)))
+
+
+/// ----------------------------------------------------------------------------------------------------
+/// # 2. Creation of the Forecast
+/// ----------------------------------------------------------------------------------------------------
+
+table Forecast = extend.range(Catalog.12)
+Forecast.MonthF = month(year,Forecast.N)
+
+Forecast.DistanceToPeak = min(abs(monthNum(Forecast.MonthF) - Category.PeakSeasonal), 12 - abs(monthNum(Forecast.MonthF) - Category.PeakSeasonal))
+Forecast.PeakCoeff = if Forecast.DistanceToPeak <= 1 then 1 else if Forecast.DistanceToPeak == 2 then 0.33 else 0
+Forecast.Baseline = if not SubCategory.IsSeasonal then random.uniform(0.75 into Forecast, 1.25 into Forecast) * Catalog.SalesLevel
+                    else (1+ Catalog.SeasonalForce*Forecast.PeakCoeff)/3 *random.uniform(0.8 into Forecast, 1.2 into Forecast) *Catalog.SalesLevel
+
+/// Add Seasonality on BF/Christmas for everyone
+Forecast.Baseline = if monthNum(Forecast.MonthF) == 10 then Forecast.Baseline * 1.2 else
+                    if monthNum(Forecast.MonthF) == 11 then Forecast.Baseline * 1.6 else
+                    if monthNum(Forecast.MonthF) == 12 then Forecast.Baseline * 1.4
+                    else Forecast.Baseline
+
+show table "Forecast"  with
+  Catalog.Ref
+  Forecast.MonthF as "Month"
+  Forecast.DistanceToPeak as "DistanceToPeak"
+  Forecast.Baseline as "Baseline"
+
+show table "Forecast - Export" write:"/Clean/LongTermPlanning/Forecast.ion" with
+  Forecast.MonthF as "Month"
+  Catalog.Ref
+  Forecast.Baseline
+
+show linechart "Sales Global" with
+  sum(Forecast.Baseline * Catalog.SellPrice) when (Category.Category == 1) as "Cat. 1" {unit: "€"; seriesType: bar ;seriesStack: bar}
+  sum(Forecast.Baseline * Catalog.SellPrice) when (Category.Category == 2) as "Cat. 2" {unit: "€"; seriesType: bar ;seriesStack: bar}
+  sum(Forecast.Baseline * Catalog.SellPrice) when (Category.Category == 3) as "Cat. 3" {unit: "€"; seriesType: bar ;seriesStack: bar}
+  sum(Forecast.Baseline * Catalog.SellPrice) when (Category.Category == 4) as "Cat. 4" {unit: "€"; seriesType: bar ;seriesStack: bar}
+  sum(Forecast.Baseline * Catalog.SellPrice) when (Category.Category == 5) as "Cat. 5" {unit: "€"; seriesType: bar ;seriesStack: bar}
+  sum(Forecast.Baseline * Catalog.SellPrice) when (Category.Category == 6) as "Cat. 6" {unit: "€"; seriesType: bar ;seriesStack: bar}
+  sum(Forecast.Baseline * Catalog.SellPrice) as "Total" {unit: "€"; seriesType: legend}
+  group by Forecast.MonthF
+
+SubCategory.TotalCA = sum(Forecast.Baseline * Catalog.SellPrice)
+SubCategory.Rank = rankrev() by Category.Category scan SubCategory.TotalCA
+
+Category.TotalCA = sum(Forecast.Baseline * Catalog.SellPrice)
+Category.Rank = rankrev() scan Category.TotalCA
+
+Catalog.TotalSales = sum(Forecast.Baseline)
+Catalog.CurrentCover = if random.uniform(0 into Catalog, 1 into Catalog) <= 0.05 then 0 else random.poisson(3 into Category)
+Catalog.StockOnHand= floor(Catalog.TotalSales * Catalog.CurrentCover/12)
+
+Catalog.Dispersion = random.uniform(0.75 into Catalog, 2 into Catalog)
+
+show table "Catalog - Export" write:"/Clean/LongTermPlanning/Catalog.ion" with
+  Catalog.Ref
+  Category.Rank as "Category"
+  SubCategory.Rank as "SubCategory"
+  Catalog.BuyPrice
+  Catalog.SellPrice
+  Catalog.Dispersion
+  Catalog.Supplier
+  Catalog.StockOnHand
+
+/// ----------------------------------------------------------------------------------------------------
+/// ## Variation inside the month
+
+keep span date = [monthStart(min(Forecast.MonthF)) .. monthEnd(max(Forecast.MonthF))]
+
+Day.Factor = if dayNum(Day.date) <= 5 then 2 else
+             if dayNum(Day.date) >= 25 then 1.5
+             else 1
+
+Day.Factor = if monthNum(Day.date) >= 10 and dayNum(Day.date) >= 15 then 4 else
+             if (monthNum(Day.date) == 8 or monthNum(Day.date) == 7) then 1
+             else Day.Factor
+
+show table "Day Factor - Export" write:"/Clean/LongTermPlanning/DayFactor.ion" with
+  Day.date
+  Day.Factor
+
+/// ----------------------------------------------------------------------------------------------------
+/// # 3. Creation of Stock and PO
+/// ----------------------------------------------------------------------------------------------------
+
+Catalog.NbPO = floor(random.poisson(1.15 into Category))
+
+table PO = extend.range(Catalog.NbPO)
+
+PO.Ref = Catalog.Ref
+PO.DatePO = date(2025,1,1) + 12 + 22*(PO.N-1)*round(random.uniform(0.5 into PO, 3.5 into PO))
+PO.OrderQty = floor(Catalog.TotalSales /12 * random.poisson(0.5 into PO))
+PO.Id = concat(PO.Ref," - ", PO.N)
+
+show table "PO - Export" write:"/Clean/LongTermPlanning/PO.ion" with
+  PO.Ref
+  PO.DatePO
+  PO.OrderQty
+  PO.Id
+
+
+
+
+
+
+
+// write Category as "/Clean/LongTermPlanning/Parametrisation/General.ion" with
+//   GrowthGeneral = 0
+//   Category = Category.Category
+//   IsCatForced = false
+//   IsCatForcedHighLevel = false
+//   GrowthCat = 0
+//   FreeGrowthCat = 0
+//   MaxGrowthCat = 0

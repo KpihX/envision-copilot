@@ -1,0 +1,329 @@
+/// Processing of raw inputs. Input: Raw-Input folder , Output: /input/tmp/
+
+///-------------------------- [     GENERIC DOCUMENTATION     ] ----------------------------
+
+///----------------------------- [     GLOBAL PARAMETERS     ] -----------------------------
+const testStorage = ""
+const filestorage = "\{testStorage}/Input/" // Define the customer input folder.
+const manualStorage = "\{testStorage}/Manual/"
+///------------------------------ [  1. READ IN TABLES     ] -------------------------------
+
+// Catalog Information - All Item related fields (No time component)
+read "\{filestorage}Catalog/Catalog*" unsafe as Catalog with
+  IsTopItem : boolean
+  CategoryDisplayRank : number
+  ItemDisplayRank : number
+  Loc : text
+  Ref : text
+  Name : text
+  Category : text
+  SubCategory : text
+  Brand : text
+  Supplier : text
+  const(true) as IsActive /// [Highly advised to keep have such a flag in some way for snapshotting the end date of a demand!]
+  ImageName : text
+  // StockOnHand : number
+  // StockOnOrder : number
+  // BackOrder : number
+  BuyPrice : number
+  SellPrice : number
+  MOQ : number
+  LotMultiplier : number
+  Volume : number
+  StartDate : date
+  EndDate : date
+  IsBimodalDemand : boolean
+  ExtremeBimodalDemandFrequence : number
+  ExtremeBimodalDemandFactor : number
+  IsRightSkewedDemand : boolean
+  ExtremeRightSkewedDemandFrequence : number
+  ExtremeRightSkewedDemandFactor : number
+
+
+// read "\{filestorage}Lokad_BOM.tsv" as BOM with
+//   Bundle : text
+//   Part : text
+//   Quantity : number
+
+// Demand Information
+read "\{filestorage}/Orders/Orders*" unsafe as Orders with
+  Ref : text
+  Loc : text
+  OrderDate : date
+  RawQuantity : number
+  Quantity : number
+  NetAmount : number
+  OrderId : text
+  Currency : text
+  // Client : text
+
+// Supply Information
+read "\{filestorage}/PO/*.ion" as PO with
+  Ref : text
+  Loc : text
+  DeliveryDate : date
+  Quantity : number
+  // "Received" as DeliveryQty : number
+  // NetAmount : number
+  Supplier : text
+  PONumber : text
+  OrderDate : date
+  // Currency : text
+
+// Supplier Information
+read "\{manualStorage}Suppliers_Dashboard.ion" as Suppliers with
+  Supplier : text
+  LeadTime : number
+  "Order Frequency" as ReorderCycle : number
+  MOV : number
+  ContainerM3 : number
+
+read max "\{filestorage}/Stock/*.ion" as Stock with
+  Ref : text
+  Loc : text
+  StockOnHand : number
+  StockOnOrder : number
+  // BackOrder : number
+  StockDate : date
+
+show markdown "Generic Documentation" a2d7 with """
+  #### 💡 Technical Pre-Processing
+
+  __The Technical Pre-Processing Reads all required input files from the predefined input folder and__
+  __safes a first temporary version of every file in `/input/tmp/`.__
+  __The script indicates all indicates all structural data issues that may cause script errors or disappearing of code lines.__
+
+
+  #### Steps:
+  1. Reading in Tables: At first, all relevant input tables are read in.
+  2. Detect Keys: In order to link the tables, that were read in, a unique identifier has to
+  be found (key). The most important key is a unique item name.
+  3. Detect Orphans: When all tables are read in and key are detected, a first test is done to see if
+  inputs can be linked over similar keys (Item Reference, Id, Supplier name ... etc).
+  All lose ends will be flagged as Data health Booleans.
+  4. Document Information: Get file information of read files.
+  5. Export Tables: Export all processed tables to `/input/tmp/`, including the created data health booleans.
+  """
+
+///----------------------------- [ SHOW GENERIC HEADLINE ] ---------------------------------
+// Show Header
+show label "Technical Preprocessing" a1c1
+show logo "logo" d1
+
+///////////////// Show File Statistics
+// Stock.Path = Files.Path
+show label "Import Tables" a8c8
+show scalar "Inputfolder" d8 with filestorage
+show markdown "Generic Documentation" a9d9 with """
+  __ Find more infirmation about the inserted files in __ [files/documentation/1&2 Dictionary][1]
+  [1]:https://go.lokad.com/files/documentation/01%20and%2002%20-%20Refreshing%20Inputs%20-%20Raw%20Input%20Dictionary
+  """
+
+show table "All read files" a10d12 with
+  Files.Alias as "Alias"
+  Files.Path as "Path"
+  Files.ModifiedDate as "Modified Date"
+  Files.ModifiedHour as "Modified Hour"
+  Files.ModifiedMinute as "Modified Minute"
+  if Files.Success then "Yes" else "No" as "Parsed Correctly?"
+  order by [- Files.ModifiedDate, Files.Alias]
+
+// /////////////////
+// /// CHOP OFF ALL ORDER DATES AFTER POINT X
+// keep where Orders.OrderDate < date(2020,11,11) and Orders.OrderDate > date(2010,11,11)
+
+///------------------------------ [ 2. FIND UNIQUE KEYS ] ----------------------------------
+// Detect if a key can be found. A key is defined as a unique value which is used to connect 2 tables
+
+Catalog.Sku = concat(Catalog.Ref , "-" , Catalog.Loc)
+Orders.Sku = concat(Orders.Ref , "-" , Orders.Loc)
+PO.Sku = concat(PO.Ref , "-" , PO.Loc)
+Stock.Sku = concat(Stock.Ref , "-" , Stock.Loc)
+
+
+Catalog.IsUniqueKey = count(Catalog.*) by Catalog.Sku == 1
+
+Suppliers.IsUniqueKey = count(Suppliers.*) by Suppliers.Supplier == 1
+
+
+///------------------------------- [ 3. DETECT ORPHANS ] -----------------------------------
+// Detect if all tables can be connected via the applied key or if there are loose ends.
+
+// Catalog: Find SKUs (and Suppliers) which don't appear in other tables
+Catalog.IsInOrders = any(Orders.*) by Orders.Sku at Catalog.Sku
+Catalog.IsInPO = any(PO.*) by PO.Sku at Catalog.Sku
+Catalog.IsInSupplier =  any(Suppliers.*) by Suppliers.Supplier at Catalog.Supplier
+// Catalog.IsInStock =  any(Stock.*) by Stock.Sku at Catalog.Sku
+
+
+// BOM: Find Bill of material parts and bundles, which don't appear in the Catalog
+// BOM.IsBundleInCatalog = any(Catalog.*) by Catalog.Ref at BOM.Bundle
+// BOM.IsPartInCatalog = any(Catalog.*) by Catalog.Ref at BOM.Part
+
+// Other tables: Find
+Orders.IsInCatalog = any(Catalog.*) by Catalog.Sku at Orders.Sku
+PO.IsInCatalog = any(Catalog.*) by Catalog.Sku at PO.Sku
+Stock.IsInCatalog = any(Catalog.*) by Catalog.Sku at Stock.Sku
+
+// Suppliers: Check if all suppliers are linked to an item
+Suppliers.IsInCatalog = any(Catalog.*) by Catalog.Supplier at Suppliers.Supplier
+
+countIssuesSku = count(not Catalog.IsUniqueKey and argwhichever() by [Catalog.Sku])
+countIssuesSupplier = count(not Suppliers.IsUniqueKey and argwhichever() by [Suppliers.Supplier])
+countIssuesOrders = count(not Orders.IsInCatalog)
+countIssuesPo = count(not Orders.IsInCatalog)
+countIssuesStock = count(not Stock.IsInCatalog)
+countAllIssues = countIssuesSku + countIssuesSupplier + countIssuesOrders + countIssuesPo + countIssuesStock
+
+///--------------------------- [ 4. DOCUMENT CREATION DATE ] -------------------------------
+
+// Document the modification of every table
+Catalog.InputDate = Files.ModifiedDate
+// BOM.InputDate = Files.ModifiedDate
+Orders.InputDate = Files.ModifiedDate
+PO.InputDate = Files.ModifiedDate
+Suppliers.InputDate = Files.ModifiedDate
+Stock.InputDate = Files.ModifiedDate
+
+// Document the filename of every table
+Catalog.InputPath = Files.Path
+// BOM.InputPath = Files.Path
+Orders.InputPath = Files.Path
+PO.InputPath = Files.Path
+Suppliers.InputPath = Files.Path
+Stock.InputPath = Files.Path
+
+///--------------------------------- [ 5. EXPORT DATA ] ------------------------------------
+// Export all tables to /input/tmp/ for further handling in Business PreProcessing
+
+show label "Export Tables" a14c14
+
+exportPath = "\{testStorage}/Clean/tmp/"
+show scalar "export path" d14 with exportPath
+show markdown "Generic Documentation" a15d15 with """
+  __ Find more infirmation about the data health rules in __ [files/documentation/3&4 Dictionary][1]
+  [1]:https://go.lokad.com/files/documentation/03%20and%2004%20-%20Low%20level%20Data%20Health
+  """
+show table "Catalog" a16b16 write:"\{exportPath}Catalog.ion" with
+  Catalog.IsTopItem
+  Catalog.CategoryDisplayRank
+  Catalog.ItemDisplayRank
+
+  Catalog.Sku
+  Catalog.Loc
+  Catalog.Ref
+  Catalog.Name
+  Catalog.Category
+  Catalog.SubCategory
+  Catalog.Brand
+  Catalog.Supplier
+  Catalog.StartDate
+  Catalog.EndDate
+  // Catalog.StockOnHand
+  // Catalog.StockOnOrder
+  // Catalog.BackOrder
+  Catalog.IsActive
+  Catalog.BuyPrice
+  Catalog.SellPrice
+  Catalog.MOQ
+  Catalog.LotMultiplier
+  Catalog.Volume
+  Catalog.ImageName
+  // KEY - Data Health Booleans [DHB]
+  Catalog.IsUniqueKey
+  // ORPHAN - Data Health Booleans [DHB]
+  Catalog.IsInOrders
+  Catalog.IsInPO
+  Catalog.IsInSupplier
+  // Catalog.IsInStock
+  // File Information
+  Catalog.InputDate
+  Catalog.InputPath
+  Catalog.IsBimodalDemand
+  Catalog.ExtremeBimodalDemandFrequence
+  Catalog.ExtremeBimodalDemandFactor
+  Catalog.IsRightSkewedDemand
+  Catalog.ExtremeRightSkewedDemandFrequence
+  Catalog.ExtremeRightSkewedDemandFactor
+
+  // Data Health Key
+
+// show table "BOM" c16d16 export:"\{exportPath}Bom.ion" with
+//   BOM.Bundle
+//   BOM.Part
+//   BOM.Quantity
+//   // ORPHAN - Data Health Booleans [DHB]
+//   BOM.IsBundleInCatalog
+//   BOM.IsPartInCatalog
+//   // File Information
+//   BOM.InputDate
+//   BOM.InputPath
+
+show table "Orders" c17d17 write:"\{exportPath}Orders.ion" with
+  Orders.Sku
+  Orders.OrderDate
+  Orders.Ref
+  Orders.Loc
+  Orders.RawQuantity
+  Orders.Quantity
+  Orders.NetAmount
+  Orders.OrderId
+  Orders.Currency
+  // Orders.Client
+  // ORPHAN - Data Health Booleans [DHB]
+  Orders.IsInCatalog
+  // File Information
+  Orders.InputDate
+  Orders.InputPath
+
+show table "PO" a18b18 write:"\{exportPath}Purchaseorders.ion" with
+  PO.Sku
+  PO.OrderDate
+  PO.Loc
+  PO.Ref
+  PO.DeliveryDate
+  PO.Quantity
+  // PO.DeliveryQty
+  // PO.NetAmount
+  PO.Supplier
+  PO.PONumber
+  // PO.Currency
+  // ORPHAN - Data Health Booleans [DHB]
+  PO.IsInCatalog
+  // File Information
+  PO.InputDate
+  PO.InputPath
+
+show table "Suppliers" c18d18 write:"\{exportPath}Suppliers.ion" with
+  Suppliers.Supplier
+  Suppliers.LeadTime
+  Suppliers.ReorderCycle
+  Suppliers.MOV
+  Suppliers.ContainerM3
+  // KEY - Data Health Booleans [DHB]
+  Suppliers.IsUniqueKey
+  Suppliers.IsInCatalog
+  // File Information
+  Suppliers.InputDate
+  Suppliers.InputPath
+
+
+show table "Stock" c18d18 write:"\{exportPath}Stock.ion" with
+  Stock.Sku
+  Stock.StockOnHand
+  Stock.StockOnOrder
+  // Stock.BackOrder
+  Stock.StockDate
+  // KEY - Data Health Booleans [DHB]
+  Stock.IsInCatalog
+  // File Information
+  Stock.InputDate
+  Stock.InputPath
+
+show table "Log Issues" write: "\{exportPath}Logs/LogDefault.ion" with
+  countIssuesSku
+  countIssuesSupplier
+  countIssuesOrders
+  countIssuesPo
+  countIssuesStock
+  countAllIssues

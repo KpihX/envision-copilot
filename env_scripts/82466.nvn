@@ -1,0 +1,27 @@
+import "/1. utilities/Modules/Colors" as C
+import "/1. utilities/Modules/Global Parameters" as GP with
+  ColorB
+  ColorBlight
+  CategoryURL
+
+show logo "" f1f2
+show label "Menu Category Forecast Cockpit" b1e1 {labelIcon: "analytics-magnifier" ; textAlign: center ; textBold: "true" ; textColor: "black" ; tileColor: #(ColorB)}
+show label "🏠 Home" a1 {hrefAspect: white ; textAlign: center ; href: #(dashUrl(GP.LinkHomeLongTerm))}
+
+show markdown "Generic Documentation" a2e2 {tileZoom: "false"} with """
+__This menu enables to navigate between the different Forecast Cockpit at the Categroy level.
+  Categroy Cockpit are designed for Category Managers to input Forecast parametrization with respect to the Management High Level Forecst inputs.__"""
+
+
+highlightColor = ColorB
+
+@{ dashButton: ""}
+
+show label "High Level Forecast Cockpit" b6e6 {labelIcon: "circular-diagram-analytics" ; hrefAspect: white ; textAlign: center ; textColor: "black" ; textBold: "true" ; href: #(dashUrl(82199)) ; tileColor: #(ColorB)}
+
+show label "Forecast Cockpit Category 1" a4b4 {labelIcon: "report-with-diagrams" ; hrefAspect: white ; textAlign: center ; textColor: "black" ; href: #(dashUrl(single(CategoryURL.ParamURL) when(CategoryURL.Category == 1))) ; tileColor: #(ColorB)}
+show label "Forecast Cockpit Category 2" c4d4 {labelIcon: "report-with-diagrams" ; hrefAspect: white ; textAlign: center ; textColor: "black" ; href: #(dashUrl(single(CategoryURL.ParamURL) when(CategoryURL.Category == 2))) ; tileColor: #(ColorB)}
+show label "Forecast Cockpit Category 3" e4f4 {labelIcon: "report-with-diagrams" ; hrefAspect: white ; textAlign: center ; textColor: "black" ; href: #(dashUrl(single(CategoryURL.ParamURL) when(CategoryURL.Category == 3))) ; tileColor: #(ColorB)}
+show label "Forecast Cockpit Category 4" a5b5 {labelIcon: "report-with-diagrams" ; hrefAspect: white ; textAlign: center ; textColor: "black" ; href: #(dashUrl(single(CategoryURL.ParamURL) when(CategoryURL.Category == 4))) ; tileColor: #(ColorB)}
+show label "Forecast Cockpit Category 5" c5d5 {labelIcon: "report-with-diagrams" ; hrefAspect: white ; textAlign: center ; textColor: "black" ; href: #(dashUrl(single(CategoryURL.ParamURL) when(CategoryURL.Category == 5))) ; tileColor: #(ColorB)}
+show label "Forecast Cockpit Category 6" e5f5 {labelIcon: "report-with-diagrams" ; hrefAspect: white ; textAlign: center ; textColor: "black" ; href: #(dashUrl(single(CategoryURL.ParamURL) when(CategoryURL.Category == 6))) ; tileColor: #(ColorB)}

@@ -1,0 +1,967 @@
+/// Input:  /Clean/
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// --------------------------------------READ INPUT TABLES-----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+import "/1. utilities/Modules/Global Parameters" as GP with
+  DcUnit
+  LinkHomeDashboard
+
+const testStorage = ""
+const inputPath = "\{testStorage}/Clean/"
+
+read "\{inputPath}Items.ion" as Items[Id unsafe] with
+  "Sku" as Id : text
+  Category : text
+  SellPrice : number
+  BuyPrice : number
+  StockOnHand : number
+  LeadTime : number
+  ReorderCycle : number
+  IsClean : boolean
+
+read "/Manual/TopItemsParameters.xlsx" unsafe as TopItemsParameters expect[Id] with
+  CategoryDisplayRank : number
+  Category : text
+  "Sku" as Id : text
+
+read "\{testStorage}Clean/Orders.ion" as Orders expect [Id, date] with
+  "Sku" as Id : text
+  "OrderDate" as date: date
+  LokadNetAmount : number
+
+read "/Clean/PO.ion" as PO expect[Id, date] with
+  "Sku" as Id : text
+  "OrderDate" as date: date
+  DeliveryDate : date
+  Quantity : number
+
+read "/Clean/Stock.ion" as Stock expect[Id, date] with
+  "Sku" as Id : text
+  StockOnHand : number
+  "StockDate" as date: date
+
+read "\{inputPath}Forecast/Periodic/WeeklyFc.ion" as WeeklyFC expect[Id, date] with
+  "Sku" as Id : text
+  "Monday" as date: date
+  DemandQty : number
+  IsPast : boolean
+  IsSLT : boolean
+  IsWOO : boolean
+  FutureWeekRank : number
+  Alpha : number
+  Dispersion : number
+  Baseline : number
+  CumDemand : ranvar
+
+read "/Clean/Parameters/max_date_placeholder.csv" unsafe as DatePlaceholder expect[date] with
+  date: date
+
+read upload "slicedform" as Submitted min 0 with
+  Category : text
+  "Agressiveness Factor (0 - 5)" as AgressivenessFactor : number
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// ------------------------------------------SETUP-------------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+show tabs "" a2h2 with
+  "OverallView" as "Overall View"
+  "CategoryView" as "Category View"
+
+
+///Editable body------------------------------------------------------------------------------------
+
+show logo "" a1
+show markdown "Inventory Optimization - Projected development" b1f1 with """
+  ### **Inventory Optimization - Projected development**
+"""
+
+// show label "" f29 9b9b9b
+
+show label "" a17h17 9b9b9b {labelBorder: "top"}
+// show label "" f18 000000 {labelBorder: "top"}
+// show label "" h17 000000 {labelBorder: "top"}
+
+
+show label "To Home" g1h1                {href: #("https://go.lokad.com/d/\{LinkHomeDashboard}/") ; hrefAspect: white ; textAlign: center}
+
+
+// show markdown "Current Suggestions" c17 with """
+//   ### **Stock - Current Suggestions**
+// """
+
+show label "Short Term Optimization" a4h4 4a4a4a {textAlign: center ; textBold: "true" ; textVerticalAlign: center ; labelBorder: "bottom,top"}
+show label "6-month stock projection" a10h10 4a4a4a {textAlign: center ; textBold: "true" ; textVerticalAlign: center ; labelBorder: "bottom,top"}
+// show label "Stock vs Sales evolution" h19 000000 {labelBorder: "none" ; textAlign: center ; textBold: "true" ; textVerticalAlign: center}
+
+show label "Fillrate within expected range" a5d5 4a4a4a {labelBorder: "none" ; labelIcon: "store-and-boxes" ; textAlign: center ; iconColor: #6ad44e ; textItalic: "true" ; textVerticalAlign: center ; textBold: "true"}
+b = "2.3%"
+show label "Imminent \{b} OOS avoidable" a8d8 4a4a4a {labelBorder: "top" ; labelIcon: "shelf" ; textAlign: center ; iconColor: #6ad44e ; textItalic: "true" ; textVerticalAlign: center ; textBold: "true" ; labelBorderColor: #dadada}
+show label "Working Capital ⬊" f11h11 4a4a4a {labelBorder: "none" ; labelIcon: "gauge-dollar" ; textAlign: center ; iconColor: #6ad44e ; textItalic: "true" ; textVerticalAlign: center ; textBold: "true"}
+show label "YonY efficiency ⬈" f14h14 4a4a4a {labelBorder: "top" ; labelIcon: "time-series-up" ; textAlign: center ; iconColor: #6ad44e ; textItalic: "true" ; textVerticalAlign: center ; textBold: "true" ; labelBorderColor: #dadada}
+
+c = 12 //To be taken from priceing optimization
+d = 0.122 //To be taken from priceing optimization
+show scalar "Items to up price (fullscope)" c9 {textAlign: center} with c
+show scalar "Avg rec. adj. (fullscope)" d9 {textAlign: center ; unit: "%"} with d * 100
+// show label "https://files-api.lokad.com/browse/Download?hash=90F439C08030848A1DFA0CD2B55662FA&name=LogoLokadVertical.jpg" g1h1 {textVerticalAlign: center}
+
+
+show label "Purchase" a6c6 f5ca91               {href: "https://go.lokad.com/d/68021/" ; labelIcon: "gauge-dollar" ; textAlign: center ; hrefAspect: white ; labelBorder: "none" ; textBold: "true"}
+show label "Dispatch" a7c7 f5ca91               {href: "https://go.lokad.com/d/68023/" ; labelIcon: "chariot-box" ; textAlign: center ; hrefAspect: white ; labelBorder: "none" ; textBold: "true"}
+show label "Pricing adjustments" a9b9 f5ca91               {href: "https://go.lokad.com/d/68025/" ; labelIcon: "scale" ; textAlign: center ; hrefAspect: white ; labelBorder: "none" ; textBold: "true"}
+show label "To full optimization workflow: SupplyChain -> Forecasts -> Strategy -> Recommendations" a3h3 f5ca91          {href: "https://go.lokad.com/d/68018/" ; labelIcon: "truck" ; textAlign: center ; hrefAspect: white ; textBold: "true"}
+show label "To Finance KPIs" f13h13 f5ca91               {href: "https://go.lokad.com/d/68026/" ; labelIcon: "histogram" ; hrefAspect: white ; textAlign: center ; textBold: "true"}
+show label "To Optim. parameters" f16h16 f5ca91              {href: "https://go.lokad.com/d/68020/" ; labelIcon: "gauge" ; hrefAspect: white ; textAlign: center ; textBold: "true"}
+
+
+
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///-----------------------------------------PREPROCESS----------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///Global parameters--------------------------------------------------------------------------------
+
+
+keep where Items.IsClean
+
+table ItemsWeek = cross(Items, Week)
+
+oend = max(WeeklyFC.date) when(WeeklyFC.IsPast)
+
+Week.monday = same(monday(date))
+
+lastPastWeek = max(WeeklyFC.date) when(WeeklyFC.FutureWeekRank == 0)
+WeeklyFC.IsLastPastWeek = WeeklyFC.date == lastPastWeek
+
+lookbackDays = 52 * 7
+lookforwardDays = 26 * 7
+
+///Links to inspectors
+
+///Item level Sales 365
+
+
+///Category level Sales 365
+
+WeeklyFC.IsMajoritySLTAll = mode(WeeklyFC.IsSLT) by date
+WeeklyFC.IsMajorityWOOAll = mode(WeeklyFC.IsWOO) by date
+WeeklyFC.IsMajoritySLTCategory = mode(WeeklyFC.IsSLT) by [Items.Category, WeeklyFC.date]
+WeeklyFC.IsMajorityWOOCategory = mode(WeeklyFC.IsWOO) by [Items.Category, WeeklyFC.date]
+
+///Slices-------------------------------------------------------------------------------------------
+
+Items.CategoryDisplayRank = same(TopItemsParameters.CategoryDisplayRank)
+                            by TopItemsParameters.Category
+                            at Items.Category
+
+
+Items.PageName = Items.Category
+
+table Slices [slice] = slice by [Items.CategoryDisplayRank, Items.PageName] title: Items.PageName
+
+WeeklyFC.slice = Items.slice
+
+///References attributes----------------------------------------------------------------------------
+Items.LotMultiplier = 1
+
+///Stocks-------------------------------------------------------------------------------------------
+
+Stock.StockOnHand = max(Stock.StockOnHand,0)
+WeeklyFC.WkStockOnHand = same(Stock.StockOnHand) by [Id, Stock.date] at [Id, WeeklyFC.date]
+
+///Purchase orders----------------------------------------------------------------------------------
+
+///Arrival
+PO.ArrivalTime = max(ceiling((PO.DeliveryDate - lastPastWeek)) / 7, 0)
+
+
+///Leadtimes----------------------------------------------------------------------------------------
+
+Items.ReorderCycleWeeks = ceiling(Items.ReorderCycle / 7)
+
+Items.SupplierLTWeeks = ceiling(Items.LeadTime / 7)
+
+Items.TotalLTWeeks = Items.SupplierLTWeeks + Items.ReorderCycleWeeks
+
+
+///Forecast-----------------------------------------------------------------------------------------
+
+keep where PO.DeliveryDate > oend + 7
+keep where Stock.date <= oend
+
+
+
+//Dispersion at overall level
+
+//Dispersion at category level
+
+//Dispersion at item level
+
+//Quantile 95
+
+///Economic kpis------------------------------------------------------------------------------------
+
+///Agressiveness factor input
+
+Slices.Category = same(Items.Category)
+Slices.AgressivenessFactor = single(Submitted.AgressivenessFactor) by Submitted.Category at Slices.Category
+show form "Agressiveness factor configuration (\{Slices.Category})" g27 editable:"slicedform"       {formButton: "Run" ; formMessage: "All agressiveness factors saved" ; fieldColor: #D5ECBC ; tileTab: "CategoryView" ; &.unsaved { formButton: "Save & Run" ; formMessage: "At least one agressiveness factor is not saved" ; fieldColor: #FFDBDB }} with
+  Slices.Category {formAccess: hidden}
+  min(max(Slices.AgressivenessFactor, 0), 5) as "Agressiveness Factor (0 - 5)"
+
+Submitted.AgressivenessFactor = min(max(Submitted.AgressivenessFactor, 0), 5)
+
+// show table "All agressiveness factors" d29        {tileTab: "OverallView" ; textBold: "true"} with
+//   Submitted.Category
+//   Submitted.AgressivenessFactor as "Agressiveness Factor"
+
+Items.AgressivenessFactorIni = same(Submitted.AgressivenessFactor) by Submitted.Category at Items.Category
+Items.AgressivenessFactor = max(min(Items.AgressivenessFactorIni / 5, 1), 0.2)
+
+///Economic parameters
+//Margin
+Items.M = Items.SellPrice - Items.BuyPrice
+
+//OOS penalty
+Items.S = - Items.AgressivenessFactor * Items.M
+
+//Carrying cost
+carryingCost = 0.3 // % per-period carrying cost relative to purchase price
+Items.C = carryingCost * Items.BuyPrice * 7 / 365
+
+// show table "Economic parameters" a30     export:"Clean/PurchaseResults/EconomicParameters.ion" {tileTab: "CategoryView"} with
+//   Items.Id
+//   Items.Category
+
+//   Items.SellPrice
+//   Items.BuyPrice
+
+//   Items.M
+//   Items.S
+
+//   carryingCost
+//   Items.TotalLTWeeks
+//   Items.C
+
+//   Items.AgressivenessFactorIni
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///----------------------------------------PURCHASE LIST--------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///Action reward call--------------------------------------------------------------------------------
+
+WeeklyFC.PreviousCumDemand = dirac(0)
+
+Items.Dispersion = same(WeeklyFC.Dispersion) default 1
+Items.Alpha = same(WeeklyFC.Alpha)
+trajectoryCount = 500
+
+where WeeklyFC.FutureWeekRank > 0
+  ///Satisfiable demand and Holding time
+  Items.SatisfiableDemand, Items.HoldingTime = actionrwd.reward(
+    TimeIndex: WeeklyFC.FutureWeekRank,
+    Baseline: WeeklyFC.Baseline,
+    Dispersion: Items.Dispersion,
+    Alpha: Items.Alpha,
+    StockOnHand: Items.StockOnHand,
+    StockOnOrder : PO.Quantity,
+    ArrivalTime : dirac(ceiling(PO.ArrivalTime)), //dirac(0) --> considered as stock on hand, error if < 0
+    LeadTime: dirac(Items.SupplierLTWeeks),
+    StepOfReorder: Items.ReorderCycleWeeks,
+    Samples: trajectoryCount,
+    Seed: 1)
+
+
+  WeeklyFC.PreviousCumDemand = same(WeeklyFC.CumDemand)
+                                when(WeeklyFC.FutureWeekRank != 0)
+                                by [WeeklyFC.Id, WeeklyFC.FutureWeekRank]
+                                at [WeeklyFC.Id, WeeklyFC.FutureWeekRank - 1]
+
+  ///Satisfied demand
+  Items.AvgDemandOnRLT = sum(WeeklyFC.Baseline)
+                          when(WeeklyFC.FutureWeekRank >= Items.SupplierLTWeeks and WeeklyFC.FutureWeekRank < Items.TotalLTWeeks)
+  Items.SatisfiedDemand = round(Items.AvgDemandOnRLT - mean(Items.SatisfiableDemand))
+
+  ///New all RLT demand rebuilt
+  Items.TotalDemandRLT = Items.SatisfiableDemand + dirac(Items.SatisfiedDemand)
+
+  ///Sell through
+  //SellThrough: probability to sell a specific unit of the satisfiable demand on responsibility window
+  //Ex: probability of selling the 6th unit = probability of selling exactly 6 units + probability of selling exactly 7 units +
+  // ... probability of selling the maximum of the satisfiable demand
+  Items.SellThrough = (1 - cdf(Items.SatisfiableDemand + 1)) * uniform.right(1) //values in negative are not relevant
+
+///Purchase list------------------------------------------------------------------------------------
+
+  ///Grid
+  //Action reward considers the additional units to purchase so the Grid has to start at 1
+  table Grid = extend.ranvar(Items.SatisfiableDemand, 0, Items.LotMultiplier) //add a reach if needed
+
+  ///Qty
+  Grid.Q = Grid.Max - Grid.Min + 1
+
+  ///Fill rate
+  Items.FR = fillrate(Items.TotalDemandRLT)
+  Items.CurrentFR = int(Items.FR, 0, Items.SatisfiedDemand)
+
+  where date >= oend - 365 and date <= oend
+    Items.LastYearSales = sum(Orders.LokadNetAmount)
+    lastYearOverallSales = sum(Orders.LokadNetAmount)
+    Items.SalesWeight = Items.LastYearSales / lastYearOverallSales
+
+    Items.CategoryLastYearSales = sum(Orders.LokadNetAmount) by Items.Category at Items.Category
+    Items.CategorySalesWeight = Items.LastYearSales / Items.CategoryLastYearSales
+    Items.CategoryCurrentFR = sum(Items.CurrentFR * Items.CategorySalesWeight) by Items.Category
+
+
+
+  Grid.FillRateDelta = int(Items.FR, Items.SatisfiedDemand + Grid.Min, Items.SatisfiedDemand + Grid.Max)
+
+  ///Score
+  Items.RwdM = Items.SellThrough * Items.M
+  Items.RwdS = - Items.SellThrough * Items.S
+  Items.RwdC = Items.HoldingTime * Items.C
+
+  Items.Reward = Items.RwdM + Items.RwdS - Items.RwdC
+
+  Grid.Reward = int(Items.Reward, Grid.Min, Grid.Max)
+
+  Grid.Cost = Grid.Q * Items.BuyPrice
+
+  Grid.Score = Grid.Reward /. Grid.Cost
+
+  ///Micro decisions build
+  //removing unecessary scenario ([0,0] segment created by default in the grid)
+  where Grid.Min > 0
+  //Ranking potential purchases accoring to the score
+    Grid.Rank = rank(Grid.Score, Id, -Grid.Max)
+
+
+
+    Grid.CategoryFRGain = Grid.FillRateDelta * Items.CategorySalesWeight
+    Grid.CumCategoryFRGain = sum(Grid.CategoryFRGain) by Items.Category scan Grid.Rank
+
+    ///Purchase decision
+    //Current overall FR should be 85%
+    //3 categories agressiveness factors = 1-1-1 --> 87% overall fill rate
+    //3 categories agressiveness factors = 3-4-5 --> 92% overall fill rate
+    //3 categories agressiveness factors = 5-5-5 --> 99% overall fill rate
+
+    Items.CategoryFRTarget = (86 + Items.AgressivenessFactor * 12) / 100
+
+    Grid.IsEligible = Items.CategoryFRTarget - Items.CategoryCurrentFR > 0 and
+                      Grid.CumCategoryFRGain <= Items.CategoryFRTarget - Items.CategoryCurrentFR
+    // Grid.IsEligible = Grid.Score > 0
+
+    where Grid.IsEligible
+      Items.OrderQuantity = sum(Grid.Q)
+
+    //Make sure every eligible unit has a positive reward
+    //Remark: new rank may be different from original rank as units with higher ranks may not be available because in a different category
+
+
+    //Displaying full prioritized list
+    // show table "All micro decisions" e25h25 export:"Clean/PurchaseResults/MicroDecisions.ion" {tileTab: "CategoryView"} with
+    //   Grid.Rank as "Rank"
+    //   Grid.NewRank
+    //   Id as "SKU"
+    //   Items.Name
+    //   Items.Category
+    //   Items.Supplier
+    //   Items.BuyPrice
+    //   Items.SellPrice
+    //   Items.M as "Margin"
+    //   Items.StockOnHand
+    //   Items.StockOnOrder
+    //   Items.LotMultiplier
+    //   Grid.Q
+    //   Grid.Min
+    //   Grid.Max
+    //   Items.SupplierLTWeeks as "SLT" {unit: "timesteps"}
+    //   Items.ReorderCycleWeeks as "RLT" {unit: "timesteps"}
+    //   Items.SalesWeight
+    //   Items.CurrentFR
+    //   Grid.FillRateDelta
+    //   Grid.CumFillrateDelta
+    //   Grid.OverallFRGain
+    //   Grid.CumOverallFRGain
+
+    //   Grid.CumCategoryFRGain
+    //   Items.CategoryFRTarget
+    //   Items.CategoryCurrentFR
+
+    //   Grid.M
+    //   Grid.NewS as "S"
+    //   Grid.C
+    //   Grid.NewReward as "Reward"
+    //   Grid.NewScore as "Score"
+
+    //   Grid.Cost as "Investment" {unit: #(DcUnit)}
+    //   Grid.Invest as "CumInvest" {unit: #(DcUnit)}
+    //   Grid.IsEligible
+    //   order by Grid.Rank
+
+  ///Final purchase reporting
+  Items.NewFR = min(int(Items.FR, 0, Items.SatisfiedDemand + Items.OrderQuantity), 0.999)
+
+Items.InvestmentRequired = Items.OrderQuantity * Items.BuyPrice
+
+// show table "Purchase recommendations" a25d25 export:"Clean/PurchaseResults/PORecommendations.ion" {tileTab: "CategoryView"} with
+//   Items.Id
+//   Items.BuyPrice
+//   Items.M as "Margin"
+//   Items.OrderQuantity
+//   Items.InvestmentRequired
+//   Items.FR
+//   Items.CurrentFR
+//   Items.NewFR
+//   Items.LastYearSales
+//   Items.SalesWeight
+//   Items.SalesWeight * Items.NewFR as "OverallFRContrib"
+//   Items.SupplierLastYearSales
+//   Items.SupplierSalesWeight
+//   Items.AvgDemandOnRLT
+//   Items.SatisfiableDemand
+//   Items.SatisfiedDemand
+//   Items.TotalDemandRLT
+//   order by Items.InvestmentRequired desc
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///--------------------------------FUTURE REORDER RECOMMENDATIONS-----------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///PO arrival---------------------------------------------------------------------------------------
+WeeklyFC.POarrivalQty = sum(PO.Quantity)
+                        by [Id, monday(PO.DeliveryDate)]
+                        at [Id, WeeklyFC.date]
+
+///First reorder arrival----------------------------------------------------------------------------
+WeeklyFC.FirstReorderQty = same(Items.OrderQuantity)
+                            by [Id, Items.SupplierLTWeeks]
+                            at [Id, WeeklyFC.FutureWeekRank]
+
+///Stock end week-----------------------------------------------------------------------------------
+//We simulate the ideal stock, i.e. the stock which perfectly compensates the demand.
+//To do so, we calculate the demand on a reorder cycle (except for the first reorder cycle) and
+//we offset it to make it arrive one SLT after
+
+WeeklyFC.ReplicateDemand = quantile(WeeklyFC.CumDemand, 0.9) - quantile(WeeklyFC.PreviousCumDemand, 0.9)//quantile(WeeklyFC.CumDemand, Items.NewFR) - quantile(WeeklyFC.PreviousCumDemand, Items.NewFR) [!!!!!!!!!!!]
+//WeeklyFC.Baseline//quantile(WeeklyFC.Demand, Items.NewFR)
+
+///Demand on next reorder cycle
+ItemsWeek.ReplicateDemand = same(WeeklyFC.ReplicateDemand)
+                              by [WeeklyFC.Id, WeeklyFC.date]
+                              at [Items.Id, Week.monday]
+ItemsWeek.ReplicateDemandNextReorder = sum(ItemsWeek.ReplicateDemand) by ItemsWeek.Id over week = [0 .. Items.ReorderCycleWeeks - 1]
+WeeklyFC.ReplicateDemandNextReorder = if max(WeeklyFC.FutureWeekRank - Items.TotalLTWeeks,0) mod Items.ReorderCycleWeeks == 0 and WeeklyFC.FutureWeekRank - Items.TotalLTWeeks >= 0
+                                      then same(ItemsWeek.ReplicateDemandNextReorder) by [Items.Id, Week.monday] at [WeeklyFC.Id, WeeklyFC.date]
+                                      else 0
+
+///Stock end week function
+def process StockEndWeek(
+    demand:number, /// demand quantity in selected time interval
+    startStockOnHand: number,
+    arrivalQty: number,
+    forecastNextReorder : number,
+    timeIndex : number,
+    isLastPastWeek : boolean) with /// Define if the stocklevel can fall below 0 (= BackOrders)
+  keep StockOnHand = 0
+
+  if timeIndex == 0
+    StockOnHand = 0
+  if isLastPastWeek
+    StockOnHand = startStockOnHand
+  if timeIndex >= 1
+    StockOnHand = max(max(StockOnHand + arrivalQty - demand,0), forecastNextReorder)
+
+  return (StockOnHand)
+
+///Stock end week function call
+//Hypotheses:
+//Stock evo function gives the stock at the end of a week
+//POs arrives at the beginning of a week
+//WeeklyFC.FutureWeekRank = 0 is the first week
+
+//Initialization
+where WeeklyFC.IsLastPastWeek
+  Items.LastStockOnHand = same(WeeklyFC.WkStockOnHand)
+  Items.LastPOArrivalQty = same(WeeklyFC.POarrivalQty)
+  Items.LastForecast = same(WeeklyFC.ReplicateDemand)
+  Items.LastStockEndWeek = max(Items.LastStockOnHand + Items.LastPOArrivalQty - Items.LastForecast, 0)
+
+//Call
+WeeklyFC.StockEndWeek = StockEndWeek(WeeklyFC.ReplicateDemand,
+                                    Items.LastStockEndWeek,
+                                    WeeklyFC.POarrivalQty + WeeklyFC.FirstReorderQty,
+                                    WeeklyFC.ReplicateDemandNextReorder,
+                                    WeeklyFC.FutureWeekRank,
+                                    WeeklyFC.IsLastPastWeek)
+                        by WeeklyFC.Id
+                        scan WeeklyFC.date
+
+///Stock start week
+WeeklyFC.StockStartWeek = if WeeklyFC.FutureWeekRank > 0 then same(WeeklyFC.StockEndWeek)
+                              when(WeeklyFC.FutureWeekRank != 0)
+                              by [WeeklyFC.Id, WeeklyFC.FutureWeekRank]
+                              at [WeeklyFC.Id, WeeklyFC.FutureWeekRank - 1] default Items.LastStockEndWeek else 0
+
+///Future reorders arrival quantities---------------------------------------------------------------
+WeeklyFC.FutureReordersQty = if (WeeklyFC.FutureWeekRank - Items.SupplierLTWeeks) >= 0 and//Before SLT
+                              (WeeklyFC.FutureWeekRank - Items.SupplierLTWeeks) mod Items.ReorderCycleWeeks == 0 then//Every multiple of a reorder cycle
+                                max(WeeklyFC.StockEndWeek
+                                - WeeklyFC.StockStartWeek
+                                - WeeklyFC.POarrivalQty
+                                + WeeklyFC.ReplicateDemand, 0) else 0
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///------------------------------STOCK EVOLUTION WITH FUTURE REORDERS-------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///Stock end week-----------------------------------------------------------------------------------
+
+//Initialization
+where WeeklyFC.IsLastPastWeek
+  Items.LastStockOnHand = same(WeeklyFC.WkStockOnHand)
+  Items.LastPOArrivalQty = same(WeeklyFC.POarrivalQty)
+  Items.LastForecast = same(WeeklyFC.ReplicateDemand)
+  Items.LastStockEndWeek = max(Items.LastStockOnHand + Items.LastPOArrivalQty - Items.LastForecast, 0)
+
+lowBarQuantile0 = 0.01
+lowBarQuantile0Display = round(lowBarQuantile0 * 100)
+lowBarQuantile1 = 0.1
+lowBarQuantile1Display = round(lowBarQuantile1 * 100)
+lowBarQuantile2 = 0.3
+lowBarQuantile2Display = round(lowBarQuantile2 * 100)
+highBarQuantile1 = 0.7
+highBarQuantile1Display = round(highBarQuantile1 * 100)
+highBarQuantile2 = 0.9
+highBarQuantile2Display = round(highBarQuantile2 * 100)
+highBarQuantile3 = 0.99
+highBarQuantile3Display = round(highBarQuantile3 * 100)
+
+WeeklyFC.AvgStockEndWeek = StockEndWeek(mean(WeeklyFC.CumDemand) - mean(WeeklyFC.PreviousCumDemand),
+                                        Items.LastStockEndWeek,
+                                        WeeklyFC.POarrivalQty + WeeklyFC.FutureReordersQty,
+                                        0,
+                                        WeeklyFC.FutureWeekRank,
+                                        WeeklyFC.IsLastPastWeek)
+                                        by WeeklyFC.Id
+                                        scan WeeklyFC.date
+
+WeeklyFC.StockEndWeekLowBar0 = StockEndWeek(quantile(WeeklyFC.CumDemand, lowBarQuantile0) - quantile(WeeklyFC.PreviousCumDemand, lowBarQuantile0),
+                                            Items.LastStockEndWeek,
+                                            WeeklyFC.POarrivalQty + WeeklyFC.FutureReordersQty,
+                                            0,
+                                            WeeklyFC.FutureWeekRank,
+                                            WeeklyFC.IsLastPastWeek)
+                                            by WeeklyFC.Id
+                                            scan WeeklyFC.date
+WeeklyFC.StockEndWeekLowBar1 = StockEndWeek(quantile(WeeklyFC.CumDemand, lowBarQuantile1) - quantile(WeeklyFC.PreviousCumDemand, lowBarQuantile1),
+                                            Items.LastStockEndWeek,
+                                            WeeklyFC.POarrivalQty + WeeklyFC.FutureReordersQty,
+                                            0,
+                                            WeeklyFC.FutureWeekRank,
+                                            WeeklyFC.IsLastPastWeek)
+                                            by WeeklyFC.Id
+                                            scan WeeklyFC.date
+
+WeeklyFC.StockEndWeekLowBar2 = StockEndWeek(quantile(WeeklyFC.CumDemand, lowBarQuantile2) - quantile(WeeklyFC.PreviousCumDemand, lowBarQuantile2),
+                                            Items.LastStockEndWeek,
+                                            WeeklyFC.POarrivalQty + WeeklyFC.FutureReordersQty,
+                                            0,
+                                            WeeklyFC.FutureWeekRank,
+                                            WeeklyFC.IsLastPastWeek)
+                                            by WeeklyFC.Id
+                                            scan WeeklyFC.date
+
+WeeklyFC.StockEndWeekHighBar1 = StockEndWeek(quantile(WeeklyFC.CumDemand, highBarQuantile1) - quantile(WeeklyFC.PreviousCumDemand, highBarQuantile1),
+                                              Items.LastStockEndWeek,
+                                              WeeklyFC.POarrivalQty + WeeklyFC.FutureReordersQty,
+                                              0,
+                                              WeeklyFC.FutureWeekRank,
+                                              WeeklyFC.IsLastPastWeek)
+                                              by WeeklyFC.Id
+                                              scan WeeklyFC.date
+
+WeeklyFC.StockEndWeekHighBar2 = StockEndWeek(quantile(WeeklyFC.CumDemand, highBarQuantile2) - quantile(WeeklyFC.PreviousCumDemand, highBarQuantile2),
+                                              Items.LastStockEndWeek,
+                                              WeeklyFC.POarrivalQty + WeeklyFC.FutureReordersQty,
+                                              0,
+                                              WeeklyFC.FutureWeekRank,
+                                              WeeklyFC.IsLastPastWeek)
+                                              by WeeklyFC.Id
+                                              scan WeeklyFC.date
+WeeklyFC.StockEndWeekHighBar3 = StockEndWeek(quantile(WeeklyFC.CumDemand, highBarQuantile3) - quantile(WeeklyFC.PreviousCumDemand, highBarQuantile3),
+                                              Items.LastStockEndWeek,
+                                              WeeklyFC.POarrivalQty + WeeklyFC.FutureReordersQty,
+                                              0,
+                                              WeeklyFC.FutureWeekRank,
+                                              WeeklyFC.IsLastPastWeek)
+                                              by WeeklyFC.Id
+                                              scan WeeklyFC.date
+
+
+///Stock start week---------------------------------------------------------------------------------
+WeeklyFC.AvgStockStartWeek = if WeeklyFC.FutureWeekRank > 0 then same(WeeklyFC.AvgStockEndWeek)
+                              when(WeeklyFC.FutureWeekRank != 0)
+                              by [WeeklyFC.Id, WeeklyFC.FutureWeekRank]
+                              at [WeeklyFC.Id, WeeklyFC.FutureWeekRank - 1] default Items.LastStockEndWeek +
+                              WeeklyFC.POarrivalQty + WeeklyFC.FutureReordersQty else WeeklyFC.WkStockOnHand
+WeeklyFC.StockStartWeekLowBar0 = if WeeklyFC.FutureWeekRank > 0 then same(WeeklyFC.StockEndWeekLowBar0)
+                                  when(WeeklyFC.FutureWeekRank != 0)
+                                  by [WeeklyFC.Id, WeeklyFC.FutureWeekRank]
+                                  at [WeeklyFC.Id, WeeklyFC.FutureWeekRank - 1] default Items.LastStockEndWeek +
+                              WeeklyFC.POarrivalQty + WeeklyFC.FutureReordersQty else WeeklyFC.WkStockOnHand
+WeeklyFC.StockStartWeekLowBar1 = if WeeklyFC.FutureWeekRank > 0 then same(WeeklyFC.StockEndWeekLowBar1)
+                                  when(WeeklyFC.FutureWeekRank != 0)
+                                  by [WeeklyFC.Id, WeeklyFC.FutureWeekRank]
+                                  at [WeeklyFC.Id, WeeklyFC.FutureWeekRank - 1] default Items.LastStockEndWeek +
+                              WeeklyFC.POarrivalQty + WeeklyFC.FutureReordersQty else WeeklyFC.WkStockOnHand
+WeeklyFC.StockStartWeekLowBar2 = if WeeklyFC.FutureWeekRank > 0 then same(WeeklyFC.StockEndWeekLowBar2)
+                                  when(WeeklyFC.FutureWeekRank != 0)
+                                  by [WeeklyFC.Id, WeeklyFC.FutureWeekRank]
+                                  at [WeeklyFC.Id, WeeklyFC.FutureWeekRank - 1] default Items.LastStockEndWeek +
+                              WeeklyFC.POarrivalQty + WeeklyFC.FutureReordersQty else WeeklyFC.WkStockOnHand
+WeeklyFC.StockStartWeekHighBar1 = if WeeklyFC.FutureWeekRank > 0 then same(WeeklyFC.StockEndWeekHighBar1)
+                                  when(WeeklyFC.FutureWeekRank != 0)
+                                  by [WeeklyFC.Id, WeeklyFC.FutureWeekRank]
+                                  at [WeeklyFC.Id, WeeklyFC.FutureWeekRank - 1] default Items.LastStockEndWeek +
+                              WeeklyFC.POarrivalQty + WeeklyFC.FutureReordersQty else WeeklyFC.WkStockOnHand
+WeeklyFC.StockStartWeekHighBar2 = if WeeklyFC.FutureWeekRank > 0 then same(WeeklyFC.StockEndWeekHighBar2)
+                                  when(WeeklyFC.FutureWeekRank != 0)
+                                  by [WeeklyFC.Id, WeeklyFC.FutureWeekRank]
+                                  at [WeeklyFC.Id, WeeklyFC.FutureWeekRank - 1] default Items.LastStockEndWeek +
+                                  WeeklyFC.POarrivalQty + WeeklyFC.FutureReordersQty else WeeklyFC.WkStockOnHand
+WeeklyFC.StockStartWeekHighBar3 = if WeeklyFC.FutureWeekRank > 0 then same(WeeklyFC.StockEndWeekHighBar3)
+                                  when(WeeklyFC.FutureWeekRank != 0)
+                                  by [WeeklyFC.Id, WeeklyFC.FutureWeekRank]
+                                  at [WeeklyFC.Id, WeeklyFC.FutureWeekRank - 1] default Items.LastStockEndWeek +
+                                  WeeklyFC.POarrivalQty + WeeklyFC.FutureReordersQty else WeeklyFC.WkStockOnHand
+
+
+///Reporting----------------------------------------------------------------------------------------
+
+
+
+
+///Calculate time to sell
+WeeklyFC.VirtualDemand = if WeeklyFC.FutureWeekRank > 0 then WeeklyFC.Baseline else WeeklyFC.DemandQty
+WeeklyFC.Sales1W = sum(WeeklyFC.VirtualDemand) by WeeklyFC.Id over WeeklyFC.date = [0..0]
+WeeklyFC.Sales4W = sum(WeeklyFC.VirtualDemand) by WeeklyFC.Id over WeeklyFC.date = [0..3*7]
+WeeklyFC.Sales8W = sum(WeeklyFC.VirtualDemand)  by WeeklyFC.Id over WeeklyFC.date = [0..7*7]
+WeeklyFC.Sales12W = sum(WeeklyFC.VirtualDemand)  by WeeklyFC.Id over WeeklyFC.date = [0..11*7]
+WeeklyFC.Sales16W = sum(WeeklyFC.VirtualDemand)  by WeeklyFC.Id over WeeklyFC.date = [0..15*7]
+WeeklyFC.Sales20W = sum(WeeklyFC.VirtualDemand)  by WeeklyFC.Id over WeeklyFC.date = [0..19*7]
+WeeklyFC.Sales24W = sum(WeeklyFC.VirtualDemand)  by WeeklyFC.Id over WeeklyFC.date = [0..23*7]
+WeeklyFC.AvgStockStartWeek1W = min(WeeklyFC.AvgStockStartWeek, WeeklyFC.Sales1W)
+WeeklyFC.AvgStockStartWeek4W = min(WeeklyFC.AvgStockStartWeek, WeeklyFC.Sales4W)
+WeeklyFC.AvgStockStartWeek8W = min(WeeklyFC.AvgStockStartWeek, WeeklyFC.Sales8W)
+WeeklyFC.AvgStockStartWeek12W = min(WeeklyFC.AvgStockStartWeek, WeeklyFC.Sales12W)
+WeeklyFC.AvgStockStartWeek16W = min(WeeklyFC.AvgStockStartWeek, WeeklyFC.Sales16W)
+WeeklyFC.AvgStockStartWeek20W = min(WeeklyFC.AvgStockStartWeek, WeeklyFC.Sales20W)
+WeeklyFC.AvgStockStartWeek24W = min(WeeklyFC.AvgStockStartWeek, WeeklyFC.Sales24W)
+WeeklyFC.AvgStockStartWeekOver12W = max(0 , WeeklyFC.AvgStockStartWeek - WeeklyFC.AvgStockStartWeek12W)
+WeeklyFC.AvgStockStartWeekOver24W = max(0 , WeeklyFC.AvgStockStartWeek - WeeklyFC.AvgStockStartWeek24W)
+WeeklyFC.AvgStockStartWeek24W = WeeklyFC.AvgStockStartWeek24W - WeeklyFC.AvgStockStartWeek20W
+WeeklyFC.AvgStockStartWeek20W = WeeklyFC.AvgStockStartWeek20W - WeeklyFC.AvgStockStartWeek16W
+WeeklyFC.AvgStockStartWeek16W = WeeklyFC.AvgStockStartWeek16W - WeeklyFC.AvgStockStartWeek12W
+WeeklyFC.AvgStockStartWeek12W = WeeklyFC.AvgStockStartWeek12W - WeeklyFC.AvgStockStartWeek8W
+WeeklyFC.AvgStockStartWeek8W = WeeklyFC.AvgStockStartWeek8W - WeeklyFC.AvgStockStartWeek4W
+WeeklyFC.AvgStockStartWeek4W = WeeklyFC.AvgStockStartWeek4W - WeeklyFC.AvgStockStartWeek1W
+
+// WeeklyFC.TimeInStock = WeeklyFC.AvgStockStartWeekOverW * 22.5 +
+//                        WeeklyFC.AvgStockStartWeek24W * 22.5 +
+//                        WeeklyFC.AvgStockStartWeek20W * 18.5 +
+//                        WeeklyFC.AvgStockStartWeek16W * 14.5 +
+//                        WeeklyFC.AvgStockStartWeek12W * 10.5 +
+//                        WeeklyFC.AvgStockStartWeek8W * 6.5 +
+//                        WeeklyFC.AvgStockStartWeek4W * 2.5 +
+//                        WeeklyFC.AvgStockStartWeek1W * 0.5
+// WeeklyFC.TimeInStockSmooth = sum(WeeklyFC.TimeInStock) by WeeklyFC.Id over WeeklyFC.date = [-2*7..1*7]
+WeeklyFC.StockTest = WeeklyFC.AvgStockStartWeekOver24W +
+                       WeeklyFC.AvgStockStartWeek24W +
+                       WeeklyFC.AvgStockStartWeek20W +
+                       WeeklyFC.AvgStockStartWeek16W +
+                       WeeklyFC.AvgStockStartWeek12W +
+                       WeeklyFC.AvgStockStartWeek8W +
+                       WeeklyFC.AvgStockStartWeek4W +
+                       WeeklyFC.AvgStockStartWeek1W
+WeeklyFC.StockTestSmooth = (sum(WeeklyFC.StockTest) by WeeklyFC.Id over WeeklyFC.date = [-1*7..7] + sum(WeeklyFC.StockTest) by WeeklyFC.Id over WeeklyFC.date = [-2*7..2*7])/8
+WeeklyFC.StockTestSmoothLY = same(WeeklyFC.StockTestSmooth) by [WeeklyFC.Id, date] at [WeeklyFC.Id, date-52*7]
+WeeklyFC.Sales4WLY = sum(WeeklyFC.VirtualDemand) by WeeklyFC.Id over WeeklyFC.date = [-(52)*7..-(52-3)*7]
+
+///Export-------------------------------------------------------------------------------------------
+
+// show table "Start Week Stock Evolution" b30     export:"Clean/PurchaseResults/StockSimulation.ion" {tileTab: "CategoryView"} with
+//   Items.Id as "Sku"
+//   WeeklyFC.date as "Date"
+//   lowBarQuantile1Display
+//   lowBarQuantile2Display
+//   highBarQuantile1Display
+//   highBarQuantile2Display
+
+//   same(WeeklyFC.StockEndWeekLowBar1) as "StockEndWeekLowBar1"
+//   same(WeeklyFC.StockEndWeekLowBar2) as "StockEndWeekLowBar2"
+//   same(WeeklyFC.AvgStockEndWeek) as "AvgStockEndWeek"
+//   same(WeeklyFC.StockEndWeekHighBar1) as "StockEndWeekHighBar1"
+//   same(WeeklyFC.StockEndWeekHighBar2) as "StockEndWeekHighBar2"
+
+//   same(WeeklyFC.StockStartWeekLowBar1) as "StockStartWeekLowBar1"
+//   same(WeeklyFC.StockStartWeekLowBar2) as "StockStartWeekLowBar2"
+//   same(WeeklyFC.AvgStockStartWeek) as "AvgStockStartWeek"
+//   same(WeeklyFC.StockStartWeekHighBar1) as "StockStartWeekHighBar1"
+//   same(WeeklyFC.StockStartWeekHighBar2) as "StockStartWeekHighBar2"
+
+//   Items.StockQtyBeforeReorder
+//   group by Items.Id, WeeklyFC.date
+//   order by Items.Id, WeeklyFC.date desc
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///-----------------------------------------OVERALL LEVEL-------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+keep where date <= oend + lookforwardDays
+keep where date >= oend - lookbackDays
+
+show scalar "Current StockOnHand" f12 {textAlign: center ; tileTab: "OverallView" ; unit: #(DcUnit)} with sum(Items.StockOnHand * Items.BuyPrice)
+// show scalar "Turnover L365 d" c18 {textAlign: right ; tileTab: "OverallView"} with sum(Items.TurnoverL365)
+
+show scalar "Total Investments" d6             {textAlign: center ; tileTab: "OverallView"} with
+  sum(Items.InvestmentRequired) as "" {numbers: simple ; unit: #(DcUnit)}
+
+// show scalar "Current Fill Rate on WOO" b29             {textAlign: center ; tileTab: "OverallView"} with
+//   sum(Items.CurrentFR * Items.SalesWeight) as "" {numbers: percent}
+
+show scalar "Achieved Fill Rate on WOO" d7             {textAlign: center ; tileTab: "OverallView"} with
+  sum(Items.NewFR * Items.SalesWeight) as "" {numbers: percent}
+
+
+// show table "Categories" c15        {tileTab: "OverallView" ; textBold: "true"} with
+//   same(Items.CatUrl) as "To Eco. config." {columnReadOnly: "true" ; columnWidth: 2 ; text: link ; textLinkName: "🔎"}
+//   Items.Category {value { textColor: "#000" } ; href: #[same(Items.CatUrl)]}
+//   same(Items.CategoryTurnoverL365) as "Turnover L365 d" {unit: #(DcUnit)}
+//   (sum(Items.COGSNetAmount365) / 365) * avg(Items.ReorderCycleWeeks) as "Avg COGs on WOO" {unit: #(DcUnit)}
+//   sum(Items.StockQtyBeforeReorderValue) as "Stock End SLT" {unit: #(DcUnit)}
+//   sum(Items.InvestmentRequired) as "Investment required" {unit: #(DcUnit)}
+//   group by Items.Category
+//   order by same(Items.CategoryTurnoverL365) desc
+
+where date > oend - 60 and (WeeklyFC.IsMajoritySLTAll or WeeklyFC.IsMajorityWOOAll or WeeklyFC.IsPast)
+  show linechart "Stock evolution (net amount)"  e5h9      {tileTab: "OverallView" ; legend { legendPosition: right }} with
+    same(if WeeklyFC.IsMajoritySLTAll then 1 else 0) as "" {seriesType: background ; color: #f2eeee ; seriesLegend: hidden}
+    same(if WeeklyFC.IsMajorityWOOAll then 1 else 0) as "" {seriesType: background ; color: #ae4141 ; seriesLegend: hidden}
+    same(if (WeeklyFC.date <= oend + 7) then 1 else 0) as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden}
+    sum(WeeklyFC.StockStartWeekLowBar0*Items.BuyPrice) as "Q\{lowBarQuantile0Display}" {seriesType: area ; areaPosition: below ; color: #F7DAAA ; areaTo: #[sum(WeeklyFC.StockStartWeekLowBar1*Items.BuyPrice)] ; unit: #(DcUnit)} // areaPosition: above ; areaTo: #[sum(WeeklyFC.StockStartWeekLowBar1*Items.BuyPrice)];
+    sum(WeeklyFC.StockStartWeekLowBar1*Items.BuyPrice) as "Q\{lowBarQuantile1Display}" {seriesType: area ; areaPosition: below ; color: #fbc367 ; areaTo: #[sum(WeeklyFC.StockStartWeekLowBar2*Items.BuyPrice)] ; unit: #(DcUnit)} // areaPosition: above ; areaTo: #[sum(WeeklyFC.StockStartWeekLowBar2*Items.BuyPrice)];
+    sum(WeeklyFC.StockStartWeekLowBar2*Items.BuyPrice) as "Q\{lowBarQuantile2Display}" {seriesType: area ; areaPosition: below ; color: #fb8f62 ; areaTo: #[sum(WeeklyFC.AvgStockStartWeek*Items.BuyPrice)] ; unit: #(DcUnit)} // areaPosition: above ; areaTo: #[sum(WeeklyFC.AvgStockStartWeek*Items.BuyPrice)];
+    // sum(WeeklyFC.AvgStockStartWeek*Items.BuyPrice) as "OnHand Avg" {seriesType: area ; color: #fb8f62 ; unit: #(DcUnit)}
+    sum(WeeklyFC.StockStartWeekHighBar1*Items.BuyPrice) as "Q\{highBarQuantile1Display}" {seriesType: area ; areaPosition: above ; color: #fb8f62 ; areaTo: #[sum(WeeklyFC.AvgStockStartWeek*Items.BuyPrice)] ; unit: #(DcUnit)} // areaPosition: below ; areaTo: #[sum(WeeklyFC.AvgStockStartWeek*Items.BuyPrice)];
+    sum(WeeklyFC.StockStartWeekHighBar2*Items.BuyPrice) as "Q\{highBarQuantile2Display}" {seriesType: area ; areaPosition: above ; color: #fbc367 ; areaTo: #[sum(WeeklyFC.StockStartWeekHighBar1*Items.BuyPrice)] ; unit: #(DcUnit)} // areaPosition: below ; areaTo: #[sum(WeeklyFC.StockStartWeekHighBar1*Items.BuyPrice)];
+    sum(WeeklyFC.StockStartWeekHighBar3*Items.BuyPrice) as "Q\{highBarQuantile3Display}" {seriesType: area ; areaPosition: above ; color: #F7DAAA ; areaTo: #[sum(WeeklyFC.StockStartWeekHighBar2*Items.BuyPrice)] ; unit: #(DcUnit)} // areaPosition: below ; areaTo: #[sum(WeeklyFC.StockStartWeekHighBar2*Items.BuyPrice)];
+
+    sum(WeeklyFC.AvgStockStartWeek*Items.BuyPrice) as "OnHand Avg" {color: #c62a2a ; unit: #(DcUnit)}
+    group by WeeklyFC.date
+
+Week.YonYEvolRatio = (sum(WeeklyFC.StockTestSmooth*Items.BuyPrice)/sum(WeeklyFC.Sales4W*Items.BuyPrice)) / (sum(WeeklyFC.StockTestSmoothLY*Items.BuyPrice)/.sum(WeeklyFC.Sales4WLY*Items.BuyPrice)) - 1
+
+where date > oend - 50*7
+  show linechart "stock health evolution" a11e16 {tileTab: "OverallView" ; legend { legendPosition: bottom }} with
+    sum(WeeklyFC.AvgStockStartWeekOver12W*Items.BuyPrice) as "Sold>3M" {seriesType: bar ; seriesStack: bar ; color: #ae4141 ; unit: #(DcUnit)}
+    sum(WeeklyFC.AvgStockStartWeek12W*Items.BuyPrice) as "Sold<3M" {seriesType: bar ; seriesStack: bar ; color: #EB694C ; unit: #(DcUnit)}
+    sum(WeeklyFC.AvgStockStartWeek8W*Items.BuyPrice) as "Sold<2M" {seriesType: bar ; seriesStack: bar ; color: #fea883 ; unit: #(DcUnit)}
+    sum(WeeklyFC.AvgStockStartWeek4W*Items.BuyPrice) + sum(WeeklyFC.AvgStockStartWeek1W*Items.BuyPrice) as "Sold<1M" {seriesType: bar ; seriesStack: bar ; color: #F5CA91 ; unit: #(DcUnit)}
+    // sum(WeeklyFC.AvgStockStartWeek1W*Items.BuyPrice) as "Sold<1W" {seriesType: stack ; color: #F9D5A5 ; unit: #(DcUnit)} ae4141
+
+    sum(WeeklyFC.StockTestSmooth*Items.BuyPrice)/sum(WeeklyFC.Sales4W*Items.BuyPrice) as "Stock vs 1M Turnover" {color: #d0021b ; unit: " $S/$T"}
+    sum(WeeklyFC.StockTestSmoothLY*Items.BuyPrice)/.sum(WeeklyFC.Sales4WLY*Items.BuyPrice) as "Stock vs 1M Turnover LY" {seriesPattern: dotted ; color: #d0021b ; unit: " $S/$T"}
+    // Week.YonYEvolRatio
+    same(if WeeklyFC.date <= oend then 1 else 0) as "Past" {seriesType: background ; color: #F4F4F4}
+    group by WeeklyFC.date
+
+
+yonYEvolRatioCurrent = avg(Week.YonYEvolRatio) when ((date >= oend-3*31) and date <= oend)
+yonYEvolRatioTarget3M = avg(Week.YonYEvolRatio) when ((date >= oend+4*7) and date <= oend+15*7)
+yonYEvolRatioTarget6M = avg(Week.YonYEvolRatio) when ((date >= oend+4*7) and date <= oend+26*7)
+
+
+
+show scalar "Stock Evol YonY over last 3 months" f15 {tileTab: "OverallView" ; unit: "%" ; textAlign: center} with yonYEvolRatioCurrent*100
+show scalar "Stock Evol YonY projected over next 3 months" g15 {tileTab: "OverallView" ; unit: "%" ; textAlign: center} with yonYEvolRatioTarget3M*100
+show scalar "Stock Evol YonY projected over next 6 months" h15 {tileTab: "OverallView" ; unit: "%" ; textAlign: center} with yonYEvolRatioTarget6M*100
+
+show scalar "Next 6 months COGS" h12 {textAlign: center ; tileTab: "OverallView" ; unit: #(DcUnit)} with sum(WeeklyFC.Sales24W * Items.BuyPrice) when (WeeklyFC.date == oend)
+show scalar "Next 6 months Receptions" g12 {textAlign: center ; tileTab: "OverallView" ; unit: #(DcUnit)} with sum(WeeklyFC.FutureReordersQty * Items.BuyPrice)
+
+// show scalar "Sales Next 6 months" e29 {textAlign: right ; tileTab: "OverallView" ; color: "eb694c"} with cumDemand
+
+
+
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///-----------------------------------------CATEGORY LEVEL------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+show scalar "Current StockOnHand" f12 slices: Items.slice {textAlign: center ; tileTab: "CategoryView" ; unit: #(DcUnit)} with sum(Items.StockOnHand * Items.BuyPrice)
+// show scalar "Turnover L365 d" c18 slices: Items.Slice {textAlign: right ; tileTab: "CategoryView" ; unit: #(DcUnit)} with sum(Items.TurnoverL365)
+
+show scalar "Total Investments" d6 slices: Items.slice {textAlign: center ; tileTab: "CategoryView"} with
+  sum(Items.InvestmentRequired) as "" {numbers: simple ; unit: #(DcUnit)}
+
+// show scalar "Current Fill Rate on WOO" g27 slices: Items.Slice {textAlign: right ; tileTab: "CategoryView"} with
+//   sum(Items.CurrentFR * Items.SalesWeight)/sum(Items.SalesWeight) as "" {numbers: percent}
+
+show scalar "Achieved Fill Rate on WOO" d7 slices: Items.slice {textAlign: center ; tileTab: "CategoryView"} with
+  sum(Items.NewFR * Items.SalesWeight)/sum(Items.SalesWeight) as "" {numbers: percent}
+
+
+// show linechart "Stock evolution (net amount)" a5h8 slices: Items.Slice        {tileTab: "CategoryView"} with
+//   1 as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden ; unit: #(DcUnit)}
+
+//   sum(WeeklyFC.StockStartWeekLowBar1*Items.BuyPrice) as "OnHand Q\{lowBarQuantile1Display}" {seriesType: area ; color: #fbc367 ; unit: #(DcUnit)}
+//   sum(WeeklyFC.StockStartWeekLowBar2*Items.BuyPrice) as "OnHand Q\{lowBarQuantile2Display}" {seriesType: area ; color: #fb8f62 ; unit: #(DcUnit)}
+//   sum(WeeklyFC.AvgStockStartWeek*Items.BuyPrice) as "OnHand Avg" {seriesType: area ; color: #fb8f62 ; unit: #(DcUnit)}
+//   sum(WeeklyFC.StockStartWeekHighBar1*Items.BuyPrice) as "OnHand Q\{highBarQuantile1Display}" {seriesType: area ; color: #fbc367 ; unit: #(DcUnit)}
+//   sum(WeeklyFC.StockStartWeekHighBar2*Items.BuyPrice) as "OnHand Q\{highBarQuantile2Display}" {seriesType: area ; color: #ffffff ; unit: #(DcUnit)}
+
+//   sum(WeeklyFC.AvgStockStartWeek*Items.BuyPrice) as "OnHand Avg" {color: #c62a2a ; seriesLegend: hidden ; unit: #(DcUnit)}
+//   group by WeeklyFC.date
+
+where date > oend - 60 and (WeeklyFC.IsMajoritySLTCategory or WeeklyFC.IsMajorityWOOCategory or WeeklyFC.IsPast)
+  show linechart "Stock evolution (net amount)"  e5h9  slices: Items.slice {tileTab: "CategoryView" ; legend { legendPosition: right }} with
+    same(if WeeklyFC.IsMajoritySLTCategory then 1 else 0) as "" {seriesType: background ; color: #f2eeee ; seriesLegend: hidden}
+    same(if WeeklyFC.IsMajorityWOOCategory then 1 else 0) as "" {seriesType: background ; color: #ae4141 ; seriesLegend: hidden}
+    same(if (WeeklyFC.date <= oend + 7) then 1 else 0) as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden}
+    sum(WeeklyFC.StockStartWeekLowBar0*Items.BuyPrice) as "Q\{lowBarQuantile0Display}" {seriesType: area ; areaPosition: below ; color: #F7DAAA ; areaTo: #[sum(WeeklyFC.StockStartWeekLowBar1*Items.BuyPrice)] ; unit: #(DcUnit)} // areaPosition: above ; areaTo: #[sum(WeeklyFC.StockStartWeekLowBar1*Items.BuyPrice)];
+    sum(WeeklyFC.StockStartWeekLowBar1*Items.BuyPrice) as "Q\{lowBarQuantile1Display}" {seriesType: area ; areaPosition: below ; color: #fbc367 ; areaTo: #[sum(WeeklyFC.StockStartWeekLowBar2*Items.BuyPrice)] ; unit: #(DcUnit)} // areaPosition: above ; areaTo: #[sum(WeeklyFC.StockStartWeekLowBar2*Items.BuyPrice)];
+    sum(WeeklyFC.StockStartWeekLowBar2*Items.BuyPrice) as "Q\{lowBarQuantile2Display}" {seriesType: area ; areaPosition: below ; color: #fb8f62 ; areaTo: #[sum(WeeklyFC.AvgStockStartWeek*Items.BuyPrice)] ; unit: #(DcUnit)} // areaPosition: above ; areaTo: #[sum(WeeklyFC.AvgStockStartWeek*Items.BuyPrice)];
+    // sum(WeeklyFC.AvgStockStartWeek*Items.BuyPrice) as "OnHand Avg" {seriesType: area ; color: #fb8f62 ; unit: #(DcUnit)}
+    sum(WeeklyFC.StockStartWeekHighBar1*Items.BuyPrice) as "Q\{highBarQuantile1Display}" {seriesType: area ; areaPosition: above ; color: #fb8f62 ; areaTo: #[sum(WeeklyFC.AvgStockStartWeek*Items.BuyPrice)] ; unit: #(DcUnit)} // areaPosition: below ; areaTo: #[sum(WeeklyFC.AvgStockStartWeek*Items.BuyPrice)];
+    sum(WeeklyFC.StockStartWeekHighBar2*Items.BuyPrice) as "Q\{highBarQuantile2Display}" {seriesType: area ; areaPosition: above ; color: #fbc367 ; areaTo: #[sum(WeeklyFC.StockStartWeekHighBar1*Items.BuyPrice)] ; unit: #(DcUnit)} // areaPosition: below ; areaTo: #[sum(WeeklyFC.StockStartWeekHighBar1*Items.BuyPrice)];
+    sum(WeeklyFC.StockStartWeekHighBar3*Items.BuyPrice) as "Q\{highBarQuantile3Display}" {seriesType: area ; areaPosition: above ; color: #F7DAAA ; areaTo: #[sum(WeeklyFC.StockStartWeekHighBar2*Items.BuyPrice)] ; unit: #(DcUnit)} // areaPosition: below ; areaTo: #[sum(WeeklyFC.StockStartWeekHighBar2*Items.BuyPrice)];
+
+    sum(WeeklyFC.AvgStockStartWeek*Items.BuyPrice) as "OnHand Avg" {color: #c62a2a ; unit: #(DcUnit)}
+    group by WeeklyFC.date
+
+
+where date > oend - 50*7
+  show linechart "stock health evolution" a11e16 slices: Items.slice {tileTab: "CategoryView"} with
+    sum(WeeklyFC.AvgStockStartWeekOver12W*Items.BuyPrice) as "Sold >3M" {seriesType: bar ; seriesStack: bar ; color: #ae4141 ; unit: #(DcUnit)}
+    sum(WeeklyFC.AvgStockStartWeek12W*Items.BuyPrice) as "Sold <3M" {seriesType: bar ; seriesStack: bar ; color: #EB694C ; unit: #(DcUnit)}
+    sum(WeeklyFC.AvgStockStartWeek8W*Items.BuyPrice) as "Sold <2M" {seriesType: bar ; seriesStack: bar ; color: #fea883 ; unit: #(DcUnit)}
+    sum(WeeklyFC.AvgStockStartWeek4W*Items.BuyPrice) + sum(WeeklyFC.AvgStockStartWeek1W*Items.BuyPrice) as "Sold <1M" {seriesType: bar ; seriesStack: bar ; color: #F5CA91 ; unit: #(DcUnit)}
+    // sum(WeeklyFC.AvgStockStartWeek1W*Items.BuyPrice) as "Sold <1W" {seriesType: stack ; color: #F9D5A5 ; unit: #(DcUnit)}
+
+    sum(WeeklyFC.StockTestSmooth*Items.BuyPrice)/sum(WeeklyFC.Sales4W*Items.BuyPrice) as "Stock vs 1M Turnover" {color: #d0021b ; unit: "$S/$T"}
+    sum(WeeklyFC.StockTestSmoothLY*Items.BuyPrice)/.sum(WeeklyFC.Sales4WLY*Items.BuyPrice) as "Stock vs 1M Turnover LY" {seriesPattern: dotted ; color: #d0021b ; unit: "$S/$T"}
+    same(if WeeklyFC.date <= oend then 1 else 0) as "Past" {seriesType: background ; color: #F4F4F4}
+    group by WeeklyFC.date
+
+show scalar "Next 6 months COGS" g12 slices: Items.slice {textAlign: center ; tileTab: "CategoryView" ; unit: #(DcUnit)} with sum(WeeklyFC.Sales24W * Items.BuyPrice) when (WeeklyFC.date == oend)
+show scalar "Next 6 months Receptions" h12 slices: Items.slice {textAlign: center ; tileTab: "CategoryView" ; unit: #(DcUnit)} with sum(WeeklyFC.FutureReordersQty * Items.BuyPrice)
+
+
+WeeklyFC.YonYEvolRatio = (sum(WeeklyFC.StockTestSmooth*Items.BuyPrice) by [Items.slice, WeeklyFC.date]/sum(WeeklyFC.Sales4W*Items.BuyPrice) by [Items.slice, WeeklyFC.date]) / (sum(WeeklyFC.StockTestSmoothLY*Items.BuyPrice) by [Items.slice, WeeklyFC.date]/sum(WeeklyFC.Sales4WLY*Items.BuyPrice) by [Items.slice, WeeklyFC.date]) -1
+Items.YonYEvolRatioCurrent = avg(WeeklyFC.YonYEvolRatio) when ((date >= oend-3*31) and date <= oend)  by slice
+Items.YonYEvolRatioTarget3M = avg(WeeklyFC.YonYEvolRatio) when ((date >= oend+4*7) and date <= oend+15*7) by slice
+Items.YonYEvolRatioTarget6M = avg(WeeklyFC.YonYEvolRatio) when ((date >= oend+4*7) and date <= oend+26*7) by slice
+
+show scalar "Stock Evol YonY over last 3 months" f15 slices: Items.slice {tileTab: "CategoryView" ; unit: "%" ; textAlign: center} with same(Items.YonYEvolRatioCurrent)*100
+show scalar "Stock Evol YonY projected over next 3 months" g15 slices: Items.slice {tileTab: "CategoryView" ; unit: "%" ; textAlign: center} with same(Items.YonYEvolRatioTarget3M)*100
+show scalar "Stock Evol YonY projected over next 6 months" h15 slices: Items.slice {tileTab: "CategoryView" ; unit: "%" ; textAlign: center} with same(Items.YonYEvolRatioTarget6M)*100
+
+// show scalar "Sales Next 6 months" g22 slices: Items.Slice {textAlign: right ; tileTab: "CategoryView" ; color: "eb694c"} with same(Items.cumDemand)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// show markdown "Dashboard" d25                                 {color: #(highlightColor)} with
+//   """
+//   __This dasboard presents a high-level view of the current projected stock situation__
+//   """
+
+// show markdown "Overall view" a18h24                                            {tileTab: "OverallView"} with  """
+// ### Documentation
+
+// __Total Investments__: overall total investment proposed to cover next window of responsibility
+
+// __Current Fill Rate on WOO__: overall fill rate associated to the current stock on hand and on order, i.e. the proportion of the demand
+// already covered by the current stock on hand and on order on the responsibility window
+
+// __Achieved Fill Rate on WOO__: overall fill rate associated to the current stock on hand and on order and the recommended purchase suggestions, i.e. the proportion of the demand
+// which will be covered after purchasing on the responsibility window
+
+// __Categories__:
+
+// To Eco. config.: link to the associated "Economic Parameters" page of the selected category
+
+// Category: category name
+
+// Turnover L365 d: turnover of the category on the last 365 days
+
+// Avg COGs on WOO: average sales valued at buy price on the responsibility window
+
+// Stock End SLT: average estimated stock value at the end of the next supplier leadtime
+
+// Investment required: overall total investment proposed to cover next window of responsibility for the category
+
+// __All agressiveness factors__: chosen agressiveness factors by category.
+
+// `Stock Agressiveness` - Defines the risk associated for not having an item in stock in a range from 1 to 5. 5 means there is a huge penalty to miss a sale.
+// 1 means there is a low penalty to miss a sale.
+
+// __Stock evolution (net amount)__: displays overall past stock amount and overall forecasted future average stock amount, as well as a likely and a plausible area
+
+// """
+
+// show markdown "Category view" e24                                            {tileTab: "CategoryView"} with  """
+// ### Documentation
+
+// __Cosmetic Overview__:
+
+// Turnover L365 d: turnover of the category on the last 365 days
+
+// Avg COGs on WOO: average sales valued at buy price on the responsibility window
+
+// Stock End SLT: average estimated stock value at the end of the next supplier leadtime
+
+// Investment required: total investment proposed to cover next window of responsibility for the category
+
+// __Agressiveness factor configuration (Cosmetic)__: form to setup an agressiveness factor for the selected category. Once one change the value,
+// he must run the dashboard again to save it clicking on the "run" button
+
+// __Stock evolution (net amount)__: for the selected category, displays overall past stock amount and overall forecasted future average stock amount, as well as a likely and a plausible area
+
+// """

@@ -1,0 +1,272 @@
+/// Integrity checks of files in /input/
+/// BBQ-Sheet v0.1:
+// Please find setup instruction below the code at 'BBQ SETUP:'
+
+///-------------------------- [     GENERIC DOCUMENTATION     ] ----------------------------
+///--------------------------------- [ SETUP PARAMETERS ] ----------------------------------
+// StartParameters
+const inputFolder = "/Input/"
+const inputFileFormat = "ion" // define file type of input data. Leave empty if multiple inputs exist
+const tolerance = 1000 // Defines how many days a file can be old without triggering an error. Set to 1 for daily uploads
+const nbTests = 30 // Must be Larger than the number of performed tests
+
+/// --------------------------------- [ READ INPUT TABLES ] --------------------------------
+
+const usedIFF = if inputFileFormat == "" then "" else concat("." , inputFileFormat)
+// read "\{inputFolder}*\{usedIFF}" as Dummy
+
+read "\{inputFolder}/*/*\{usedIFF}" as _
+
+show markdown "Description" a2d3 with """
+  Checks whether all relevant files from the input folder are up to date. The tests may only be
+  relevant for tables which need to be uploaded frequently (automatically).
+  1) Are they there & updated within last days (defined by 'tolerance')?
+  2) Is a critical minimum numer of lines filled?
+  """
+
+/// ---------------------------------- [ GENERIC HEADLINE ] --------------------------------
+show label "Data Integrity Check" a1c1 {labelIcon: "cloud-upload"}
+show logo "" d1
+show summary "Parameters" a4d4 with
+  inputFolder as "Input Folder"
+  if inputFileFormat == "" then "All Formats" else inputFileFormat as "Input File Format"
+  tolerance as "Tolerance" {unit:" days"}
+/// ----------------------------------- [ GENERIC SETUP START ] ----------------------------------
+// Defines the name if a file
+Files.ObjectName = field(field(Files.Path,"/",2),"_",0)
+// Files.ObjectName = field(Files.Path,"_",0)
+
+
+today = today()
+minUpdateDate = today-tolerance
+
+// Defines the possible test outcomes
+table Tests = extend.range(nbTests)
+EmoPos = "✔️"
+EmoAtt = "⚠️"
+EmoNeg = "❌"
+
+// Define default values for text outcome
+Tests.IsError  = false
+Tests.IsWarning = false
+Tests.Label = ""
+Tests.Comment = ""
+Tests.Nb = "#\{Tests.N}: "
+Tests.MinLines = 0
+
+// Setup Index for Checks:
+testNumber = 0
+
+// Generic Text Setup:
+txtCheck = "Check "
+txtCouldNotFindFile = "Could not find file."
+txtOutDated1 = "File is outdated - Last update "
+txtOutDated2 = ", but expected "
+txtFileSmall = "File is suspiciously small: linecount "
+txtFileOk = "File has been updated correctly on "
+
+/// ----------------------------------- [ START OF TESTS ] ----------------------------------
+
+/// -------------------------------------- [ NEXT TEST ] -----------------------------------
+// This is one test element. Setup one test for every table that you need to have checked
+
+/// Setup test Parameters:
+testNumber = testNumber + 1
+testTableName = "Catalog" // Name of file
+minLineRule = 10 // To be setup in agreement with client
+
+
+where Tests.N == testNumber
+  Tests.Label = concat(txtCheck,testTableName)
+  Tests.MinLines = minLineRule
+  existenceTest = count(Files.ObjectName == testTableName) == 1
+  lastUpdate = min(Files.ModifiedDate) when ( Files.ObjectName == testTableName)
+  updateTest = lastUpdate > minUpdateDate
+  linecount = same(Files.RawLines) when ( Files.ObjectName == testTableName)
+  linecountExpected = minLineRule
+  lineCountTest = same(Files.RawLines) when ( Files.ObjectName == testTableName) > linecountExpected
+  Tests.IsError = not existenceTest
+  Tests.IsWarning = not updateTest or not lineCountTest
+  Tests.Comment = if not existenceTest then txtCouldNotFindFile else
+        if not updateTest then concat(txtOutDated1,lastUpdate,txtOutDated2,minUpdateDate) else
+        if not lineCountTest then concat(txtFileSmall,linecount) else concat(txtFileOk,lastUpdate)
+
+/// -------------------------------------- [ NEXT TEST ] -----------------------------------
+// This is one test element. Setup one test for every table that you need to have checked
+
+/// Setup test Parameters:
+testNumber = testNumber + 1
+testTableName = "Orders" // Name of file
+minLineRule = 10 // To be setup in agreement with client
+
+
+where Tests.N == testNumber
+  Tests.Label = concat(txtCheck,testTableName)
+  Tests.MinLines = minLineRule
+  existenceTest = any(Files.ObjectName == testTableName)
+  lastUpdate = max(Files.ModifiedDate) when ( Files.ObjectName == testTableName)
+  updateTest = lastUpdate > minUpdateDate
+  linecount = sum(Files.RawLines) when ( Files.ObjectName == testTableName)
+  linecountExpected = minLineRule
+  lineCountTest = sum(Files.RawLines) when ( Files.ObjectName == testTableName) > linecountExpected
+  Tests.IsError = not existenceTest
+  Tests.IsWarning = not updateTest or not lineCountTest
+  Tests.Comment = if not existenceTest then txtCouldNotFindFile else
+        if not updateTest then concat(txtOutDated1,lastUpdate,txtOutDated2,minUpdateDate) else
+        if not lineCountTest then concat(txtFileSmall,linecount) else concat(txtFileOk,lastUpdate)
+
+// /// -------------------------------------- [ NEXT TEST ] -----------------------------------
+// // This is one test element. Setup one test for every table that you need to have checked
+
+// /// Setup test Parameters:
+// testNumber = testNumber + 1
+// testTableName = "PurchaseOrders" // Name of file
+// minLineRule = 10 // To be setup in agreement with client
+
+
+// where Tests.N == testNumber
+//   Tests.Label = concat(txtCheck,testTableName)
+//   Tests.MinLines = minLineRule
+//   existenceTest = count(Files.*) if ( Files.ObjectName == testTableName ) > 0
+//   lastUpdate = max(Files.ModifiedDate) if ( Files.ObjectName == testTableName)
+//   updateTest = lastUpdate > minUpdateDate
+//   linecount = sum(Files.RawLines) if ( Files.ObjectName == testTableName)
+//   linecountExpected = minLineRule
+//   lineCountTest = sum(Files.RawLines) if ( Files.ObjectName == testTableName) > linecountExpected
+//   Tests.IsError = not existenceTest
+//   Tests.IsWarning = not updateTest or not lineCountTest
+//   Tests.Comment = not existenceTest? txtCouldNotFindFile : not updateTest?
+//                   concat(txtOutDated1,lastUpdate,txtOutDated2,minUpdateDate) :
+//                   not lineCountTest? concat(txtFileSmall,linecount) : concat(txtFileOk,lastUpdate)
+
+/// -------------------------------------- [ NEXT TEST ] -----------------------------------
+// This is one test element. Setup one test for every table that you need to have checked
+
+/// Setup test Parameters:
+testNumber = testNumber + 1
+testTableName = "Stock" // Name of file
+minLineRule = 3 // To be setup in agreement with client
+
+
+where Tests.N == testNumber
+  Tests.Label = concat(txtCheck,testTableName)
+  Tests.MinLines = minLineRule
+  existenceTest = any(Files.ObjectName == testTableName)
+  lastUpdate = max(Files.ModifiedDate) when ( Files.ObjectName == testTableName)
+  updateTest = lastUpdate > minUpdateDate
+  linecount = sum(Files.RawLines) when ( Files.ObjectName == testTableName)
+  linecountExpected = minLineRule
+  lineCountTest = sum(Files.RawLines) when ( Files.ObjectName == testTableName) > linecountExpected
+  Tests.IsError = not existenceTest
+  Tests.IsWarning = not updateTest or not lineCountTest
+  Tests.Comment = if not existenceTest then txtCouldNotFindFile else
+        if not updateTest then concat(txtOutDated1,lastUpdate,txtOutDated2,minUpdateDate) else
+        if not lineCountTest then concat(txtFileSmall,linecount) else concat(txtFileOk,lastUpdate)
+
+/// ----------------------------------- [ END OF TESTS ] -----------------------------------
+// After all test are done, a conclusion should be made
+
+/// ------------------------------- [ CONCLUSION OF TESTS ] --------------------------------
+// The conclusion is an output table which identifies all issues
+
+keep where Tests.Label != "" // Remove unused tests.
+Tests.Symbol = if Tests.IsError then EmoNeg else
+      if Tests.IsWarning then EmoAtt else EmoPos
+Tests.ReportingLvl = if Tests.IsError then 1 else
+      if Tests.IsWarning then 2 else 3
+
+isError = any(Tests.IsError)
+isWarning = any(Tests.IsWarning)
+
+// reportLabel = toReport ? "Issue found - issue recorded in log" : "No problems found"
+status = if isError then EmoNeg else
+      if isWarning then EmoAtt else EmoPos
+
+show label concat("Data status: ",status) a5c5 {backgroundColor:"#F8F8F8"}
+
+show markdown "Error Log" a11d12 with """
+  #### Error Log:
+  If a problem is found. It is logged in the folder [/logs/01-file-check/][1] for documentation.
+
+  [1]: https://go.lokad.com/files/logs
+
+  """
+toReport = isError or isWarning
+exporturl= if toReport then "/logs/01-file-check/\{today:yyyy-MM-dd}.ion" else ""
+
+
+// Show test results and safe log
+show table "Tested Tables \{today}" a6d9 with
+  concat(Tests.Symbol, " " , Tests.Nb, " ", Tests.Label) as "Test"
+  Tests.Comment
+  Tests.MinLines as "Min. required" {unit:" Lines"; numbers: "simple"}
+  order by [Tests.ReportingLvl , Tests.Nb]
+
+show table "Log" d5 with /// export:exporturl export:"/logs/01-file-check/defaultOutput.ion" with
+  concat(Tests.Nb, " ", Tests.Label) as "Test"
+  Tests.IsWarning
+  Tests.IsError
+  Tests.Comment
+  Tests.MinLines as "MinLines" {unit:" Lines"; numbers: "simple"}
+  today as "LogDate"
+
+show assert "All tests have been passed." a10d10 with
+  not isError as "Check for availability and freshness of files."
+
+
+
+
+
+/// ------------------------------------- /               \ ------------------------------------ ///
+/// -------------------------------------|    BBQ SETUP:   | ----------------------------------- ///
+/// ------------------------------------- \               / ------------------------------------ ///
+// INSTRUCTIONS FOR SETUP:
+// 1. Creation:
+// Create a new dashboard and copy the code into it. Exclude the test section for the start
+// (Exclude everything between `[ START OF TESTS ]` and `[ END OF TESTS ]`)!
+
+// 2. Setup Parameters: Setup all script parameters at `[ SETUP PARAMETERS ]`
+
+// 3. Configure Files.ObjectName: Define a logic to read out a consistent name for all files to be tested.
+// The defined object names need to be tested later. If you always want to name your object after the file name,
+// then the following definition is needed:
+// Files.ObjectName = field(field.r(Files.Path,"/",0),".",0)
+
+
+// 3. Setup Tests: For every input table, one test has to be performed.
+// See setup rules for tests below:
+
+// Please add tests between the comment rows  `[ START OF TESTS ]` and `[ END OF TESTS ]`
+// you need to create 1 test block (`[ NEXT TEST ]`) for every input table group to be tested
+// a group is defined as one or more tables which have the same data structure.
+// groups must have the same object name (defined in generic setup).
+
+// adapt all inputs marked as __[INPUT DESCRIPTION]__
+
+// /// --------------------------------------- [ NEXT TEST ] -------------------------------------
+// This is one test element. Setup one test for every table that you need to have checked
+
+// /// Setup test Parameters:
+// testNumber = testNumber + 1
+// testTableName = __[DEFINE OBJECT NAME OF FILE]__ // Name of file
+// minLineRule = __[DEFINE THE MINIUM NUMBER OF LINES]__ // To be setup in agreement with client
+
+// where Tests.N == testNumber
+//   Tests.Label = concat(txtCheck,testTableName)
+//   Tests.MinLines = minLineRule
+//   existenceTest = count(Files.*) if ( Files.ObjectName == testTableName )== 1 // change to `>0` if more than 1 table is expected.
+//   lastUpdate = min(Files.ModifiedDate) if ( Files.ObjectName == testTableName) // change to `max` if only the last reference must be up to date
+//   updateTest = lastUpdate > minUpdateDate
+//   linecount = same(Files.RawLines) if ( Files.ObjectName == testTableName)
+//   linecountExpected = minLineRule
+//   lineCountTest = same(Files.RawLines) if ( Files.ObjectName == testTableName) > linecountExpected
+//   Tests.IsError = not existenceTest
+//   Tests.IsWarning = not updateTest | not lineCountTest
+//   Tests.Comment = not existenceTest? txtCouldNotFindFile : not updateTest?
+//                 concat(txtOutDated1,lastUpdate,txtOutDated2,minUpdateDate) :
+//                 not lineCountTest? concat(txtFileSmall,linecount) : concat(txtFileOk,lastUpdate)
+
+
+show table "Test all Files" with
+  Files.ObjectName
+  Files.Path

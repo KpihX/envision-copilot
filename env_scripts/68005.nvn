@@ -1,0 +1,382 @@
+/// Providing data quality evaluation of uncleaned inputs Input: /input/tmp/ , Output: /log/
+// (Only saved in /input/tmp2/ if further processing sripts are needed )
+import "/1. utilities/Modules/Global Parameters" as GP with
+  ColorB
+  ColorWarning
+
+///------------------------------ [     GENERIC DOCUMENTATION     ] --------------------------------
+
+const inputPath = "/Clean/tmp/"
+
+/// ------------------------------------- [ READ INPUT TABLES ] ------------------------------------
+
+read "\{inputPath}Catalog.ion" as Catalog with
+  Sku : text
+  Loc : text
+  Ref : text
+  Name : text
+  // SubCategory : text
+  Supplier : text
+  // StockOnHand : number
+  // StockOnOrder : number
+  // BackOrder : number
+  MOQ : number
+  LotMultiplier : number
+  Volume : number
+  IsUniqueKey : boolean
+  IsInOrders : boolean
+  IsInPO : boolean
+  IsInSupplier : boolean
+  InputDate : date
+
+read "\{inputPath}Orders.ion" as Orders with
+  Sku : text
+  OrderDate : date
+  Ref : text
+  Loc : text
+  Quantity : number
+  NetAmount : number
+  OrderId : text
+  IsInCatalog : boolean
+  InputDate : date
+
+read "\{inputPath}Purchaseorders.ion" as PO with
+  Sku : text
+  OrderDate : date
+  Loc : text
+  Ref : text
+  DeliveryDate : date
+  IsInCatalog : boolean
+  InputDate : date
+
+read "\{inputPath}Suppliers.ion" as Suppliers with
+  Supplier : text
+  MOV : number
+  ContainerM3 : number
+  IsUniqueKey : boolean
+  IsInCatalog : boolean
+  InputDate : date
+
+read "\{inputPath}Stock.ion" as Stock with
+  Sku : text
+  StockOnHand : number
+  StockOnOrder : number
+  // BackOrder : number
+  StockDate : date
+  IsInCatalog : boolean
+  InputDate : date
+
+read upload "Validation" as Validation with
+  Sku : text
+  Validated : boolean
+  Status : text
+
+show markdown "Generic Documentation" a2e2 with """
+  __This dashboard provides an analysis of which data-points have been found and if the uploaded files are clean.__
+
+"""
+read form with
+  maj : text
+
+show form "" e3e4 {formButton: "[OK]" ; formButtonAlign: center} with
+  maj as "" {formButtonAlign: center}
+
+///-------------------------------------- [ SETUP COLORS ] -----------------------------------------
+
+keep where Orders.Quantity > 0 /// THIS IS FAKE. PLEASE REMOVE THIS IN A REAL ACCOUNT!
+
+// read "/background/colorSetup/colorTemplate.xlsx" as Color with
+//   "ColorName" as Name : text
+//   HexValue : text
+
+//rename inputs from module
+highlightColor = ColorB
+colorWarning =  ColorWarning
+
+///---------------------------------------- [ PARAMETERS ] -----------------------------------------
+warningThreshold = 0.01
+
+///--------------------------------- [ SHOW GENERIC HEADLINE ] -------------------------------------
+show tabs "" a3d3 with
+  "Catalog"
+  "Orders"
+  "Stock"
+  "Purchase Orders"
+  "Suppliers"
+
+// Show Header
+@{ dashButton: ""}
+
+show logo "" a1
+show markdown "Low Level Data Health" b1c1 with """
+  ### **Low Level Data Health**
+"""
+
+show label "To High-Level Data Health" d1e1              {labelIcon: "analytics-magnifier" ;href: "https://go.lokad.com/d/68006" ; hrefAspect: white ; textAlign: center; textBold: "true"; tileColor: #("F59939")}
+
+show label "" a2e2 9b9b9b
+
+///-------------------------------- [ SHOW NEXT TABLE OVERVIEW ] -----------------------------------
+// Setup Data Health Analysis for ------------------------------------------------------------------
+focusGroup = "Catalog"
+countLines = count(Catalog.*) // Check the total number of lines in this table
+
+///---------------------------- [ CATALOG HEAD ]
+
+show scalar "" a4 9b9b9b  {tileTab: "Catalog" ; textBold: "true" ; textAlign: center} with focusGroup
+
+show scalar "Last Update" a5            {tileTab: "Catalog" ; textAlign: center; textBold: "true" ;textColor: 9b9b9b} with
+  max(Catalog.InputDate) as "Last Update"
+
+/// Display the num of lines
+show summary "Table overview" b4b6            {tileTab: "Catalog" ; tileColor: #(highlightColor)} with
+  countLines as "# Lines" {textBold: "true" ; textAlign: center}
+  distinct(Catalog.Sku) as "# Skus" {textBold: "true" ; textAlign: center}
+
+/// Display a piechart to count items of catalog in each category defined inot the "group by"
+Catalog.IsValid = Catalog.IsUniqueKey and Catalog.IsInOrders and Catalog.IsInPO and Catalog.IsInSupplier
+Catalog.ValidColor = if Catalog.IsValid then GP.ColorOk else GP.ColorWarning
+show piechart "Unique and Linkable Entries" c4d6            {tileTab: "Catalog" ; tileColor: #(highlightColor)} with
+  count(Catalog.*)  as "Unique and Linkable Entries" {color: #[same(Catalog.ValidColor)]}
+  group by Catalog.IsValid
+
+/// ------ [ NEXT TEST ] ------
+//// Display Lines without a unique key
+where not Catalog.IsUniqueKey
+  issueName = "Duplicate Key"
+
+  failedLines = count(Catalog.*)
+  failedRatio = failedLines/countLines
+  repColor = if failedRatio > warningThreshold then colorWarning else GP.ColorOk
+  show scalar issueName a7            {numbers: percent ; tileTab: "Catalog" ; textAlign: center ; textBold: "true" ; tileColor: #(repColor)} with failedRatio
+  show table "\{issueName} [\{failedLines}x]" b7e7        {tileTab: "Catalog"} with
+    Catalog.Sku
+    Catalog.Loc
+    Catalog.Ref
+    Catalog.Name
+    Catalog.Supplier
+    Catalog.MOQ
+    Catalog.LotMultiplier
+    Catalog.Volume
+
+/// ------ [ NEXT TEST ] ------
+where not Catalog.IsInOrders
+  issueName = "Missing in Orders"
+
+  failedLines = count(Catalog.*)
+  failedRatio = failedLines/countLines
+  repColor = if failedRatio > warningThreshold then colorWarning else GP.ColorOk
+  Catalog.Validated = same(Validation.Validated) by Validation.Sku at Catalog.Sku
+  Catalog.Status = same(Validation.Status) by Validation.Sku at Catalog.Sku
+  Catalog.Color = if Catalog.Validated then "lightgreen" else ""
+  show scalar issueName a8            {numbers: percent ; tileTab: "Catalog" ; textAlign: center ; textBold: "true" ; tileColor: #(repColor)} with failedRatio
+  show table "\{issueName} [\{failedLines}x]" b8e8    editable:"Validation"    {tileTab: "Catalog"} with
+    Catalog.Sku {cellBackground: #[Catalog.Color]}
+    Catalog.Loc {cellBackground: #[Catalog.Color]}
+    Catalog.Ref {cellBackground: #[Catalog.Color]}
+    Catalog.Name {cellBackground: #[Catalog.Color]}
+    Catalog.Supplier {cellBackground: #[Catalog.Color]}
+    Catalog.MOQ {cellBackground: #[Catalog.Color]}
+    Catalog.LotMultiplier {cellBackground: #[Catalog.Color]}
+    Catalog.Volume {cellBackground: #[Catalog.Color]}
+    Catalog.Validated {cellBackground: #[Catalog.Color]}
+    Catalog.Status {cellBackground: #[Catalog.Color]}
+
+/// ------ [ NEXT TEST ] ------
+where not Catalog.IsInPO
+  issueName = "Missing in PO"
+
+  failedLines = count(Catalog.*)
+  failedRatio = failedLines/countLines
+  repColor = if failedRatio > warningThreshold then colorWarning else GP.ColorOk
+  show scalar issueName a9            {numbers: percent ; tileTab: "Catalog" ; textAlign: center ; textBold: "true" ; tileColor: #(repColor)} with failedRatio
+  show table "\{issueName} [\{failedLines}x]" b9e9        {tileTab: "Catalog"} with
+    Catalog.Sku
+    Catalog.Loc
+    Catalog.Ref
+    Catalog.Name
+    Catalog.Supplier
+    Catalog.MOQ
+    Catalog.LotMultiplier
+    Catalog.Volume
+
+/// ------ [ NEXT TEST ] ------
+where not Catalog.IsInSupplier
+  issueName = "Missing in Supplier-Table"
+
+  failedLines = count(Catalog.*)
+  failedRatio = failedLines/countLines
+  repColor = if failedRatio > warningThreshold then colorWarning else GP.ColorOk
+  show scalar issueName a10            {numbers: percent ; tileTab: "Catalog" ; textAlign: center ; textBold: "true" ; tileColor: #(repColor)} with failedRatio
+  show table "\{issueName} [\{failedLines}x]" b10e10        {tileTab: "Catalog"} with
+    Catalog.Sku
+    Catalog.Loc
+    Catalog.Ref
+    Catalog.Name
+    Catalog.Supplier
+    Catalog.MOQ
+    Catalog.LotMultiplier
+    Catalog.Volume
+
+///-------------------------------- [ SHOW NEXT TABLE OVERVIEW ] -----------------------------------
+// Setup Data Health Analysis for ------------------------------------------------------------------
+focusGroup = "Orders"
+countLines = count(Orders.*) // Check the total number of lines in this table
+
+show scalar "" a4 9b9b9b  {tileTab: "Orders" ; textBold: "true" ; textAlign: center} with focusGroup
+
+///---------------------------- [ CATEGORY HEAD ]
+// Show Category Headline
+// show scalar "" with "\{focusGroup} table" e3f3     {textColor: #(highlightColor) ; tileTab: "Orders"}
+show scalar "Last Update" a5            {tileTab: "Orders" ; textAlign: center ; textBold: "true";textColor: 9b9b9b } with
+  max(Orders.InputDate) as "Last Update"
+show summary "Table overview" b4b5            {tileTab: "Orders" ; tileColor: #(highlightColor)} with
+  countLines as "# Lines" {textBold: "true" ; textAlign: center}
+  distinct(Orders.Sku) as "# Sku" {textBold: "true" ; textAlign: center}
+  max(Orders.OrderDate) as "Max Order Date" {textBold: "true" ; textAlign: center}
+
+show linechart "Unique and Linkable Entries" c4e7        {tileTab: "Orders"} with
+  count(Orders.IsInCatalog)   as "Linkable" {seriesType: bar ; seriesStack: bar ; color: #449d44}
+  count(not Orders.IsInCatalog)   as "Unlinkable" {seriesType: bar ; seriesStack: bar ; color: #(colorWarning)}
+  group by Orders.OrderDate
+
+/// ------ [ NEXT TEST ] ------
+where not Orders.IsInCatalog
+  issueName = "Missing in Catalog"
+
+  failedLines = count(Orders.*)
+  failedRatio = failedLines/countLines
+  repColor = if failedRatio > warningThreshold then colorWarning else GP.ColorOk
+  show scalar issueName a8            {numbers: percent ; tileTab: "Orders" ; textAlign: center ; textBold: "true" ; tileColor: #(repColor)} with failedRatio
+  show table "\{issueName} [\{failedLines}x]" b8e8        {tileTab: "Orders"} with
+    Orders.Sku
+    Orders.OrderDate
+    Orders.Ref
+    Orders.Loc
+    Orders.Quantity
+    Orders.NetAmount
+    Orders.OrderId
+    Orders.IsInCatalog
+
+///-------------------------------- [ SHOW NEXT TABLE OVERVIEW ] -----------------------------------
+// Setup Data Health Analysis for ------------------------------------------------------------------
+focusGroup = "Stock"
+countLines = count(Stock.*) // Check the total number of lines in this table
+
+show scalar "" a4 9b9b9b  {tileTab: "Stock" ; textBold: "true" ; textAlign: center} with focusGroup
+
+///---------------------------- [ CATEGORY HEAD ]
+show scalar "Last Update" a5           {tileTab: "Stock" ; textAlign: center; textBold: "true" ;textColor: 9b9b9b } with
+  max(Stock.InputDate) as "Last Update"
+show summary "Table overview" b4b5            {tileTab: "Stock" ; tileColor: #(highlightColor)} with
+  countLines as "# Lines" {textBold: "true" ; textAlign: center}
+  distinct(Stock.Sku) as "# Skus" {textBold: "true" ; textAlign: center}
+  max(Stock.StockDate) as "Max Snapshot" {textBold: "true" ; textAlign: center}
+
+Stock.ValidColor = if Stock.IsInCatalog then GP.ColorOk else GP.ColorWarning
+
+show piechart "Unique and Linkable Entries" c4d6            {tileTab: "Stock" ; tileColor: #(highlightColor)} with
+  count(Stock.*)  as "Unique and Linkable Entries" {color: #[same(Stock.ValidColor)]}
+  group by (Stock.IsInCatalog)
+
+/// ------ [ NEXT TEST ] ------
+where not Stock.IsInCatalog
+  issueName = "Stock missing in Catalog"
+
+  failedLines = count(Stock.*)
+  failedRatio = failedLines/countLines
+  repColor = if failedRatio > warningThreshold then colorWarning else GP.ColorOk
+  show scalar issueName a7            {numbers: percent ; tileTab: "Stock" ; textAlign: center ; textBold: "true" ; tileColor: #(repColor)} with failedRatio
+  show table "\{issueName} [\{failedLines}x]" b7e7        {tileTab: "Stock"} with
+    Stock.Sku
+    Stock.StockOnHand
+    Stock.StockOnOrder
+    Stock.StockDate
+
+
+
+///-------------------------------- [ SHOW NEXT TABLE OVERVIEW ] -----------------------------------
+// Setup Data Health Analysis for ------------------------------------------------------------------
+focusGroup = "Purchase"
+countLines = count(PO.*) // Check the total number of lines in this table
+
+show scalar "" a4 9b9b9b  {tileTab: "Purchase Orders" ; textBold: "true" ; textAlign: center} with focusGroup
+
+///---------------------------- [ CATEGORY HEAD ]
+show scalar "Last Update" a5            {tileTab: "Purchase Orders" ; textAlign: center ; textBold: "true";textColor: 9b9b9b } with
+  max(PO.InputDate) as "Last Update"
+show summary "Table overview" b4b5            {tileTab: "Purchase Orders" ; tileColor: #(highlightColor)} with
+  countLines as "# Lines" {textBold: "true" ; textAlign: center}
+  distinct(PO.Sku) as "# Sku" {textBold: "true" ; textAlign: center}
+  distinct(PO.Ref) as "# Ref" {textBold: "true" ; textAlign: center}
+
+show linechart "Unique and Linkable Entries" c4e7        {tileTab: "Purchase Orders"} with
+  count(PO.IsInCatalog)   as "Linkable" {seriesType: bar ; seriesStack: bar ; color: #(GP.ColorOk)}
+  count(not PO.IsInCatalog)   as "Unlinkable" {seriesType: bar ; seriesStack: bar ; color: #(colorWarning)}
+  group by monday(PO.OrderDate)
+
+/// ------ [ NEXT TEST ] ------
+where not PO.IsInCatalog
+  issueName = "Missing in Catalog"
+
+  failedLines = count(PO.*)
+  failedRatio = failedLines/countLines
+  repColor = if failedRatio > warningThreshold then colorWarning else GP.ColorOk
+  show scalar issueName a8            {numbers: percent ; tileTab: "Purchase Orders" ; textAlign: center ; textBold: "true" ; tileColor: #(repColor)} with failedRatio
+  show table "\{issueName} [\{failedLines}x]" b8e8        {tileTab: "Purchase Orders"} with
+    PO.Sku
+    PO.OrderDate
+    PO.Loc
+    PO.Ref
+    PO.DeliveryDate
+
+
+///-------------------------------- [ SHOW NEXT TABLE OVERVIEW ] -----------------------------------
+// Setup Data Health Analysis for ------------------------------------------------------------------
+focusGroup = "Suppliers"
+countLines = count(Suppliers.*) // Check the total number of lines in this table
+
+show scalar "" a4 9b9b9b  {tileTab: "Suppliers" ; textBold: "true" ; textAlign: center} with focusGroup
+
+///---------------------------- [ CATEGORY HEAD ]
+show scalar "Last Update" a5            {tileTab: "Suppliers" ; textAlign: center ; textBold: "true";textColor: 9b9b9b} with
+  max(Suppliers.InputDate) as "Last Update"
+{textAlign: center ; tileTab: "Suppliers" ; tileColor: #(highlightColor)}
+show summary "Table overview" b4b5             with
+  countLines as "# Lines" {textBold: "true" ; textAlign: center}
+  distinct(Suppliers.Supplier) as "# Suppliers" {textBold: "true" ; textAlign: center}
+
+Suppliers.IsValid = Suppliers.IsUniqueKey and Suppliers.IsInCatalog
+Suppliers.ValidColor = if Suppliers.IsValid then GP.ColorOk else GP.ColorWarning
+
+show piechart "Unique and Linkable Entries" c4d6            {tileTab: "Suppliers" ; tileColor: #(highlightColor)} with
+  count(Suppliers.*)  as "Unique and Linkable Entries"  {color: #[same(Suppliers.ValidColor)]}
+  group by Suppliers.IsValid
+
+
+/// ------ [ NEXT TEST ] ------
+where not Suppliers.IsUniqueKey
+  issueName = "Duplicate Key"
+
+  failedLines = count(Suppliers.*)
+  failedRatio = failedLines/countLines
+  repColor = if failedRatio > warningThreshold then colorWarning else GP.ColorOk
+  show scalar issueName a7            {numbers: percent ; tileTab: "Suppliers" ; textAlign: center ; textBold: "true" ; tileColor: #(repColor)} with failedRatio
+  show table "\{issueName} [\{failedLines}x]" b7e7        {tileTab: "Suppliers"} with
+    Suppliers.Supplier
+    Suppliers.MOV
+    Suppliers.ContainerM3
+
+/// ------ [ NEXT TEST ] ------
+where not Suppliers.IsInCatalog
+  issueName = "Missing in Catalog"
+
+  failedLines = count(Suppliers.*)
+  failedRatio = failedLines/countLines
+  repColor = if failedRatio > warningThreshold then colorWarning else GP.ColorOk
+  show scalar issueName a8            {numbers: percent ; tileTab: "Suppliers" ; textAlign: center ; textBold: "true" ; tileColor: #(repColor)} with failedRatio
+  show table "\{issueName} [\{failedLines}x]" b8e8        {tileTab: "Suppliers"} with
+    Suppliers.Supplier
+    Suppliers.MOV
+    Suppliers.ContainerM3
+ 

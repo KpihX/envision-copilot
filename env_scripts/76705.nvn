@@ -1,0 +1,1134 @@
+///Long term simulation of the investments and stock evolution resulting of Lokad's purchasing logic
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// --------------------------------------READ INPUT TABLES-----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+import "/1. utilities/Modules/Global Parameters" as GP with
+  DcUnit
+  ColorB
+  LinkLocationItemInspector
+
+const testStorage = ""
+const inputPath = "\{testStorage}/Clean/"
+const exportPath = "Clean/PurchaseResults/LongTermSimulation/"
+
+read "\{inputPath}Items.ion" as Items[Id unsafe] with
+  "Sku" as Id : text
+  Name : text
+  Category : text
+  SellPrice : number
+  BuyPrice : number
+  StockOnHand : number
+  StockOnOrder : number
+  LeadTime : number
+  ReorderCycle : number
+  ImageUrl : text
+  StartDate : date
+  EndDate : date
+  Supplier : text
+  IsClean : boolean
+  LotMultiplier : number
+
+read "/Manual/TopItemsParameters.xlsx" unsafe as TopItemsParameters expect[Id] with
+  CategoryDisplayRank : number
+  Category : text
+  ItemDisplayRank : number
+  Ref : text
+  "Sku" as Id : text
+
+read "\{testStorage}Clean/Orders.ion" as Orders expect [Id, date] with
+  "Sku" as Id : text
+  "OrderDate" as date: date
+  Ref : text
+  Loc : text
+  Quantity : number
+  LokadNetAmount : number
+  OrderId : text
+  IsFirstOrder : boolean
+  HealthLog : text
+  IsClean : boolean
+
+read "/Clean/PO.ion" as PO expect[Id, date] with
+  "Sku" as Id : text
+  "OrderDate" as date: date
+  DeliveryDate : date
+  Quantity : number
+  PONumber : text
+
+read "/Clean/Stock.ion" as Stock expect[Id, date] with
+  "Sku" as Id : text
+  StockOnHand : number
+  StockOnOrder : number
+  "StockDate" as date: date
+  IsInCatalog : boolean
+  InputDate : date
+  InputPath : text
+
+read "\{inputPath}Forecast/Periodic/WeeklyFc.ion" as WeeklyFc expect[Id, date] with
+  "Sku" as Id : text
+  "Monday" as date: date
+  DemandQty : number
+  Cache : number
+  IsPast : boolean
+  FutureWeekRank : number
+  Alpha : number
+  Dispersion : number
+  Baseline : number
+  Demand : ranvar
+  LowerBarTotal2 : number
+  LowerBarTotal1 : number
+  HighBarTotal2 : number
+  HighBarTotal1 : number
+  CumDemand : ranvar
+
+read "/Clean/Parameters/max_date_placeholder.csv" unsafe as DatePlaceholder expect[date] with
+  date: date
+
+///## Read results from previous simulation
+read "/Clean/PurchaseResults/LongTermSimulation/EconomicParametersCategories.ion" as AgressivityLastSim with
+  "CategoryName" as CatName : text
+  AgressivenessFactor : number
+
+read "/Clean/PurchaseResults/LongTermSimulation/TargetsPurchaseList.ion" as TargetsLastSim  with
+  FRTarget : number
+  IsContainerSimulation : boolean
+  nbWeeks : number
+  overallInvestment : number
+
+read "/Clean/PurchaseResults/LongTermSimulation/WeeklyPurchasesByRef.ion" as WeeklyPurchasesByRefLastSim expect[Id, date] with
+  "Sku" as Id : text
+  "Monday" as date: date
+  OrderQty : number
+  ReceivedQty : number
+  MedianStockStartWeek : number
+  MeanStockStartWeek : number
+  InvestmentRequired : number
+
+
+read form with
+  agressivenessFactorCosmetic : number
+  agressivenessFactorMedicalSupplies : number
+  agressivenessFactorDrugs : number
+  FRTarget : number
+  IsContainerSimulation : boolean
+  resetParams : boolean
+
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// ------------------------------------------WARNING-------------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///The calculations made in this dashboard can be very time consuming with a large data set
+///They have been used here for demo purposes and should not be replicated as is for any account
+///without a careful check.
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// ------------------------------------------SETUP-------------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///Colors-------------------------------------------------------------------------------------------
+
+highlightColor =  ColorB
+
+colorPreviousSim = "darkblue"
+
+///Global parameters--------------------------------------------------------------------------------
+show tabs "" a3h3 with
+  "OverallView" as "Overall View"
+  "CategoryView" as "Category View"
+  "ItemView" as "Item View"
+  "Parameters"
+
+pcsUnit = " Pcs"
+dayUnit = " Days"
+magnifierIcon = "🔎"
+
+///Editable body------------------------------------------------------------------------------------
+
+show logo "" a1
+show markdown "Economic Parameters Validation" b1d1 with """
+  ### **Economic Parameters Validation**
+"""
+
+show markdown "Documentation" b2h2                                 {color: #(highlightColor)} with
+  """
+  __This dasboard presents the parameters that determine the value and cost of a stock decision.__
+  """
+
+show markdown "Overall view" a16h23                                            {tileTab: "OverallView"} with  """
+### Documentation
+
+__Total Investments__: overall total investment proposed to cover next window of responsibility
+
+__Current Fill Rate on WOO__: overall fill rate associated to the current stock on hand and on order, i.e. the proportion of the demand
+already covered by the current stock on hand and on order on the responsibility window
+
+__Achieved Fill Rate on WOO__: overall fill rate associated to the current stock on hand and on order and the recommended purchase suggestions, i.e. the proportion of the demand
+which will be covered after purchasing on the responsibility window
+
+__Categories__:
+
+To Eco. config.: link to the associated "Economic Parameters" page of the selected category
+
+Category: category name
+
+Turnover L365 d: turnover of the category on the last 365 days
+
+Avg COGs on WOO: average sales valued at buy price on the responsibility window
+
+Stock End SLT: average estimated stock value at the end of the next supplier leadtime
+
+Investment required: overall total investment proposed to cover next window of responsibility for the category
+
+__All agressiveness factors__: chosen agressiveness factors by category.
+
+`Stock Agressiveness` - Defines the risk associated for not having an item in stock in a range from 1 to 5. 5 means there is a huge penalty to miss a sale.
+1 means there is a low penalty to miss a sale.
+
+__Stock evolution (net amount)__: displays overall past stock amount and overall forecasted future average stock amount, as well as a likely and a plausible area
+
+"""
+
+show markdown "Category view" a16h23                                            {tileTab: "CategoryView"} with  """
+### Documentation
+
+__Cosmetic Overview__:
+
+Turnover L365 d: turnover of the category on the last 365 days
+
+Avg COGs on WOO: average sales valued at buy price on the responsibility window
+
+Stock End SLT: average estimated stock value at the end of the next supplier leadtime
+
+Investment required: total investment proposed to cover next window of responsibility for the category
+
+__Agressiveness factor configuration__: form to setup an agressiveness factor for the selected category. Once one change the value,
+he must run the dashboard again to save it clicking on the "run" button
+
+__Stock evolution (net amount)__: for the selected category, displays overall past stock amount and overall forecasted future average stock amount, as well as a likely and a plausible area
+
+"""
+
+show markdown "Item view" a30h37                                            {tileTab: "ItemView"} with  """
+### Documentation
+
+__Magnifying glass icon__: link to the item inspector dashboard which displays all information of the given reference
+
+__Reference summary__:
+
+Buy Price: gross buy price in dollars
+
+Sell Price: gross sell price in dollars
+
+Avg Sales on WOO: average observed sales on a responsibility window horizon the last 365 days
+
+Stock End SLT: average estimated stock units at the end of the next supplier leadtime
+
+__Investment decision__
+
+Investment: total units proposed to cover next window of responsibility for the reference
+
+Investment ($): total investment proposed in dollars to cover next window of responsibility for the reference
+
+Current FR: overall fill rate associated to the current stock on hand and on order, i.e. the proportion of the demand
+already covered by the current stock on hand and on order on the responsibility window
+
+New FR: overall fill rate associated to the current stock on hand and on order and the recommended purchase suggestions, i.e. the proportion of the demand
+which will be covered after purchasing on the responsibility window
+
+__Start Week Stock Evolution__: displays overall past stock units and overall forecasted future average stock units, as well as a likely and a plausible area
+
+"""
+
+show label "" a2h2 9b9b9b
+
+
+show label "Next" h1                {href: "https://go.lokad.com/d/68021/" ; hrefAspect: white ; textAlign: center}
+show label "Back" g1                {href: "https://go.lokad.com/d/68019/" ; hrefAspect: white ; textAlign: center}
+
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///-----------------------------------------PREPROCESS----------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///Global parameters--------------------------------------------------------------------------------
+
+keep where Items.IsClean
+// keep where Items.Id == "CT-109-DC"
+// keep where Items.Id == "DS-115-DC"
+expect table WeeklyFc max 1M
+
+table ItemsWeek = cross(Items, Week)
+
+oend = max(WeeklyFc.date) when(WeeklyFc.IsPast)
+now = oend
+
+keep where date >= oend - 2*365
+
+Week.Monday = same(monday(date))
+ItemsWeek.Monday = Week.Monday
+
+lastPastWeek = max(WeeklyFc.date) when(WeeklyFc.FutureWeekRank == 0)
+WeeklyFc.IsLastPastWeek = WeeklyFc.date == lastPastWeek
+ItemsWeek.IsLastPastWeek = Week.Monday == lastPastWeek
+
+lookbackDays = 52 * 7
+hStart = now - lookbackDays
+const lookforwardWeeks = 52
+lookforwardDays = lookforwardWeeks * 7
+historyWks = lookbackDays + lookforwardDays
+
+///Links to inspectors
+inspectorId = LinkLocationItemInspector
+selectedTab = concat("&t=", "Info")
+Items.hRefUrlRaw = sliceSearchUrl(inspectorId, Items.Id)
+Items.hRefUrl = concat(Items.hRefUrlRaw, selectedTab)
+Items.Url = replace(Items.hRefUrl , "~" , "https://go.lokad.com" )
+
+///Item level Sales 365
+
+Items.TurnoverL365 = sum(WeeklyFc.DemandQty * Items.SellPrice) when (WeeklyFc.date > oend - 365 and WeeklyFc.date <= oend)
+
+///Category level Sales 365
+Items.CategoryTurnoverL365 = sum(Items.TurnoverL365) by Items.Category
+
+
+///Slices-------------------------------------------------------------------------------------------
+
+Items.CategoryDisplayRank = same(TopItemsParameters.CategoryDisplayRank)
+                            by TopItemsParameters.Category
+                            at Items.Category
+
+Items.ItemDisplayRank = same(TopItemsParameters.ItemDisplayRank)
+
+Items.PageName = Items.Category
+Items.PagePosition = Items.ItemDisplayRank
+where Items.ItemDisplayRank > 0
+  Items.PagePosition = rankrev () by Items.PageName scan -Items.ItemDisplayRank
+
+table Slices [slice] = slice by [Items.CategoryDisplayRank, Items.PageName] title: Items.PageName
+Slices.PageName = same(Items.PageName)
+Slices.Category = same(Items.Category)
+
+///References attributes----------------------------------------------------------------------------
+
+///Stocks-------------------------------------------------------------------------------------------
+
+Stock.StockOnHand = max(Stock.StockOnHand,0)
+WeeklyFc.WkStockOnHand = same(Stock.StockOnHand) by [Id, Stock.date] at [Id, WeeklyFc.date]
+ItemsWeek.WkStockOnHand = same(Stock.StockOnHand) by [Id, Stock.date] at [Id, Week.Monday]
+
+///Purchase orders----------------------------------------------------------------------------------
+
+///Arrival
+PO.ArrivalTime = max(ceiling((PO.DeliveryDate - lastPastWeek)) / 7, 0)
+
+
+///Forecast-----------------------------------------------------------------------------------------
+
+keep where PO.DeliveryDate > oend + 7
+keep where Stock.date <= oend
+
+///# Form inputs
+
+///## Reset if needed
+show form "Reset Parameters" g4h5 {formButton: "Run" ; tileTab: "Parameters"} with
+  false as "Reset Parameters?" form:"resetParams"
+
+agressivenessFactorCosmetic = if resetParams then 5 else agressivenessFactorCosmetic
+agressivenessFactorMedicalSupplies = if resetParams then 3 else agressivenessFactorMedicalSupplies
+agressivenessFactorDrugs = if resetParams then 4 else agressivenessFactorDrugs
+FRTarget = if resetParams then 95 else FRTarget
+IsContainerSimulation = if resetParams then false else IsContainerSimulation
+
+///## Inputs New simulation
+
+show label "Parameters New Simulation" d5f5 {tileTab: "Parameters"}
+
+///### Agressiveness factor input
+table Categories [CategoryName] = by [Items.Category]
+
+show markdown "" g9h10 {tileTab: "Parameters"} with """
+  The `agressiveness factor` allows the user to adjust the agressiveness of the stock coverage per
+  category. It ranges from 0 to 5, 5 being the most agressive.
+"""
+
+show form "Agressiveness factor configuration (0 - 5)" e9f11        {formButton: "Run" ; tileTab: "Parameters"} with
+  agressivenessFactorCosmetic as "Cosmetic" //single(Categories.AgressivenessFactorIni) when(CategoryName == "Cosmetic") as "Cosmetic" form:"agressivenessFactorCosmetic"
+  agressivenessFactorMedicalSupplies as "Medical Supplies"  //single(Categories.AgressivenessFactorIni) when(CategoryName == "Medical Supplies") as "Medical Supplies" form:"agressivenessFactorMedicalSupplies"
+  agressivenessFactorDrugs as "Drugs" //single(Categories.AgressivenessFactorIni) when(CategoryName == "Drugs") as "Drugs" form:"agressivenessFactorDrugs"
+
+show markdown "" g6h7 {tileTab: "Parameters"} with """
+  The `Fill Rate` is the fraction of demand that is met through immediate stock availability. This input sets the target that we want to reach
+  for this purchase optimization.
+"""
+show label "To detailed Fill Rate Documentation" g8h8                                 {tileTab: "Parameters" ; href: "https://go.lokad.com/d/68036/" ; hrefAspect: white ; textAlign: center}
+
+// FRTarget=1
+Categories.AgressivenessFactor = match Categories.CategoryName with
+  "Cosmetic" ->  min(max(agressivenessFactorCosmetic, 0), 5)
+  "Medical Supplies" ->  min(max(agressivenessFactorMedicalSupplies, 0), 5)
+  "Medical Patient Care" ->  min(max(agressivenessFactorMedicalSupplies, 0), 5)
+  "Drugs" ->  min(max(agressivenessFactorDrugs, 0), 5)
+
+///### Target FR
+show form "Target Fill Rate (0 - 100%)" e6f7 {tileTab: "Parameters" ; formButton: "Run" ; fieldColor: #D5ECBC}  with
+  FRTarget as "Target Fill Rate (%)"
+
+FRTarget = min(max(FRTarget/100,0),1)
+
+///### Container
+show form "Simulate containers" e12f13 {formButton: "Run" ; tileTab: "Parameters"} with
+  IsContainerSimulation as "Simulate container effect?"
+
+///## Last Simulation Hypothesis
+IsContainerSimulationLastSim = single(TargetsLastSim.IsContainerSimulation)
+FRTargetLastSim = single(TargetsLastSim.FRTarget)
+
+Categories.AgressivenessFactorLastSim = single(AgressivityLastSim.AgressivenessFactor) by AgressivityLastSim.CatName at Categories.CategoryName
+Categories.AgressivenessFactorLastSim = if Categories.CategoryName == "Medical Patient Care" then single(Categories.AgressivenessFactorLastSim) when(Categories.CategoryName == "Medical Supplies") by 1 else
+                                  Categories.AgressivenessFactorLastSim
+show label "Parameters Last Simulation" a5c5 {tileTab: "Parameters" ; tileColor: #(colorPreviousSim)}
+
+show summary "Target Fill Rate" a6b6 {tileTab: "Parameters" ; tileColor: #(colorPreviousSim)} with
+  FRTargetLastSim as "Target Fill Rate" {numbers: percent}
+
+show summary "Container" a12b12 {tileTab: "Parameters" ; tileColor: #(colorPreviousSim)} with
+  if IsContainerSimulationLastSim then "Yes" else "No" as "Used container constraint?" {numbers: percent}
+
+show summary "Agressiveness factor" a9b11 {tileTab: "Parameters" ; summaryColumns: "1" ; tileColor: #(colorPreviousSim)} with
+  single(Categories.AgressivenessFactorLastSim) when(Categories.CategoryName == "Cosmetic") as "Cosmetic"
+  single(Categories.AgressivenessFactorLastSim) when(Categories.CategoryName == "Medical Supplies") as "Medical Supplies"
+  single(Categories.AgressivenessFactorLastSim) when(Categories.CategoryName == "Drugs") as "Drugs"
+
+
+///# Leadtimes----------------------------------------------------------------------------------------
+
+
+///Container effect
+///To simulate container effect in a very simple way, we simply increase the reordering LT
+///It is a rough estimation of what happens in practice if thta constraint is significant:
+///Purchasing more at once and waiting more time before reordering
+Items.ReorderCycleWeeks = if IsContainerSimulation then 2*ceiling(Items.ReorderCycle / 7) else ceiling(Items.ReorderCycle / 7)
+
+Items.SupplierLTWeeks = ceiling(Items.LeadTime / 7)
+
+Items.TotalLTWeeks = Items.SupplierLTWeeks + Items.ReorderCycleWeeks
+
+
+WeeklyFc.IsSupplierLT = WeeklyFc.date >= lastPastWeek and WeeklyFc.FutureWeekRank + 1 <= Items.SupplierLTWeeks
+WeeklyFc.IsNextReorderCycle = WeeklyFc.FutureWeekRank + 1 > Items.SupplierLTWeeks and WeeklyFc.FutureWeekRank + 1 <= Items.TotalLTWeeks
+WeeklyFc.IsBeforeReorderCycle = WeeklyFc.date == max(WeeklyFc.date) when(WeeklyFc.IsSupplierLT) by Items.Id
+
+
+
+
+///Economic kpis------------------------------------------------------------------------------------
+
+
+Items.AgressivenessFactor = Categories.AgressivenessFactor/5 //between 0 and 1
+
+///Economic parameters
+//Margin
+Items.M = Items.SellPrice - Items.BuyPrice
+
+//OOS penalty
+Items.S = - Items.AgressivenessFactor * Items.M
+
+//Carrying cost
+carryingCost = 0.2 // % per-period carrying cost relative to purchase price
+Items.C = carryingCost * Items.BuyPrice * 7 / 365
+
+///Economic parameters
+//Margin
+Items.M = Items.SellPrice - Items.BuyPrice
+
+//OOS penalty
+Items.S = - Items.AgressivenessFactor * Items.M
+
+//Carrying cost
+carryingCost = 0.2 // % per-period carrying cost relative to purchase price
+Items.C = carryingCost * Items.BuyPrice * 7 / 365
+
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///----------------------------------------PURCHASE LIST--------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///Action reward call--------------------------------------------------------------------------------
+
+Items.Dispersion = same(WeeklyFc.Dispersion) default 1
+Items.Alpha = same(WeeklyFc.Alpha)
+trajectoryCount = 500
+
+
+
+
+where date >= oend - 365 and date <= oend
+  Items.LastYearSales = sum(Orders.LokadNetAmount)
+
+lastYearOverallSales = sum(Items.LastYearSales)
+Items.SalesWeight = Items.LastYearSales / lastYearOverallSales
+
+keep where Items.SalesWeight > 0 ///don't purchase products that haven't sold in the past year
+
+Items.SalesL365 = sum(WeeklyFc.DemandQty) when (WeeklyFc.date > oend - 365)
+
+///Grid creation
+///Grid
+//Action reward considers the additional units to purchase so the Grid has to start at 1
+// table Grid = extend.ranvar(Items.SatisfiableDemand, 0, Items.LotMultiplier) //add a reach if needed
+Items.GridSize = min(7000,round(Items.SalesL365)) //could be selected in a smarter way to avoid creating too big a table
+table Grid = extend.range(Items.GridSize)
+Grid.Min = Grid.N
+Grid.Max = Grid.Min + Items.LotMultiplier - 1
+Grid.IsPossibleDecision = (Grid.Min-1) mod Items.LotMultiplier == 0
+
+keep where Grid.IsPossibleDecision
+
+ItemsWeek.FutureWeekRankIni = single(WeeklyFc.FutureWeekRank)
+ItemsWeek.FutureWeekRank = ItemsWeek.FutureWeekRankIni
+
+
+
+table FilteredItemsWeek = where ItemsWeek.FutureWeekRank > 0
+
+
+
+ItemsWeek.ReceivedQty = sum(PO.Quantity) by [PO.Id,ceiling(PO.ArrivalTime)] at [ItemsWeek.Id,ItemsWeek.FutureWeekRank]
+ItemsWeek.Baseline = single(WeeklyFc.Baseline)
+ItemsWeek.OrderQty = 0
+ItemsWeek.SatisfiableDemand = dirac(0)
+ItemsWeek.StockOnHand = 0
+ItemsWeek.NewFR = 0
+ItemsWeek.StartRLT = date(2001,1,1)
+ItemsWeek.EndRLT = date(2001,1,1)
+
+FilteredItemsWeek.FutureWeekRank = ItemsWeek.FutureWeekRank
+FilteredItemsWeek.Baseline = ItemsWeek.Baseline
+FilteredItemsWeek.ReceivedQty = ItemsWeek.ReceivedQty
+FilteredItemsWeek.FutureWeekRank = ItemsWeek.FutureWeekRank
+
+currentDate = oend + 7
+timestep = 1 //in weeks
+Items.CountPurchasable = 0
+
+const nbWeeks = 52
+table Loop = extend.range(nbWeeks)
+Loop.CurrentDate = date(2001,1,1)
+n=0
+loop 52 unsafe ///1y, smae as lookforward weeks
+  n=n+1
+  Loop.CurrentDate = if Loop.N == n then currentDate else Loop.CurrentDate
+
+  Items.LastOrderDate = max(Week.Monday) when(ItemsWeek.OrderQty > 0)
+  Items.IsPurchasable = currentDate - Items.LastOrderDate >= Items.ReorderCycleWeeks * 7 //if last order date empty it works, product purchasable
+  Items.CountPurchasable = Items.CountPurchasable + (if Items.IsPurchasable then 1 else 0)
+
+
+  ///Satisfiable demand and Holding time
+  Items.SatisfiableDemand, Items.HoldingTime = actionrwd.reward(
+    TimeIndex: FilteredItemsWeek.FutureWeekRank,
+    Baseline: FilteredItemsWeek.Baseline,
+    Dispersion: Items.Dispersion,
+    Alpha: Items.Alpha,
+    StockOnHand: Items.StockOnHand,
+    StockOnOrder : FilteredItemsWeek.ReceivedQty,
+    ArrivalTime : dirac(ceiling(FilteredItemsWeek.FutureWeekRank)), //dirac(0) --> considered as stock on hand, error if < 0
+    LeadTime: dirac(Items.SupplierLTWeeks),
+    StepOfReorder: Items.ReorderCycleWeeks,
+    Samples: trajectoryCount,
+    Seed: 1)
+
+
+  ///Satisfied demand
+  Items.AvgDemandOnRLT = sum(ItemsWeek.Baseline)
+                          when(ItemsWeek.FutureWeekRank >= Items.SupplierLTWeeks and ItemsWeek.FutureWeekRank < Items.TotalLTWeeks)
+  Items.SatisfiedDemand = round(Items.AvgDemandOnRLT - mean(Items.SatisfiableDemand))
+
+  ///Debug
+  Items.StartRLT = min(ItemsWeek.Monday) when(ItemsWeek.FutureWeekRank >= Items.SupplierLTWeeks and ItemsWeek.FutureWeekRank < Items.TotalLTWeeks)
+  Items.EndRLT = max(ItemsWeek.Monday) when(ItemsWeek.FutureWeekRank >= Items.SupplierLTWeeks and ItemsWeek.FutureWeekRank < Items.TotalLTWeeks)
+
+  ///New all RLT demand rebuilt
+  //Total demand computed for FR calculation purposes
+  //There seems to be an edge case not handled (https://go.lokad.com/d/68009/8596518/3-inspectors-1-item-inspector?s=103&t=PO%20Recommendations for instance)
+  //but not too big a deal for FR, however issue for display because we would be showing a negative demand.
+  //Hence the method above for display only.
+  Items.TotalDemandRLT = Items.SatisfiableDemand + dirac(Items.SatisfiedDemand)
+
+  ///Sell through
+  //SellThrough: probability to sell a specific unit of the satisfiable demand on responsibility window
+  //Ex: probability of selling the 6th unit = probability of selling exactly 6 units + probability of selling exactly 7 units +
+  // ... probability of selling the maximum of the satisfiable demand
+  Items.SellThrough = (1 - cdf(Items.SatisfiableDemand + 1)) * uniform.right(1) //values in negative are not relevant
+
+
+  ///Purchase list------------------------------------------------------------------------------------
+
+  ///Init grid
+  Grid.IsEligible = false
+  Grid.M = 0
+  Grid.S = 0
+  Grid.C = 0
+  Grid.Reward = 0
+  Grid.Cost = 0
+  Grid.Score = 0
+  Grid.Rank = 0
+  Grid.Invest = 0
+  Grid.CumFillrateDelta = 0
+  Grid.OverallFRGain = 0
+  Grid.CumOverallFRGain = 0
+
+  ///Qty
+  Grid.Q = Grid.Max - Grid.Min + 1
+
+  ///Fill rate
+  Items.FR = fillrate(Items.TotalDemandRLT)
+  Items.CurrentFR = int(Items.FR, 0, Items.SatisfiedDemand)
+  overAllCurrentFR = sum(Items.CurrentFR * Items.SalesWeight)
+
+  Grid.FillRateDelta = int(Items.FR, Items.SatisfiedDemand + Grid.Min, Items.SatisfiedDemand + Grid.Max)
+  Grid.NewFR = Items.CurrentFR + Grid.FillRateDelta
+
+  where Grid.FillRateDelta > 0 ///equivalent of putting no reach for extend.ranvar
+
+    ///Score
+    Items.RwdM = Items.SellThrough * Items.M
+    Items.RwdS = - Items.SellThrough * Items.S
+    Items.RwdC = Items.HoldingTime * Items.C
+
+    Items.Reward = Items.RwdM + Items.RwdS - Items.RwdC
+
+    Grid.M = int(Items.RwdM, Grid.Min, Grid.Max)
+    Grid.S = int(Items.RwdS, Grid.Min, Grid.Max)
+    Grid.C = int(Items.RwdC, Grid.Min, Grid.Max)
+    Grid.Reward = int(Items.Reward, Grid.Min, Grid.Max)
+    Grid.Cost = Grid.Q * Items.BuyPrice
+    Grid.Score = Grid.Reward /. Grid.Cost
+
+    ///Micro decisions build
+    //removing unecessary scenario ([0,0] segment created by default in the grid)
+    // where Grid.Min > 0 ///this line is useless because the grid was not created in the standard way
+    Grid.Rank = rank(Grid.Score, Id, -Grid.Max)
+
+    Grid.Invest = sum(Grid.Cost) scan Grid.Rank
+    Grid.CumFillrateDelta = sum(Grid.FillRateDelta) by Items.Id scan Grid.Rank
+
+    Grid.OverallFRGain = Grid.FillRateDelta * Items.SalesWeight
+    Grid.CumOverallFRGain = sum(Grid.OverallFRGain) scan Grid.Rank
+
+    ///Purchase decision
+    //Current overall FR should be 85%
+    //3 categories agressiveness factors = 1-1-1 --> 87% overall fill rate
+    //3 categories agressiveness factors = 3-4-5 --> 92% overall fill rate
+    //3 categories agressiveness factors = 5-5-5 --> 99% overall fill rate
+
+    Grid.IsEligible = FRTarget - overAllCurrentFR > 0 and
+                  Grid.CumOverallFRGain <= FRTarget - overAllCurrentFR
+
+    where Grid.IsEligible
+      Items.OrderQty = if Items.IsPurchasable then sum(Grid.Q) else 0
+
+    // Items.ExpectedROI = sum(Grid.Reward) / sum(Grid.Cost)
+
+  ///Update loop parameters
+  ItemsWeek.FutureWeekRank = ItemsWeek.FutureWeekRank - timestep
+  where Week.Monday == currentDate
+    ItemsWeek.OrderQty = ItemsWeek.OrderQty + Items.OrderQty
+    ItemsWeek.SatisfiableDemand = Items.SatisfiableDemand
+    ItemsWeek.StockOnHand = Items.StockOnHand
+    ItemsWeek.StartRLT = Items.StartRLT
+    ItemsWeek.EndRLT = Items.EndRLT
+    ItemsWeek.NewFR = max(Grid.NewFR) when(Grid.IsEligible) into Items
+
+  ItemsWeek.ReceivedQty = if Week.Monday == currentDate + 7*Items.SupplierLTWeeks then ItemsWeek.ReceivedQty + Items.OrderQty else 0
+
+  Items.StockOnHand = max(Items.StockOnHand - single(ItemsWeek.Baseline + ItemsWeek.ReceivedQty) when(Week.Monday == currentDate),0)
+  lastPastWeek = lastPastWeek + timestep*7
+  currentDate = currentDate + timestep*7
+
+
+
+///Final purchase reporting
+Items.NewFR = min(int(Items.FR, 0, Items.SatisfiedDemand + Items.OrderQty), max(Items.CurrentFR,0.999))
+
+///end loop
+
+
+
+show table "Grid" d46  with
+  Grid.Id as "Id"
+  Grid.CategoryName as "CategoryName"
+  Grid.N as "N"
+  Grid.Min as "Min"
+  Grid.Max as "Max"
+  Grid.IsPossibleDecision as "IsPossibleDecision"
+  Grid.IsEligible as "IsEligible"
+  Grid.M as "M"
+  Grid.S as "S"
+  Grid.C as "C"
+  Grid.Reward as "Reward"
+  Grid.Cost as "Cost"
+  Grid.Score as "Score"
+  Grid.Rank as "Rank"
+  Grid.Invest as "Invest"
+  Grid.CumFillrateDelta as "CumFillrateDelta" {numbers: percent}
+  Grid.OverallFRGain as "OverallFRGain" {numbers: percent}
+  Grid.CumOverallFRGain as "CumOverallFRGain" {numbers: percent}
+  Grid.Q as "Q"
+  Grid.FillRateDelta as "FillRateDelta" {numbers: percent}
+  Items.CurrentFR {numbers: percent}
+  Items.CurrentFR + Grid.CumFillrateDelta as "NewFR" {numbers: percent}
+  overAllCurrentFR {numbers: percent}
+  currentDate
+  Items.IsPurchasable
+
+ItemsWeek.InvestmentRequired = ItemsWeek.OrderQty * Items.BuyPrice
+
+where any(ItemsWeek.OrderQty>=Items.GridSize) into Items
+  count = count(Items.*)
+  show table "Possible errors \{count}" c46 with
+    ItemsWeek.Id
+    ItemsWeek.week
+    ItemsWeek.OrderQty
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///--------------------------------FUTURE REORDER RECOMMENDATIONS-----------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///Stock end week function
+def process StockEndWeek(
+    demand:number, /// demand quantity in selected time interval
+    startStockOnHand: number,
+    arrivalQty: number,
+    timeIndex : number,
+    isLastPastWeek : boolean) with /// Define if the stocklevel can fall below 0 (= BackOrders)
+  keep StockOnHand = 0
+
+  if timeIndex == 0
+    StockOnHand = 0
+  if isLastPastWeek
+    StockOnHand = startStockOnHand
+  if timeIndex >= 1
+    StockOnHand = max(StockOnHand + arrivalQty - demand,0)
+
+  return (StockOnHand)
+
+///Stock end week function call
+//Hypotheses:
+//Stock evo function gives the stock at the end of a week
+//POs arrives at the beginning of a week
+//WeeklyFc.FutureWeekRank = 0 is the first week
+
+//Initialization
+
+Items.LastStockOnHand = same(ItemsWeek.WkStockOnHand) when ItemsWeek.IsLastPastWeek
+Items.LastPOArrivalQty = same(ItemsWeek.ReceivedQty) when ItemsWeek.IsLastPastWeek
+// Items.LastForecast = same(WeeklyFc.ReplicateDemand) //there is no forecast in last past week, so this should always be 0. Replaced by last demand
+Items.LastDemand = same(WeeklyFc.DemandQty) when  WeeklyFc.IsLastPastWeek
+Items.LastStockEndWeek = max(Items.LastStockOnHand + Items.LastPOArrivalQty - Items.LastDemand, 0)
+
+//Several scenario: very high, high, avg, low, very low
+//The quantiles value so that we have a nice spread over time and to avoid calling another actionrwd function
+
+ItemsWeek.Demand = if ItemsWeek.Baseline > 0 then negativeBinomial(ItemsWeek.Baseline,Items.Dispersion) else dirac(0)
+
+ItemsWeek.VeryHighDemand = quantile(ItemsWeek.Demand,0.7)
+ItemsWeek.HighDemand = quantile(ItemsWeek.Demand,0.6)
+ItemsWeek.MeanDemand = mean(ItemsWeek.Demand)
+ItemsWeek.MedianDemand = quantile(ItemsWeek.Demand,0.5)
+ItemsWeek.LowDemand = quantile(ItemsWeek.Demand,0.4)
+ItemsWeek.VeryLowDemand = quantile(ItemsWeek.Demand,0.3)
+
+ItemsWeek.VeryHighDemandCat = quantile(ItemsWeek.Demand,0.6)
+ItemsWeek.HighDemandCat = quantile(ItemsWeek.Demand,0.55)
+ItemsWeek.MeanDemandCat = mean(ItemsWeek.Demand)
+ItemsWeek.LowDemandCat = quantile(ItemsWeek.Demand,0.45)
+ItemsWeek.VeryLowDemandCat = quantile(ItemsWeek.Demand,0.4)
+
+ItemsWeek.VeryHighDemandAll = quantile(ItemsWeek.Demand,0.55)
+ItemsWeek.HighDemandAll = quantile(ItemsWeek.Demand,0.52)
+ItemsWeek.MeanDemandAll = mean(ItemsWeek.Demand)
+ItemsWeek.LowDemandAll = quantile(ItemsWeek.Demand,0.48)
+ItemsWeek.VeryLowDemandAll = quantile(ItemsWeek.Demand,0.45)
+
+//Call
+ItemsWeek.VeryHighStockEndWeek = StockEndWeek(ItemsWeek.VeryHighDemand,Items.LastStockEndWeek,ItemsWeek.ReceivedQty,ItemsWeek.FutureWeekRankIni,ItemsWeek.IsLastPastWeek) by ItemsWeek.Id scan Week.Monday
+ItemsWeek.HighStockEndWeek = StockEndWeek(ItemsWeek.HighDemand,Items.LastStockEndWeek,ItemsWeek.ReceivedQty,ItemsWeek.FutureWeekRankIni,ItemsWeek.IsLastPastWeek) by ItemsWeek.Id scan Week.Monday
+ItemsWeek.MeanStockEndWeek = StockEndWeek(ItemsWeek.MeanDemand,Items.LastStockEndWeek,ItemsWeek.ReceivedQty,ItemsWeek.FutureWeekRankIni,ItemsWeek.IsLastPastWeek) by ItemsWeek.Id scan Week.Monday
+ItemsWeek.MedianStockEndWeek = StockEndWeek(ItemsWeek.MedianDemand,Items.LastStockEndWeek,ItemsWeek.ReceivedQty,ItemsWeek.FutureWeekRankIni,ItemsWeek.IsLastPastWeek) by ItemsWeek.Id scan Week.Monday
+ItemsWeek.LowStockEndWeek = StockEndWeek(ItemsWeek.LowDemand,Items.LastStockEndWeek,ItemsWeek.ReceivedQty,ItemsWeek.FutureWeekRankIni,ItemsWeek.IsLastPastWeek) by ItemsWeek.Id scan Week.Monday
+ItemsWeek.VeryLowStockEndWeek = StockEndWeek(ItemsWeek.VeryLowDemand,Items.LastStockEndWeek,ItemsWeek.ReceivedQty,ItemsWeek.FutureWeekRankIni,ItemsWeek.IsLastPastWeek) by ItemsWeek.Id scan Week.Monday
+
+ItemsWeek.VeryHighStockEndWeekCat = StockEndWeek(ItemsWeek.VeryHighDemandCat,Items.LastStockEndWeek,ItemsWeek.ReceivedQty,ItemsWeek.FutureWeekRankIni,ItemsWeek.IsLastPastWeek) by ItemsWeek.Id scan Week.Monday
+ItemsWeek.HighStockEndWeekCat = StockEndWeek(ItemsWeek.HighDemandCat,Items.LastStockEndWeek,ItemsWeek.ReceivedQty,ItemsWeek.FutureWeekRankIni,ItemsWeek.IsLastPastWeek) by ItemsWeek.Id scan Week.Monday
+ItemsWeek.MeanStockEndWeekCat = StockEndWeek(ItemsWeek.MeanDemandCat,Items.LastStockEndWeek,ItemsWeek.ReceivedQty,ItemsWeek.FutureWeekRankIni,ItemsWeek.IsLastPastWeek) by ItemsWeek.Id scan Week.Monday
+ItemsWeek.LowStockEndWeekCat = StockEndWeek(ItemsWeek.LowDemandCat,Items.LastStockEndWeek,ItemsWeek.ReceivedQty,ItemsWeek.FutureWeekRankIni,ItemsWeek.IsLastPastWeek) by ItemsWeek.Id scan Week.Monday
+ItemsWeek.VeryLowStockEndWeekCat = StockEndWeek(ItemsWeek.VeryLowDemandCat,Items.LastStockEndWeek,ItemsWeek.ReceivedQty,ItemsWeek.FutureWeekRankIni,ItemsWeek.IsLastPastWeek) by ItemsWeek.Id scan Week.Monday
+
+ItemsWeek.VeryHighStockEndWeekAll = StockEndWeek(ItemsWeek.VeryHighDemandAll,Items.LastStockEndWeek,ItemsWeek.ReceivedQty,ItemsWeek.FutureWeekRankIni,ItemsWeek.IsLastPastWeek) by ItemsWeek.Id scan Week.Monday
+ItemsWeek.HighStockEndWeekAll = StockEndWeek(ItemsWeek.HighDemandAll,Items.LastStockEndWeek,ItemsWeek.ReceivedQty,ItemsWeek.FutureWeekRankIni,ItemsWeek.IsLastPastWeek) by ItemsWeek.Id scan Week.Monday
+ItemsWeek.MeanStockEndWeekAll = StockEndWeek(ItemsWeek.MeanDemandAll,Items.LastStockEndWeek,ItemsWeek.ReceivedQty,ItemsWeek.FutureWeekRankIni,ItemsWeek.IsLastPastWeek) by ItemsWeek.Id scan Week.Monday
+ItemsWeek.LowStockEndWeekAll = StockEndWeek(ItemsWeek.LowDemandAll,Items.LastStockEndWeek,ItemsWeek.ReceivedQty,ItemsWeek.FutureWeekRankIni,ItemsWeek.IsLastPastWeek) by ItemsWeek.Id scan Week.Monday
+ItemsWeek.VeryLowStockEndWeekAll = StockEndWeek(ItemsWeek.VeryLowDemandAll,Items.LastStockEndWeek,ItemsWeek.ReceivedQty,ItemsWeek.FutureWeekRankIni,ItemsWeek.IsLastPastWeek) by ItemsWeek.Id scan Week.Monday
+
+///Stock start week
+ItemsWeek.VeryHighStockStartWeek = if ItemsWeek.FutureWeekRankIni > 0 then same(ItemsWeek.VeryHighStockEndWeek) when(ItemsWeek.FutureWeekRankIni != 0) by [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni] at [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni - 1] default Items.LastStockEndWeek else 0
+ItemsWeek.HighStockStartWeek = if ItemsWeek.FutureWeekRankIni > 0 then same(ItemsWeek.HighStockEndWeek) when(ItemsWeek.FutureWeekRankIni != 0) by [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni] at [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni - 1] default Items.LastStockEndWeek else 0
+ItemsWeek.MeanStockStartWeek = if ItemsWeek.FutureWeekRankIni > 0 then same(ItemsWeek.MeanStockEndWeek) when(ItemsWeek.FutureWeekRankIni != 0) by [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni] at [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni - 1] default Items.LastStockEndWeek else 0
+ItemsWeek.MedianStockStartWeek = if ItemsWeek.FutureWeekRankIni > 0 then same(ItemsWeek.MedianStockEndWeek) when(ItemsWeek.FutureWeekRankIni != 0) by [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni] at [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni - 1] default Items.LastStockEndWeek else 0
+ItemsWeek.LowStockStartWeek = if ItemsWeek.FutureWeekRankIni > 0 then same(ItemsWeek.LowStockEndWeek) when(ItemsWeek.FutureWeekRankIni != 0) by [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni] at [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni - 1] default Items.LastStockEndWeek else 0
+ItemsWeek.VeryLowStockStartWeek = if ItemsWeek.FutureWeekRankIni > 0 then same(ItemsWeek.VeryLowStockEndWeek) when(ItemsWeek.FutureWeekRankIni != 0) by [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni] at [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni - 1] default Items.LastStockEndWeek else 0
+
+ItemsWeek.VeryHighStockStartWeekCat = if ItemsWeek.FutureWeekRankIni > 0 then same(ItemsWeek.VeryHighStockEndWeekCat) when(ItemsWeek.FutureWeekRankIni != 0) by [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni] at [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni - 1] default Items.LastStockEndWeek else 0
+ItemsWeek.HighStockStartWeekCat = if ItemsWeek.FutureWeekRankIni > 0 then same(ItemsWeek.HighStockEndWeekCat) when(ItemsWeek.FutureWeekRankIni != 0) by [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni] at [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni - 1] default Items.LastStockEndWeek else 0
+ItemsWeek.MeanStockStartWeekCat = if ItemsWeek.FutureWeekRankIni > 0 then same(ItemsWeek.MeanStockEndWeekCat) when(ItemsWeek.FutureWeekRankIni != 0) by [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni] at [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni - 1] default Items.LastStockEndWeek else 0
+ItemsWeek.LowStockStartWeekCat = if ItemsWeek.FutureWeekRankIni > 0 then same(ItemsWeek.LowStockEndWeekCat) when(ItemsWeek.FutureWeekRankIni != 0) by [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni] at [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni - 1] default Items.LastStockEndWeek else 0
+ItemsWeek.VeryLowStockStartWeekCat = if ItemsWeek.FutureWeekRankIni > 0 then same(ItemsWeek.VeryLowStockEndWeekCat) when(ItemsWeek.FutureWeekRankIni != 0) by [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni] at [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni - 1] default Items.LastStockEndWeek else 0
+
+ItemsWeek.VeryHighStockStartWeekAll = if ItemsWeek.FutureWeekRankIni > 0 then same(ItemsWeek.VeryHighStockEndWeekAll) when(ItemsWeek.FutureWeekRankIni != 0) by [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni] at [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni - 1] default Items.LastStockEndWeek else 0
+ItemsWeek.HighStockStartWeekAll = if ItemsWeek.FutureWeekRankIni > 0 then same(ItemsWeek.HighStockEndWeekAll) when(ItemsWeek.FutureWeekRankIni != 0) by [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni] at [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni - 1] default Items.LastStockEndWeek else 0
+ItemsWeek.MeanStockStartWeekAll = if ItemsWeek.FutureWeekRankIni > 0 then same(ItemsWeek.MeanStockEndWeekAll) when(ItemsWeek.FutureWeekRankIni != 0) by [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni] at [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni - 1] default Items.LastStockEndWeek else 0
+ItemsWeek.LowStockStartWeekAll = if ItemsWeek.FutureWeekRankIni > 0 then same(ItemsWeek.LowStockEndWeekAll) when(ItemsWeek.FutureWeekRankIni != 0) by [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni] at [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni - 1] default Items.LastStockEndWeek else 0
+ItemsWeek.VeryLowStockStartWeekAll = if ItemsWeek.FutureWeekRankIni > 0 then same(ItemsWeek.VeryLowStockEndWeekAll) when(ItemsWeek.FutureWeekRankIni != 0) by [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni] at [ItemsWeek.Id, ItemsWeek.FutureWeekRankIni - 1] default Items.LastStockEndWeek else 0
+
+where Id == "DS-115-DC"
+where date >= date(2023,1,1)
+  show table "ItemsWeek DS-115-DC" b46 with
+    ItemsWeek.Id
+    ItemsWeek.week
+    monday(ItemsWeek.week) as "Monday"
+    ItemsWeek.VeryHighStockEndWeek
+    ItemsWeek.HighStockEndWeek
+    ItemsWeek.MeanStockEndWeek
+    ItemsWeek.MeanStockStartWeek
+    ItemsWeek.LowStockEndWeek
+    ItemsWeek.VeryLowStockEndWeek
+    ItemsWeek.ReceivedQty
+    ItemsWeek.OrderQty
+    ItemsWeek.StockOnHand
+    ItemsWeek.NewFR
+    ItemsWeek.SatisfiableDemand
+    ItemsWeek.StartRLT
+    ItemsWeek.EndRLT
+    Items.SupplierLTWeeks
+    Items.ReorderCycleWeeks
+
+///# Display
+
+selectedTab = concat("&t=", "CategoryView")
+Items.CatUrlRaw = (sliceSearchUrl(51250, Items.Category))
+Items.CatUrl = concat(Items.CatUrlRaw, selectedTab)
+
+show scalar "Simulation period" f4 with lookforwardDays {unit: " Days" ; numbers: simple}
+
+///Item level
+Items.TurnoverL365 = sum(WeeklyFc.DemandQty * Items.SellPrice) when (WeeklyFc.date > oend - 365)
+
+///Category level
+Items.CategoryTurnoverL365 = sum(Items.TurnoverL365) by Items.Category
+
+///Overall level
+totalTurnoverL365 = sum(Items.TurnoverL365)
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///## -----------------------------------------OVERALL LEVEL----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+keep where date <= oend + lookforwardDays
+keep where date >= oend - lookbackDays
+
+ItemsWeek.InvestmentRequiredPreviousSim = single(WeeklyPurchasesByRefLastSim.InvestmentRequired)
+overallInvestment = sum(ItemsWeek.InvestmentRequired)
+overallInvestmentPreviousSim = single(TargetsLastSim.overallInvestment)
+show scalar "Total Investments" a4             {textAlign: center ; tileTab: "OverallView" ; textBold: "true"} with
+  overallInvestment as "" {numbers: simple ; precision: 0 ; unit: #(DcUnit)}
+show scalar "Total Investments - Previous Simulation" b4             {textAlign: center ; tileTab: "OverallView" ; textBold: "true" ; textColor: #(colorPreviousSim)} with
+  overallInvestmentPreviousSim as "" {numbers: simple ; precision: 0 ; unit: #(DcUnit)}
+
+
+show linechart "Weekly investments" e10h12 {tileTab: "OverallView"} with
+  sum(ItemsWeek.InvestmentRequired) {seriesType: bar ; color: #fb8f62 ; unit: #(DcUnit)}
+  group by ItemsWeek.Monday
+
+minWeek = min(week) when(ItemsWeek.MedianStockStartWeek > 0)
+ItemsWeek.MedianStockStartWeekPreviousSim = single(WeeklyPurchasesByRefLastSim.MedianStockStartWeek)
+where week >= minWeek
+  show linechart "Stock evolution (net amount)" a6h9        {tileTab: "OverallView"} with
+    1 as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden}
+    sum(ItemsWeek.VeryLowStockStartWeekAll* Items.BuyPrice) as "Possible High" {seriesType: area ; color: #fbc367 ; unit: #(DcUnit)}
+    sum(ItemsWeek.LowStockStartWeekAll* Items.BuyPrice) as "Certain High" {seriesType: area ; color: #fb8f62 ; unit: #(DcUnit)}
+    sum(ItemsWeek.MedianStockStartWeek* Items.BuyPrice)  as "Median Expected" {seriesType: area ; color: #fb8f62 ; unit: #(DcUnit)}
+    sum(ItemsWeek.HighStockStartWeekAll* Items.BuyPrice) as "Certain Low" {seriesType: area ; color: #fbc367 ; unit: #(DcUnit)}
+    sum(ItemsWeek.VeryHighStockStartWeekAll* Items.BuyPrice) as "Possible Low" {seriesType: area ; color: #ffffff ; unit: #(DcUnit)}
+    sum(ItemsWeek.MedianStockStartWeek* Items.BuyPrice) as "OnHand Median" {color: #c62a2a ; seriesLegend: hidden ; unit: #(DcUnit)}
+    sum(ItemsWeek.MedianStockStartWeekPreviousSim* Items.BuyPrice) as "OnHand Median - Previous Simulation" {seriesPattern: dotted ; color: #(colorPreviousSim) ; unit: #(DcUnit)}
+    group by ItemsWeek.Monday
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///## -----------------------------------------CATEGORY LEVEL---------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ItemsWeek.slice = Items.slice
+
+show scalar "Total Investments - Category" a4    slices:Items.slice         {textAlign: center ; tileTab: "CategoryView" ; textBold: "true"} with
+  sum(ItemsWeek.InvestmentRequired) as "" {numbers: simple ; precision: 0 ; unit: #(DcUnit)}
+
+show scalar "Total Investments Previous Simulation - Category" b4    slices:Items.slice         {textAlign: center ; tileTab: "CategoryView" ; textBold: "true"} with
+  sum(ItemsWeek.InvestmentRequired) as "" {numbers: simple ; precision: 0 ; unit: #(DcUnit)}
+
+show linechart "Weekly investments - Category" e10h12 slices:Items.slice {tileTab: "CategoryView"} with
+  sum(ItemsWeek.InvestmentRequired) {seriesType: bar ; color: #fb8f62 ; unit: #(DcUnit)}
+  group by Week.Monday
+
+show linechart "Monthly investments - Category" a10d12 {tileTab: "CategoryView"} with
+  sum(ItemsWeek.InvestmentRequired) {seriesType: bar ; color: #fb8f62 ; unit: #(DcUnit)}
+  group by month(ItemsWeek.Monday)
+
+
+minWeek = min(week) when(ItemsWeek.MedianStockStartWeek > 0)
+where week >= minWeek
+  show linechart "Stock evolution (net amount) - Category" a6h9    slices:Items.slice    {tileTab: "CategoryView"} with
+    1 as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden}
+    sum(ItemsWeek.VeryLowStockStartWeekCat* Items.BuyPrice) as "Possible High" {seriesType: area ; color: #fbc367 ; unit: #(DcUnit)}
+    sum(ItemsWeek.LowStockStartWeekCat* Items.BuyPrice) as "Certain High" {seriesType: area ; color: #fb8f62 ; unit: #(DcUnit)}
+    sum(ItemsWeek.MedianStockStartWeek* Items.BuyPrice)  as "Median Expected" {seriesType: area ; color: #fb8f62 ; unit: #(DcUnit)}
+    sum(ItemsWeek.HighStockStartWeekCat* Items.BuyPrice) as "Certain Low" {seriesType: area ; color: #fbc367 ; unit: #(DcUnit)}
+    sum(ItemsWeek.VeryHighStockStartWeekCat* Items.BuyPrice) as "Possible Low" {seriesType: area ; color: #ffffff ; unit: #(DcUnit)}
+    sum(ItemsWeek.MedianStockStartWeek* Items.BuyPrice) as "OnHand Median" {color: #c62a2a ; seriesLegend: hidden ; unit: #(DcUnit)}
+    sum(ItemsWeek.MedianStockStartWeekPreviousSim* Items.BuyPrice) as "OnHand Median - Previous Simulation" {seriesPattern: dotted ; color: #(colorPreviousSim) ; unit: #(DcUnit)}
+    group by Week.Monday
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///# -----------------------------------------ITEM LEVEL---------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+displayRank=0
+
+displayRank=displayRank+1
+where (Items.PagePosition == displayRank)
+  Slices.SelectedItem = same(Id) by Items.PageName at Slices.PageName when (Items.PagePosition == displayRank)
+  Slices.SelectedItemName = same(Items.Name) by Items.PageName at Slices.PageName when (Items.PagePosition == displayRank)
+  Slices.DisplaySelectedItem = concat(Slices.SelectedItem, " - ", Slices.SelectedItemName)
+
+  show label Slices.DisplaySelectedItem a5h5 9b9b9b              {tileTab: "ItemView"}
+
+  ///Item presentation
+  Slices.Url = concat(same(Items.Url)," \{magnifierIcon}")
+  show label Slices.Url a8b8                                                    {textAlign: center ; tileTab: "ItemView"}
+
+  Slices.ImageUrl = same(Items.ImageUrl)
+  show label Slices.ImageUrl a6b7              {tileTab: "ItemView"}
+
+  show summary "" c6c8 slices:slice                                                    {tileTab: "ItemView" ; tileColor: #(highlightColor)} with
+    same(Items.SalesL365) as "L365 d" {numbers: simple ; unit: #(pcsUnit)}
+    same(Items.LeadTime) as "Avg LT" {unit: " d"}
+    same(Items.ReorderCycle) as "Reorder Cycle" {unit: " d"}
+    sum(ItemsWeek.InvestmentRequired) as "Investment" {numbers: simple ; precision: 0 ; unit: #(DcUnit)}
+    sum(ItemsWeek.InvestmentRequiredPreviousSim) as "Investment Previous Simulation" {numbers: simple ; precision: 0 ; unit: #(DcUnit)}
+
+  minWeek = min(week) when(ItemsWeek.MedianStockStartWeek > 0)
+  where week >= minWeek
+    show linechart "Stock evolution (quantity)" d6h8     slices:Items.slice    {tileTab: "ItemView"} with
+      1 as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden}
+      same(ItemsWeek.VeryLowStockStartWeek) as "Possible High" {seriesType: area ; color: #fbc367}
+      same(ItemsWeek.LowStockStartWeek) as "Certain High" {seriesType: area ; color: #fb8f62}
+      same(ItemsWeek.MedianStockStartWeek)  as "Median Expected" {seriesType: area ; color: #fb8f62}
+      same(ItemsWeek.HighStockStartWeek) as "Certain Low" {seriesType: area ; color: #fbc367}
+      same(ItemsWeek.VeryHighStockStartWeek) as "Possible Low" {seriesType: area ; color: #ffffff}
+      same(ItemsWeek.MedianStockStartWeek) as "OnHand Median" {color: #c62a2a ; seriesLegend: hidden}
+      same(ItemsWeek.MedianStockStartWeekPreviousSim) as "OnHand Median - Previous Simulation" {seriesPattern: dotted ; color: #(colorPreviousSim)}
+      group by Week.Monday
+    show table "ItemsWeek debug" a46  with
+      ItemsWeek.Id as "Id"
+      ItemsWeek.week as "week"
+      ItemsWeek.VeryLowStockStartWeek
+      ItemsWeek.LowStockStartWeek
+      ItemsWeek.MedianStockStartWeek
+      ItemsWeek.HighStockStartWeek
+      ItemsWeek.VeryHighStockStartWeek
+      ItemsWeek.MedianStockStartWeek
+      ItemsWeek.VeryHighStockEndWeek
+      ItemsWeek.HighStockEndWeek
+      ItemsWeek.MedianStockEndWeek
+      ItemsWeek.LowStockEndWeek
+      ItemsWeek.VeryLowStockEndWeek
+      ItemsWeek.VeryHighDemand
+      ItemsWeek.HighDemand
+      quantile(ItemsWeek.Demand,0.5) as "MedianDemand"
+      ItemsWeek.MedianDemand
+      ItemsWeek.LowDemand
+      ItemsWeek.VeryLowDemand
+      ItemsWeek.Demand
+      Week.Monday
+
+  table NewFilteredItemsWeek = where ItemsWeek.OrderQty > 0
+
+  show table "Future Purchases" a47 slices:Items.slice {tileTab: "ItemView"}  with
+    NewFilteredItemsWeek.Id as "Sku"
+    NewFilteredItemsWeek.Monday as "Purchase Date"
+    NewFilteredItemsWeek.Monday + 7*Items.SupplierLTWeeks as "Reception Date"
+    NewFilteredItemsWeek.OrderQty as "Order Qty"
+    order by NewFilteredItemsWeek.Monday
+
+displayRank=displayRank+1
+where (Items.PagePosition == displayRank)
+  Slices.SelectedItem = same(Id) by Items.PageName at Slices.PageName when (Items.PagePosition == displayRank)
+  Slices.SelectedItemName = same(Items.Name) by Items.PageName at Slices.PageName when (Items.PagePosition == displayRank)
+  Slices.DisplaySelectedItem = concat(Slices.SelectedItem, " - ", Slices.SelectedItemName)
+
+  show label Slices.DisplaySelectedItem a9h9 9b9b9b              {tileTab: "ItemView"}
+
+  ///Item presentation
+  Slices.Url = concat(same(Items.Url)," \{magnifierIcon}")
+  show label Slices.Url a12b12                                                    {textAlign: center ; tileTab: "ItemView"}
+
+  Slices.ImageUrl = same(Items.ImageUrl)
+  show label Slices.ImageUrl a10b11              {tileTab: "ItemView"}
+
+  show summary "" c10c12 slices:slice                                                    {tileTab: "ItemView" ; tileColor: #(highlightColor)} with
+    same(Items.SalesL365) as "L365 d" {numbers: simple ; unit: #(pcsUnit)}
+    same(Items.LeadTime) as "Avg LT" {unit: " d"}
+    same(Items.ReorderCycle) as "Reorder Cycle" {unit: " d"}
+    sum(ItemsWeek.InvestmentRequired) as "Investment" {numbers: simple ; precision: 0 ; unit: #(DcUnit)}
+    sum(ItemsWeek.InvestmentRequiredPreviousSim) as "Investment Previous Simulation" {numbers: simple ; precision: 0 ; unit: #(DcUnit)}
+
+  minWeek = min(week) when(ItemsWeek.MedianStockStartWeek > 0)
+  where week >= minWeek
+    show linechart "Stock evolution (quantity)" d10h12     slices:Items.slice    {tileTab: "ItemView"} with
+      1 as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden}
+      same(ItemsWeek.VeryLowStockStartWeek) as "Possible High" {seriesType: area ; color: #fbc367}
+      same(ItemsWeek.LowStockStartWeek) as "Certain High" {seriesType: area ; color: #fb8f62}
+      same(ItemsWeek.MedianStockStartWeek)  as "Median Expected" {seriesType: area ; color: #fb8f62}
+      same(ItemsWeek.HighStockStartWeek) as "Certain Low" {seriesType: area ; color: #fbc367}
+      same(ItemsWeek.VeryHighStockStartWeek) as "Possible Low" {seriesType: area ; color: #ffffff}
+      sum(ItemsWeek.MedianStockStartWeek) as "OnHand Median" {color: #c62a2a ; seriesLegend: hidden}
+      same(ItemsWeek.MedianStockStartWeekPreviousSim) as "OnHand Median - Previous Simulation" {seriesPattern: dotted ; color: #(colorPreviousSim)}
+      group by Week.Monday
+
+displayRank=displayRank+1
+where (Items.PagePosition == displayRank)
+  Slices.SelectedItem = same(Id) by Items.PageName at Slices.PageName when (Items.PagePosition == displayRank)
+  Slices.SelectedItemName = same(Items.Name) by Items.PageName at Slices.PageName when (Items.PagePosition == displayRank)
+  Slices.DisplaySelectedItem = concat(Slices.SelectedItem, " - ", Slices.SelectedItemName)
+
+  show label Slices.DisplaySelectedItem a13h13 9b9b9b              {tileTab: "ItemView"}
+
+  ///Item presentation
+  Slices.Url = concat(same(Items.Url)," \{magnifierIcon}")
+  show label Slices.Url a16b16                                                    {textAlign: center ; tileTab: "ItemView"}
+
+  Slices.ImageUrl = same(Items.ImageUrl)
+  show label Slices.ImageUrl a14b15              {tileTab: "ItemView"}
+
+  show summary "" c14c16 slices:slice                                                    {tileTab: "ItemView" ; tileColor: #(highlightColor)} with
+    same(Items.SalesL365) as "L365 d" {numbers: simple ; unit: #(pcsUnit)}
+    same(Items.LeadTime) as "Avg LT" {unit: " d"}
+    same(Items.ReorderCycle) as "Reorder Cycle" {unit: " d"}
+    sum(ItemsWeek.InvestmentRequired) as "Investment" {numbers: simple ; precision: 0 ; unit: #(DcUnit)}
+    sum(ItemsWeek.InvestmentRequiredPreviousSim) as "Investment Previous Simulation" {numbers: simple ; precision: 0 ; unit: #(DcUnit)}
+
+  minWeek = min(week) when(ItemsWeek.MedianStockStartWeek > 0)
+  where week >= minWeek
+    show linechart "Stock evolution (quantity)" d14h16     slices:Items.slice    {tileTab: "ItemView"} with
+      1 as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden}
+      same(ItemsWeek.VeryLowStockStartWeek) as "Possible High" {seriesType: area ; color: #fbc367}
+      same(ItemsWeek.LowStockStartWeek) as "Certain High" {seriesType: area ; color: #fb8f62}
+      same(ItemsWeek.MedianStockStartWeek)  as "Median Expected" {seriesType: area ; color: #fb8f62}
+      same(ItemsWeek.HighStockStartWeek) as "Certain Low" {seriesType: area ; color: #fbc367}
+      same(ItemsWeek.VeryHighStockStartWeek) as "Possible Low" {seriesType: area ; color: #ffffff}
+      same(ItemsWeek.MedianStockStartWeek) as "OnHand Median" {color: #c62a2a ; seriesLegend: hidden}
+      same(ItemsWeek.MedianStockStartWeekPreviousSim) as "OnHand Median - Previous Simulation" {seriesPattern: dotted ; color: #(colorPreviousSim)}
+      group by Week.Monday
+
+displayRank=displayRank+1
+where (Items.PagePosition == displayRank)
+  Slices.SelectedItem = same(Id) by Items.PageName at Slices.PageName when (Items.PagePosition == displayRank)
+  Slices.SelectedItemName = same(Items.Name) by Items.PageName at Slices.PageName when (Items.PagePosition == displayRank)
+  Slices.DisplaySelectedItem = concat(Slices.SelectedItem, " - ", Slices.SelectedItemName)
+
+  show label Slices.DisplaySelectedItem a17h17 9b9b9b              {tileTab: "ItemView"}
+
+  ///Item presentation
+  Slices.Url = concat(same(Items.Url)," \{magnifierIcon}")
+  show label Slices.Url a20b20                                                    {textAlign: center ; tileTab: "ItemView"}
+
+  Slices.ImageUrl = same(Items.ImageUrl)
+  show label Slices.ImageUrl a18b19              {tileTab: "ItemView"}
+
+  show summary "" c18c20 slices:slice                                                    {tileTab: "ItemView" ; tileColor: #(highlightColor)} with
+    same(Items.SalesL365) as "L365 d" {numbers: simple ; unit: #(pcsUnit)}
+    same(Items.LeadTime) as "Avg LT" {unit: " d"}
+    same(Items.ReorderCycle) as "Reorder Cycle" {unit: " d"}
+    sum(ItemsWeek.InvestmentRequired) as "Investment" {numbers: simple ; precision: 0 ; unit: #(DcUnit)}
+    sum(ItemsWeek.InvestmentRequiredPreviousSim) as "Investment Previous Simulation" {numbers: simple ; precision: 0 ; unit: #(DcUnit)}
+
+  minWeek = min(week) when(ItemsWeek.MedianStockStartWeek > 0)
+  where week >= minWeek
+    show linechart "Stock evolution (quantity)" d18h20     slices:Items.slice    {tileTab: "ItemView"} with
+      1 as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden}
+      same(ItemsWeek.VeryLowStockStartWeek) as "Possible High" {seriesType: area ; color: #fbc367}
+      same(ItemsWeek.LowStockStartWeek) as "Certain High" {seriesType: area ; color: #fb8f62}
+      same(ItemsWeek.MedianStockStartWeek)  as "Median Expected" {seriesType: area ; color: #fb8f62}
+      same(ItemsWeek.HighStockStartWeek) as "Certain Low" {seriesType: area ; color: #fbc367}
+      same(ItemsWeek.VeryHighStockStartWeek) as "Possible Low" {seriesType: area ; color: #ffffff}
+      same(ItemsWeek.MedianStockStartWeek) as "OnHand Median" {color: #c62a2a ; seriesLegend: hidden}
+      same(ItemsWeek.MedianStockStartWeekPreviousSim) as "OnHand Median - Previous Simulation" {seriesPattern: dotted ; color: #(colorPreviousSim)}
+      group by Week.Monday
+
+displayRank=displayRank+1
+where (Items.PagePosition == displayRank)
+  Slices.SelectedItem = same(Id) by Items.PageName at Slices.PageName when (Items.PagePosition == displayRank)
+  Slices.SelectedItemName = same(Items.Name) by Items.PageName at Slices.PageName when (Items.PagePosition == displayRank)
+  Slices.DisplaySelectedItem = concat(Slices.SelectedItem, " - ", Slices.SelectedItemName)
+
+  show label Slices.DisplaySelectedItem a21h21 9b9b9b              {tileTab: "ItemView"}
+
+  ///Item presentation
+  Slices.Url = concat(same(Items.Url)," \{magnifierIcon}")
+  show label Slices.Url a24b24                                                    {textAlign: center ; tileTab: "ItemView"}
+
+  Slices.ImageUrl = same(Items.ImageUrl)
+  show label Slices.ImageUrl a22b23              {tileTab: "ItemView"}
+
+  show summary "" c22c24 slices:slice                                                    {tileTab: "ItemView" ; tileColor: #(highlightColor)} with
+    same(Items.SalesL365) as "L365 d" {numbers: simple ; unit: #(pcsUnit)}
+    same(Items.LeadTime) as "Avg LT" {unit: " d"}
+    same(Items.ReorderCycle) as "Reorder Cycle" {unit: " d"}
+    sum(ItemsWeek.InvestmentRequired) as "Investment" {numbers: simple ; precision: 0 ; unit: #(DcUnit)}
+    sum(ItemsWeek.InvestmentRequiredPreviousSim) as "Investment Previous Simulation" {numbers: simple ; precision: 0 ; unit: #(DcUnit)}
+
+  minWeek = min(week) when(ItemsWeek.MedianStockStartWeek > 0)
+  where week >= minWeek
+    show linechart "Stock evolution (quantity)" d22h24     slices:Items.slice    {tileTab: "ItemView"} with
+      1 as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden}
+      same(ItemsWeek.VeryLowStockStartWeek) as "Possible High" {seriesType: area ; color: #fbc367}
+      same(ItemsWeek.LowStockStartWeek) as "Certain High" {seriesType: area ; color: #fb8f62}
+      same(ItemsWeek.MedianStockStartWeek)  as "Median Expected" {seriesType: area ; color: #fb8f62}
+      same(ItemsWeek.HighStockStartWeek) as "Certain Low" {seriesType: area ; color: #fbc367}
+      same(ItemsWeek.VeryHighStockStartWeek) as "Possible Low" {seriesType: area ; color: #ffffff}
+      same(ItemsWeek.MedianStockStartWeek) as "OnHand Median" {color: #c62a2a ; seriesLegend: hidden}
+      same(ItemsWeek.MedianStockStartWeekPreviousSim) as "OnHand Median - Previous Simulation" {seriesPattern: dotted ; color: #(colorPreviousSim)}
+      group by Week.Monday
+
+///# Export results
+write Categories as "\{exportPath}EconomicParametersCategories.ion" with
+  CategoryName = Categories.CategoryName
+  AgressivenessFactor = Categories.AgressivenessFactor
+
+write Scalar as "\{exportPath}TargetsPurchaseList.ion" with
+  FRTarget = Scalar.FRTarget
+  IsContainerSimulation = Scalar.IsContainerSimulation
+  nbWeeks = Scalar.nbWeeks
+  overallInvestment = Scalar.overallInvestment
+
+write ItemsWeek as "\{exportPath}WeeklyPurchasesByRef.ion" with
+  Sku = ItemsWeek.Id
+  Monday = ItemsWeek.Monday
+  OrderQty = ItemsWeek.OrderQty
+  ReceivedQty = ItemsWeek.ReceivedQty
+  MedianStockStartWeek = ItemsWeek.MedianStockStartWeek
+  MeanStockStartWeek = ItemsWeek.MeanStockStartWeek
+  InvestmentRequired = ItemsWeek.InvestmentRequired
+
+a=1

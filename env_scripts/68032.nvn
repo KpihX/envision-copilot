@@ -1,0 +1,148 @@
+// 2022-02-03: Created by Lokad
+// For more documentation, see https://docs.lokad.com/
+
+show logo "" a1
+
+show label "[1] Data Phase"  a2h2  {labelIcon: "cloud-upload" ; textColor: #000000 ; iconColor: #d0021b}
+
+show scalar "Current date" g1h1 {textAlign: right}  with today(-6)
+
+show table "" a9 with
+  "🔑 = Key"
+show table "" b9 with
+  "📅 = Date"
+
+show markdown "" a3h4 with """
+  ## Phase Overview
+
+  The dataphase consists of establishing an automated data pipeline and the creation of the Low and High Level Data Health for
+  validation of the structure and links between tables and that business KPIs are in accord with one another compared to the
+  data and what metrics the Company keeps.
+  """
+
+show markdown "" a5h6 with """
+  ## Data Sync
+
+
+  """
+
+
+show markdown "" a7h8 with """
+  ## Data Wishlist Tables
+  """
+
+show markdown "" a10d14 with """
+  #### Catalog
+  `Ref (🔑)` [string] : Item identifier corresponding to a sell sku (lowest level of aggregation)
+  `Attribute1` [string] : Attribute identifier of the sell ref
+  `RefLabel` [string] : Name of the sell ref
+  `Category` [string] : Logical group of items (e.g. grouping in web-shop or item classification)
+  `SubCategory` [string] : More detailed sub-groups of items
+  `BuyPrice` [decimal] : Expected purchase price per unit in company currency
+  `SupplierLotMultiplier` [integer] : Possible increments of order size
+  `UnitofCount(UC)` [integer] : units, cartons, boxes, cubic feet, gallons, etc.
+  `Currency` [string] : Currency of the sell price
+  `isKit` [boolean] : is the reference a bundle
+  `isSellable` [boolean] : Can be sold on its own
+  `isPurchasable` [boolean] : Can be purchased (not a kit)
+
+  *Note: in case of multiple suppliers for an item, catalog fields should be moved to the ItemsSupplier table*
+
+  """
+
+show markdown "" e10h14 with """
+  #### Sku
+  `Ref (🔑)` [string] : Item identifier corresponding to a sell sku (lowest level of aggregation)
+  `Loc (🔑)` [string] : Warehouse name
+  `StockOnHand` [integer] : Current stock at warehouse
+  `StockAvailable` [integer] : Stock at warehouse ready to be sold (already processed / not already sold or shipped for transit)
+  `BackOrder` [integer] : Orders to fulfill as soon as stock is avialable (*Note that the Company makes items unavailable if out of stock so not currently relevant*)
+  `StockOnOrder` [integer] : Stock that is in production or on the water
+  `StockOnDispatchTo` [integer] : Stock currently in transit to the location from another company warehouse
+  `isActive` [boolean] : true if allowed to be stocked at that location
+  """
+
+
+show markdown "" a15d17 with """
+  #### RefChannel
+  `Ref (🔑)` [string] : Item identifier corresponding to a sell sku (lowest level of aggregation)
+  `Channel (🔑)` [string] : Channel identifier
+  `SellPrice` [decimal] : Current sell price for unit on the channel
+  `Currency` [string] : Currency of the sell price
+  `LaunchDate` [date] : First availability of this item on the channel
+  `EndDate` [date] : End of availability (if applicable, empty if not)
+  `isActive` [boolean] : Item is currently supposed to be available for sale on the channel (can be OOS)
+  """
+
+
+show markdown "" e15h17 with """
+  #### Bill of Materials (BOM)
+  `Kit` [string] : Kit ref
+  `Part` [string] : Ref of the part of the kit
+  `Quantity` [integer] : Necessary quantity of part in the kit
+  """
+
+show markdown "" a18d22 with """
+  #### Sales
+  `OrderNo (🔑)` [string] : Identifier of the sales order
+  `Ref (🔑)` [string] : Item identifier corresponding to a sell sku (lowest level of aggregation)
+  `Channel` [string] : Channel on which the sales order was placed
+  `CustNo` [string] : Anonymous identifier code of client
+  `OrderStatus` [string] : Backorder, Open, Closed, Cancelled, Returned, etc.
+  `OrderDate` [date] : Date when order was placed
+  `DeliveryDate` [date] : Actual delivery date
+  `NetAmount` [decimal] : Sales value of item (total value of transaction)
+  `UnitPrice` [decimal] : Unit price
+  `Discount` [decimal] : Discount compared to baseprice at time of transaction
+  `Currency` [string] : Currency of the sell price
+  `OrderQty` [integer] : Ordered quantity of reference
+  `ReturnDate` [date] : Date when item was returned (if relevant)
+  `FulfillmentLocation` [string] : From which DC was the order fulfilled from
+  `IdealFulfillmentLocation` [string] : From which DC the order should have ideally been fulfilled from
+  """
+
+show markdown "" e18h22 with """
+  #### Purchase Orders (POs)
+  `PONumber (🔑)` [string] : Identifier of the purchqse order
+  `Ref (🔑)` [string] : Item identifier corresponding to a sell sku (lowest level of aggregation)
+  `ShipmentID(🔑)` [string] : shipment identifier
+  `Location` [string] : Destination location
+  `OrderDate` [date] : Date when order was placed
+  `DeliveryDate` [date] : Date when order was delivered (can be in the future)
+  `EndOfProduction` [date] : Timestamp of when PO production finished
+  `LoadedOnBoat` [date] : Timestamp of when PO was loaded on container ship for transport
+  `DepartedAsia` [date] : Timestamp of when container ship with PO departs port in Asia
+  `ArrivalUS` [date] : Timestamp of when container ship arrives at USA port
+  `POStatus` [string] : Status of PO (Open, Closed, Partial, Cancelled, etc.)
+  `OrderedQty` [integer] : Ordered quantity of reference
+  `ConfirmedQty` [integer] : Confirmed quantity of reference by supplier
+  `DeliveredQty` [integer] : Delivered quantity of reference in this shipment
+  `UnitofCount(UC)` [integer] : units, cartons, boxes, cubic feet, gallons, etc.
+  `Supplier` [string] : Supplier Identifier
+  """
+
+show markdown "" e23h26 with """
+  #### Dispatch Orders (DOs)
+  `DONumber (🔑)` [string] : Identifier of the purchqse order
+  `Ref (🔑)` [string] : Item identifier corresponding to a sell sku (lowest level of aggregation)
+  `LocationFrom` [string] : Origin location
+  `LocationTo` [string] : Destination location
+  `OrderDate` [date] : Date when order was placed
+  `DeliveryDate` [date] : Date when order was delivered (can be in the future)
+  `DOStatus` [string] : Status of DO (Open, Closed, Partial, Cancelled, etc.)
+  `Qty` [integer] : Delivered quantity of reference
+  `UnitofCount(UC)` [integer] : units, cartons, boxes, cubic feet, gallons, etc.
+  """
+
+show markdown "" a23d26 with """
+  #### Dispatch Orders (DOs)
+  `DONumber (🔑)` [string] : Identifier of the purchqse order
+  `Ref (🔑)` [string] : Item identifier corresponding to a sell sku (lowest level of aggregation)
+  `LocationFrom` [string] : Origin location
+  `LocationTo` [string] : Destination location
+  `OrderDate` [date] : Date when order was placed
+  `DeliveryDate` [date] : Date when order was delivered (can be in the future)
+  `DOStatus` [string] : Status of DO (Open, Closed, Partial, Cancelled, etc.)
+  `Qty` [integer] : Delivered quantity of reference
+  `UnitofCount(UC)` [integer] : units, cartons, boxes, cubic feet, gallons, etc.
+  """

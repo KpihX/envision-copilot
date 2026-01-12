@@ -1,0 +1,119 @@
+// 2023-02-20: Created by Lokad
+// For more documentation, see https://docs.lokad.com/
+
+///Stock evolution function ------------------------------------------------------
+export def process StockEvol(
+    demand:number, /// demand quantity in selected time interval
+    desiredStockLvl: number,
+    reorderCycle:number, /// POINT ON WHICH WE CAN REORDER=
+    leadtime:number, /// leadtime time serie, the leadtime forecast might vary.
+    startStockonhand: number) with /// StartStockOnHand
+
+  keep isStart = false
+  keep stockOnHand = 0
+  keep stockOnOrder = 0
+  keep newOrder = 0
+  keep reorderCycleTime = 0
+  keep process lagQty = sumlagged(number,number) //this shares the process to be able to call it several times
+  keep process lagQtyPreDay = sumlagged(number,number) //this shares the process to be able to call it several times
+
+  /// Only Define Start Stock Once
+  if not isStart
+    stockOnHand = startStockonhand
+    isStart = true
+
+  /// Define If today is an order-day
+  reorderCycleTime = reorderCycleTime + 1
+  isOrderday = reorderCycle == reorderCycleTime
+  if isOrderday
+    reorderCycleTime = 0
+  isCurrentOrderDay = reorderCycleTime == 0 // (Somehos its not working just to say `if isOrderday`)
+
+  /// Define the desired order Qty if it is an order day
+  suggestedQty = if isCurrentOrderDay then max(desiredStockLvl - (stockOnHand + stockOnOrder), 0) else 0
+  newOrder = suggestedQty
+
+  //Fresh stock intake
+  arrivingStock = lagQty // the arriving stock is equal to the lagged quantity
+  arrivingStockPreDay = lagQtyPreDay // we will display the arrival one day earlier (just for highlighting purpose that the stock came but it is not available for the yet.)
+
+  stockOnHand = max(stockOnHand - demand, 0) + arrivingStock // stock on hand is the current stock + the new arrival
+  stockOnOrder = stockOnOrder - arrivingStock + newOrder // Stock on order is a snapshot from what is still on the way (deduct the quantities that arrived + new orders)
+
+  // This lag function is a bit counter intuitive. Everytime it is called, the first number will be catapulted in the future (leadtime)
+  oldLag = lagQty(newOrder, leadtime)
+  pdLag = lagQtyPreDay(newOrder, leadtime -1)
+
+  return (stockOnHand, stockOnOrder, arrivingStockPreDay, newOrder)
+
+
+export def process PurchaseQty(
+    /// consumption time serie, can be negative.
+    consumption:number,
+    /// reorder point time serie, the RP might vary
+    RP:number,
+    /// economic order qty time serie, whenever you reorder
+    /// you go back to RP + EOQ, EOQ can vary.
+    EOQ:number,
+    /// Leadtime time serie, the Leadtime forecast might vary.
+    Leadtime:number,
+
+    LotMultiplier : number,
+
+    /// stockonhand at the begining, same value everywhere,
+    /// only used in the keep.
+    /// --> should be used as parameter but can't make it work
+    initialstockonhand:number) with
+    /// initial on orders arrivals, it's a time serie, the arrival
+    /// dates have been computed beforehand hence it's not isolated in the keep
+
+  keep stockonhand = 0
+  keep stockonorder = 0
+  keep process laggedorderedqty = sumlagged(number,number) //this shares the process to be able to call it several times
+
+  //Fresh stock intake
+  laggedorderedqty_updated = laggedorderedqty //this is to update to check if stock ordered before is arriving today
+  stockonhand = stockonhand + initialstockonhand + laggedorderedqty_updated
+  stockonorder = stockonorder - laggedorderedqty_updated
+
+  //Stock on Hand
+  stockonhand = max(0,stockonhand - consumption)
+
+  //OrderQty (will be lagged if > 0), we order when stockcover is <= to RP and go back to RP+EOQ
+  orderedqty = if stockonhand + stockonorder <= RP then
+        round(EOQ/LotMultiplier)*LotMultiplier
+      else
+        0
+
+  laggedorderedqty_new = laggedorderedqty(orderedqty, Leadtime)
+
+  //Update stockonorder
+  stockonorder = stockonorder + orderedqty
+
+  return (stockonhand, stockonorder, orderedqty, laggedorderedqty_new)
+
+///# For Long Term Planning
+export def pure GrowthMap(Choice: number) with
+  Growth = match Choice with
+    0 -> -0.2
+    1 -> -0.1
+    2 -> -0.05
+    3 -> -0.03
+    4 -> -0.02
+    5 -> -0.01
+    6 -> -0.005
+    7 -> 0
+    8 -> 0.005
+    9 -> 0.01
+    10 -> 0.015
+    11 -> 0.02
+    12 -> 0.03
+    13 -> 0.04
+    14 -> 0.05
+    15 -> 0.075
+    16 -> 0.1
+    17 -> 0.15
+    18 -> 0.2
+    19 -> 0.25
+    .. -> -1
+  return(Growth)

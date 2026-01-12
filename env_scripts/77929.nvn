@@ -1,0 +1,112 @@
+/// Homepage Demo Account
+import "/1. utilities/Modules/Global Parameters" as GP with
+  ColorB
+
+
+
+show logo "" b1
+
+// retrieve links of graphics -> It is recommended to display images with downlokadUrl + show label instead of putting their location in a markdown.
+logoURL = downloadUrl("/Background/Graphics/Forms/LogoLokadVertical.jpg")
+graphic_targetURL = downloadUrl("/Background/Graphics/Forms/Target.png")
+graphic_dataURL = downloadUrl("/Background/Graphics/Forms/data.png")
+graphic_truckURL = downloadUrl("/Images/NewHomePage/truck.png")
+graphic_itemviewURL = downloadUrl("/Images/NewHomePage/itemview.png")
+graphic_financeURL = downloadUrl("/Background/Graphics/Forms/Finance.png")
+graphic_TimeSeriesGreyedURL = downloadUrl("/Background/Graphics/Forms/TimeSeriesGreyed.jpg")
+graphic_BookURL = downloadUrl("/Background/Graphics/Forms/Book.jpg")
+graphic_TeamURL = downloadUrl("/Background/Graphics/Forms/Team.png")
+
+
+/// --------------------------------- [ Header ] ---------------------------------
+// show markdown "Welcome" b1d1                                                                     {tileColor: #(highlightColor)} with  """
+// ## __Welcome to your Lokad cockpit!__
+// """
+
+show label "Welcome to your Lokad cockpit" c1e1 000000 {textAlign: center ; labelBorder: "none"}
+
+show label logoURL c5e6 {textVerticalAlign: center}
+show label "Video Tutorial" c7e7 {labelIcon: "files-magnifier" ; hrefAspect: white ; href: "https://www.lokad.com/technology/" ; textAlign: center ; tileColor: #(ColorB)}
+
+
+show label graphic_targetURL c3c4 {href: #(dashUrl(68021))}
+show markdown "" b3b4 {tileZoom: "false"} with
+  """
+  #### **Inv. Optimization**
+  Stock movements
+  suggested to cover
+  future needs
+  """
+
+show label graphic_dataURL b7b8 {href: #(dashUrl(68005))}
+show markdown "" a7a8 {tileZoom: "false"} with
+  """
+  #### **Data validation**
+  Review of data feed, validation
+  and visualisation
+  """
+
+show label graphic_truckURL e3e4 {href: #(dashUrl(80985))}
+show markdown "" f3f4 {tileZoom: "false"} with
+  """
+  #### **Dispatch Optim.**
+  Dispatch movements
+  suggested to maximize
+  margin
+  """
+
+show label graphic_itemviewURL f5f6 {href: #(dashUrl(68009))}
+show markdown "" g5g6 {tileZoom: "false"} with
+  """
+  #### **Item View**
+  Investigate all KPIs and Optimization
+  results at Ref level
+  """
+
+show label graphic_financeURL f7f8 {href: #(dashUrl(68026))}
+show markdown "" g7g8 {tileZoom: "false"} with
+  """
+  #### **Business Metrics**
+  Access to
+  analysis of key business metrics
+  """
+
+show label graphic_TimeSeriesGreyedURL b5b6 {href: #(dashUrl(86092))}
+show markdown "" a5a6 {tileZoom: "false"} with
+  """
+  #### **Forecasts**
+  Overview of forecasts
+  and future patterns
+  """
+
+show label graphic_BookURL c9c10 {href: #(dashUrl(68031))}
+show markdown "" b9b10  {tileZoom: "false"} with
+  """
+  #### **Documentation**
+  Business and tech aspects,
+  JPM
+  """
+
+show label graphic_TeamURL e9e10 {href: #(dashUrl(68030))}
+show markdown "" f9f10  {tileZoom: "false"} with
+  """
+  <p class="text-right">
+  <H4> <b> Organisation </b> </H4>
+  Project timeline,
+  team and main
+  milestones
+  </p>
+  """
+
+// show markdown "Cockpit" a20b20 with  """
+// ![IMAGE ALT TEXT HERE](https://go.lokad.com/gateway/BigFiles/browse/Download?hash=060443D86F9E8874BCBC971582292DD7&name=cockpit-demo-account.jpg)
+// """
+
+// show markdown "Documentation" c19 with """ __This is the graphical overview that eases access to all relevant reports.
+// All created processes can be found in the [Projects][1] section. Submitted raw inputs can be accessed in [Files][1] .__
+
+//   [1]: https://go.lokad.com/projects
+//   [2]: https://go.lokad.com/files
+
+// """
+

@@ -1,0 +1,194 @@
+/// Input: Behavior Strategy Output: Raw Catalog and Orders Table
+import "/1. utilities/Modules/Global Parameters" as GP with
+  DcUnit
+  ColorB
+  ColorLightBg
+  LinkLocationSupplierInspector
+  LinkLocationLocInspector
+  LinkHomeDashboard
+
+const projectFolder = "" // remove before flight!!!
+const itemName = "Suppliers_Dashboard"
+const itemName2 = "Location_Dashboard"
+
+read "/Input/Catalog/Catalog*" as Editable with
+  Supplier : text
+  const(-1) as LeadTime
+  const(-1) as ReorderCycle
+  const(-1) as MOV
+  const(-1) as ContainerM3
+  const(false) as IsEditable
+
+read "/Input/Catalog/Catalog*" as Editable2 with
+  Loc : text
+  const(-1) as LeadTime
+  const(-1) as ReorderCycle
+  const(-1) as MOV
+  const(-1) as ContainerM3
+  const(false) as IsEditable
+
+read upload "Editable" as Editable with
+  Supplier : text
+  LeadTime : number
+  "Order Frequency" as ReorderCycle : number
+  MOV : number
+  ContainerM3 : number
+  const(true) as IsEditable
+
+read upload "Editable2" as Editable2 with
+  Loc : text
+  LeadTime : number
+  "Dispatch Frequency" as ReorderCycle : number
+  MOV : number
+  ContainerM3 : number
+  const(true) as IsEditable
+
+read "/Clean/Items.ion" as Catalog with
+  Supplier : text
+  StockOnHand : number
+  StockOnOrder : number
+  BackOrder : number
+  BuyPrice : number
+  Loc : text
+
+highlightColor =  ColorB
+bgLight =  ColorLightBg
+darkGrey = "#343434"
+
+supplierInspectorId = LinkLocationSupplierInspector
+locInspectorId = LinkLocationLocInspector
+
+/// --------------------------------- [ Header ] ---------------------------------
+@{ dashButton: ""}
+
+show logo "" a1
+show markdown "Supply Chain Configuration" b1c1 with """
+  ### **Supply Chain Configuration**
+"""
+show markdown "" a4a6 with  """[![IMAGE ALT TEXT HERE](https://go.lokad.com/DEMO/gateway/BigFiles/browse/Download?hash=66D875D28939B4CED452B3D93A929D8A&path=%2FBackground%2FGraphics%2FInterface%2FSupplyChainObjects&name=factorys-2.png)](https://go.lokad.com/files)"""
+show markdown "" b4c6 with  """[![IMAGE ALT TEXT HERE](https://go.lokad.com/DEMO/gateway/BigFiles/browse/Download?hash=1B1B6B036D1D80CF5B270AD57B135A8C&path=%2FBackground%2FGraphics%2FForms&name=warehouse.png)](https://go.lokad.com/files)"""
+show markdown "" b8b9 with  """[![IMAGE ALT TEXT HERE](https://go.lokad.com/DEMO/gateway/BigFiles/browse/Download?hash=96044B081A03DE110A33DABFBBF5E384&path=%2FBackground%2FGraphics%2FInterface%2FSupplyChainObjects&name=shop-1.png)](https://go.lokad.com/files)"""
+show markdown "" a8a9 with  """[![IMAGE ALT TEXT HERE](https://go.lokad.com/DEMO/gateway/BigFiles/browse/Download?hash=3BBCD7E6EA38246B3DC41A1B5777C46E&path=%2FBackground%2FGraphics%2FInterface%2FSupplyChainObjects&name=shop-2.png)](https://go.lokad.com/files)"""
+show markdown "" c8c9 with  """[![IMAGE ALT TEXT HERE](https://go.lokad.com/DEMO/gateway/BigFiles/browse/Download?hash=3BBCD7E6EA38246B3DC41A1B5777C46E&path=%2FBackground%2FGraphics%2FInterface%2FSupplyChainObjects&name=shop-2.png)](https://go.lokad.com/files)"""
+
+show markdown "Split Line" a7h7                                                        {tileColor: #(highlightColor)} with  """
+------
+"""
+
+show markdown "Documentation" b2h2                              {color: #(highlightColor) ; textColor: #(darkGrey)} with
+  """
+  __The shown table displays all suppliers that were found in the catalog files. Suppliers that are not
+  tracked in the suppliers table are marked in red. It is advised to correct these suppliers in your
+  system. If it is not possible to correct the figures in your ERP, it is possible to overrule a supplier
+  by double-clicking on the Supplier table.__
+  """
+
+show markdown "Documentation" a11h16 with
+  """
+  ### Documentation
+
+  __Setup suppliers__: editable table to configure suppliers parameters.
+
+  Supplier = supplier name
+
+  Leadtime = supplier leadtime in days, i.e. time between the order placement and the order delivery
+
+  Order frequency = purchasing frequence from this supplier in days (e.g. an order frequency of 10 days means one buys every 10 days from this supplier)
+
+  MOV = minimum order value in dollars imposed by the supplier for every purchase
+
+  ContainerM3 = container size in cubic metres if needed
+
+  On Hand Value = not a parameter but an indicator. Represents the current stock on hand associated to references of the given supplier
+
+  Status = not a parameter. Automatic alert which identifies if all parameters values are valid. For example, if the leatime or the reorder frequency is negative, the status won't be "ok"
+
+  __Setup Location__: editable table to configure stores (only needed for the dispatch optimization)
+
+  Loc = store name
+
+  Leadtime = transfer time from the main warehouse to the store
+
+  Dispatch frequency = dispatch frequence from the main warehouse to the store (e.g. a dispatch frequency of 2 days means there is a transfer from the main warehouse to the store every 2 days)
+
+  On Hand Value = not a parameter but an indicator. Represents the current stock on hand associated to references of the given store
+
+  Status = not a parameter. Automatic alert which identifies if all parameters values are valid. For example, if the leatime or the dispatch frequency is negative, the status won't be "ok"
+
+  """
+
+show label "" a2h2 9b9b9b
+
+/// --------------------------------- [ Editable Body ] ---------------------------------
+/// --------------------------------- [ Edit Supplier ] ---------------------------------
+
+show form "Save changes" h3           {formButton: "Click to save changes"}
+
+Editable.CountItemsBySupplier = count(not Editable.IsEditable) by Editable.Supplier
+
+keep where argwhichever() by [Editable.Supplier, Editable.IsEditable]
+Editable.IsInBothFiles = count(Editable.*) by Editable.Supplier > 1
+keep where not Editable.IsInBothFiles or Editable.IsEditable
+
+Editable.IsValidLeadTime = Editable.LeadTime >= 0
+Editable.IsValidReorderCycle = Editable.ReorderCycle >= 0
+
+Editable.IsItemOk = Editable.IsEditable and Editable.IsValidLeadTime and Editable.IsValidReorderCycle
+Editable.Status = if Editable.IsItemOk then "Ok" else "Not Configured"
+Editable.StatusColor = if Editable.IsItemOk then "#FFFFFF" else "FFA1A1"
+passiveColor = "#ABABAB"
+Editable.StatusColorText = if Editable.IsItemOk then passiveColor else "#FF0000"
+
+
+Editable.CurrentStockValue = sum(Catalog.StockOnHand * Catalog.BuyPrice) by Catalog.Supplier at Editable.Supplier default -1
+
+Editable.hRefUrl = sliceSearchUrl(supplierInspectorId, Editable.Supplier)
+
+exportFile = "\{projectFolder}Manual/\{itemName}.ion"
+show table "Setup Suppliers" d4h6 editable: "Editable" write: exportFile   {textBold: "true"} with
+  Editable.Supplier {columnReadOnly: "true"; value { textColor: "#000" } ; cellBackground: #[Editable.StatusColor] ; href: #[Editable.hRefUrl]}
+  Editable.LeadTime {unit: " Days" ; cellBackground: #[Editable.StatusColor]}
+  Editable.ReorderCycle as "Order Frequency" {unit: " Days" ; cellBackground: #[Editable.StatusColor]}
+  Editable.MOV {cellBackground: #[Editable.StatusColor] ; unit: #(DcUnit)}
+  Editable.ContainerM3 {unit: " m³" ; cellBackground: #[Editable.StatusColor]}
+  Editable.CurrentStockValue as "On Hand Value"  {columnReadOnly: "true" ; cellBackground: #(bgLight) ; textColor: #(passiveColor) ; unit: #(DcUnit)}
+  Editable.Status {columnReadOnly: "true" ; cellBackground: #(bgLight) ; textColor: #[Editable.StatusColorText]}
+  order by Editable.CurrentStockValue desc
+
+
+/// --------------------------------- [ Edit Location ] ---------------------------------
+
+Editable2.CountItemsBySupplier = count(not Editable2.IsEditable) by Editable2.Loc
+
+keep where argwhichever() by [Editable2.Loc, Editable2.IsEditable]
+Editable2.IsInBothFiles = count(Editable2.*) by Editable2.Loc > 1
+keep where not Editable2.IsInBothFiles or Editable2.IsEditable
+
+Editable2.IsValidLeadTime = Editable2.LeadTime >= 0
+Editable2.IsValidReorderCycle = Editable2.ReorderCycle >= 0
+Editable2.IsItemOk = Editable2.IsEditable and Editable2.IsValidLeadTime and Editable2.IsValidReorderCycle
+Editable2.Status = if Editable2.IsItemOk then "Ok" else "Not Configured"
+Editable2.StatusColor = if Editable2.IsItemOk then "#FFFFFF" else "FFA1A1"
+passiveColor = "#ABABAB"
+Editable2.StatusColorText = if Editable2.IsItemOk then passiveColor else "#FF0000"
+Editable2.CurrentStockValue = sum(Catalog.StockOnHand * Catalog.BuyPrice) by Catalog.Loc at Editable2.Loc default -1
+
+Editable2.hRefUrl = sliceSearchUrl(locInspectorId, Editable2.Loc)
+
+exportFile = "\{projectFolder}Manual/\{itemName2}.ion"
+show table "Setup Location" d8h10 editable: "Editable2" write: exportFile   {textBold: "true"} with
+  Editable2.Loc {columnReadOnly: "true"; value { textColor: "#000" } ; cellBackground: #[Editable2.StatusColor] ; href: #[Editable2.hRefUrl]}
+  Editable2.LeadTime {unit: " Days" ; cellBackground: #[Editable2.StatusColor]}
+  Editable2.ReorderCycle as "Dispatch Frequency" {unit: " Days" ; cellBackground: #[Editable2.StatusColor]}
+  Editable2.MOV {cellBackground: #[Editable2.StatusColor] ; unit: #(DcUnit)}
+  Editable2.ContainerM3 {unit: " m³" ; cellBackground: #[Editable2.StatusColor]}
+  Editable2.CurrentStockValue as "On Hand Value"  {columnReadOnly: "true" ; cellBackground: #(bgLight) ; textColor: #(passiveColor) ; unit: #(DcUnit)}
+  Editable2.Status {columnReadOnly: "true" ; cellBackground: #(bgLight) ; textColor: #[Editable2.StatusColorText]}
+  order by Editable2.CurrentStockValue desc
+
+show label "Next" h1              {href: #(dashUrl(68019)) ; hrefAspect: white ; textAlign: center}
+show label "Back" g1              {href: #(dashUrl(LinkHomeDashboard)) ; hrefAspect: white ; textAlign: center}
+
+/// ------------------------------ [  ] ---------------------------
+
+

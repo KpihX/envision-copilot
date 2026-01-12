@@ -1,0 +1,44 @@
+/// Dashboard to choose target ambition - All Granularity Level
+
+import "/1. utilities/Modules/Global Parameters" as GP with
+  ColorB
+
+show logo "" b1
+
+show label "Welcome to your Lokad cockpit - Long Term Planning" c1f1 000000 {textAlign: left ; labelBorder: "none"}
+show label "https://go.lokad.com/DEMO/gateway/BigFiles/browse/Download?hash=90F439C08030848A1DFA0CD2B55662FA&path=%2FBackground%2FGraphics%2FForms&name=LogoLokadVertical.jpg" c5e6 {textVerticalAlign: center}
+
+show markdown "" f5f6 with
+  """
+  [![Redirection](https://go.lokad.com/DEMO/gateway/BigFiles/browse/Download?hash=04F2D448B4C11E484A539330F1499877&path=%2FBackground%2FGraphics%2FForms&name=Target.png)](https://go.lokad.com/d/82317)
+  """
+show markdown "" g5g6 {textAlign: right ; tileZoom: "false"} with
+  """
+  #### **Forecast Plan**
+  Overview of the Forecast plan
+  and the coresponding Purchase budget
+  """
+
+show markdown "" c3c4 with
+  """
+  [![Redirection](https://go.lokad.com/DEMO/gateway/BigFiles/browse/Download?hash=1B2B9AA6AD4D74568FDA95C8FE7CD5CB&name=TimeSeriesGreyed.jpg)](https://go.lokad.com/d/82199)
+  """
+show markdown "" d3e4 {tileZoom: "false"} with
+  """
+  #### **Forecast Cockpit**
+  Parametrize and monitor at __High level__
+  the Forecast Plan
+  """
+
+show markdown "" b5b6 with
+  """
+  [![Redirection](https://go.lokad.com/DEMO/gateway/BigFiles/Browse/Download?hash=3FFD763481D930A36E195506A2FD4F07&path=%2FImages%2FNewHomePage&name=itemview.png)](https://go.lokad.com/d/82466)
+  """
+show markdown "" a5a6 {tileZoom: "false"} with
+  """
+  #### **Category Cockpit**
+  Parametrize and monitor at __Category level__
+  the Forecast Plan
+  """
+
+@{ dashButton: ""}

@@ -1,0 +1,420 @@
+///
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// --------------------------------------READ INPUT TABLES-----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+import "/1. utilities/Modules/Global Parameters" as GP with
+  DcUnit
+  ColorB
+  LinkLocationItemInspector
+
+const testStorage = ""
+const inputPath = "\{testStorage}/Clean/"
+
+read "\{inputPath}Items.ion" as Items[Id unsafe] with
+  "Sku" as Id : text
+  Name : text
+  Category : text
+  SellPrice : number
+  BuyPrice : number
+  StockOnHand : number
+  StockOnOrder : number
+  LeadTime : number
+  ImageUrl : text
+  StartDate : date
+  EndDate : date
+  Supplier : text
+  MOQ : number
+  LotMultiplier : number
+  Q30 : number
+  Q90 : number
+  Q365 : number
+
+read "/Manual/TopItemsParameters.xlsx" as TopItemsParameters expect[Id] with
+  CategoryDisplayRank : number
+  Category : text
+  ItemDisplayRank : number
+  Ref : text
+  "Sku" as Id : text
+
+read "\{testStorage}Clean/Orders.ion" as Orders expect [Id, date] with
+  "Sku" as Id : text
+  "OrderDate" as date: date
+  Ref : text
+  Loc : text
+  Quantity : number
+  LokadNetAmount : number
+  OrderId : text
+  IsFirstOrder : boolean
+  HealthLog : text
+  IsClean : boolean
+
+read "/Clean/PO.ion" as PO expect[Id, date] with
+  "Sku" as Id : text
+  "OrderDate" as date: date
+  Loc : text
+  Ref : text
+  DeliveryDate : date
+  Quantity : number
+  Supplier : text
+  PONumber : text
+  IsInCatalog : boolean
+  IsClean : boolean
+  InputDate : date
+  InputPath : text
+
+read "/Clean/Stock.ion" as Stock expect[Id, date] with
+  "Sku" as Id : text
+  StockOnHand : number
+  StockOnOrder : number
+  "StockDate" as date: date
+  IsInCatalog : boolean
+  InputDate : date
+  InputPath : text
+
+read "\{inputPath}Forecast/Periodic/WeeklyFc.ion" as WeeklyFc expect[Id, date] with
+  "Sku" as Id : text
+  "Monday" as date: date
+  WOODemand : ranvar
+  SLTDemand : ranvar
+  TotalDemand : ranvar
+
+read "Clean/PurchaseResults/PORecommendations.ion" as PORecommendations expect[Id] with
+  Id : text
+  Margin : number
+  BuyPrice : number
+  OrderQuantity : number
+  InvestmentRequired : number
+  CurrentFR : number
+  NewFR : number
+  LastYearSales : number
+  SalesWeight : number
+  OverallFRContrib : number
+  SupplierLastYearSales : number
+  SupplierSalesWeight : number
+  SatisfiableDemand : ranvar
+
+read "Clean/PurchaseResults/MicroDecisions.ion" as MicroDecisions expect[Id] with
+  Rank : number
+  "SKU" as Id : text
+  Name : text
+  Supplier : text
+  BuyPrice : number
+  SellPrice : number
+  Margin : number
+  StockOnHand : number
+  StockOnOrder : number
+  LotMultiplier : number
+  Q : number
+  Min : number
+  Max : number
+  SLT : number
+  RLT : number
+  SalesWeight : number
+  CurrentFR : number
+  FillRateDelta : number
+  CumFillrateDelta : number
+  M : number
+  S : number
+  C : number
+  Reward : number
+  Score : number
+  Investment : number
+  CumInvest : number
+  IsEligible : boolean
+
+read "/Clean/Interface/DeletedSuppliers.ion" as DeletedSuppliers max 5k with
+  SupplierIdStr : text
+read "/Clean/Interface/InterfaceParameters.ion" as InterfaceParameters with
+  exportedAmount : number
+read "/Clean/Interface/SuppliersToCheck.ion" as SuppliersToCheck with
+  SupplierId : text
+  AmountToCheck : number
+read "/Clean/Interface/PurchasePerimeter.xlsx" as PurchasePerimeter with
+  Buyer : text
+
+////-----Upload-----
+
+read form with
+  resetDashboard : boolean
+  supplierReintegrate : text
+  moveAll : boolean
+  exportAll : boolean
+  BuyerToMoveOrders : text
+
+read upload "ExportSuppliers" as ExportSuppliers  with
+  Supplier : text
+  "Export" as IsToExport : boolean
+  "Delete" as IsToDelete : boolean
+  "Migrate" as IsToMove : boolean
+read upload "PrioritaryValidation" as Validation expect[Id] with
+  Id : text
+  "Validation ?" as Validated : boolean
+  FinalQty : number
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// ------------------------------------------SETUP-------------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///Colors-------------------------------------------------------------------------------------------
+
+highlightColor =  ColorB
+
+
+///Editable body------------------------------------------------------------------------------------
+
+show logo "" a1
+show markdown "Purchase suggestions" b1c1 with """
+  ### **Purchase suggestions**
+"""
+
+show markdown "" a2g2 with """
+  __This dashboard provides a purchase suggestion utilizing the ROI optimization of probablistic forecasts.__
+  __See full documentation below__
+"""
+show tabs "" a3g3 with
+  "All" as "General View"
+  "Validation" as "Purchase Recommendations Validation"
+
+////Tab General View
+
+currentTab = "All"
+
+show markdown "Overall view" a10g16 {tileTab: #(currentTab)} with  """
+### Documentation
+
+__Current Fill Rate__: overall fill rate associated to the current stock on hand and on order, i.e. the proportion of the demand
+already covered by the current stock on hand and on order
+
+__Achieved Fill Rate__: overall fill rate associated to the current stock on hand and on order and the recommended purchase suggestions, i.e. the proportion of the demand
+which will be covered after purchasing
+
+__Total Investments__: total investment proposed in dollars
+
+__Recommended amount by supplier__: total investment proposed in dollars split by supplier
+
+__All Suppliers Purchase suggestions__: all references to buy and main indicators to understand the purchase recommendations
+
+Inspect: link to the item inspector dashboard which displays all information of the given reference
+
+Sku: reference code
+
+Name: reference name
+
+Category: reference category
+
+Supplier: reference supplier
+
+Sugg. Order Quantity: recommended purchase quantity to cover the next responsibility window
+
+Investment: investment associated to the recommended purchase quantity
+
+Current Fillrate: fill rate associated to the current stock on hand and on order, i.e. the proportion of the demand
+already covered by the current stock on hand and on order
+
+New Fill Rate: fill rate associated to the current stock on hand and on order and the recommended purchase suggestions, i.e. the proportion of the demand
+which will be covered after purchasing
+
+"""
+
+show label "https://go.lokad.com/d/68018/ Configure Purchasing Process" e1g1                                                  {labelIcon: "container" ; textAlign: center ; hrefAspect: white ; tileColor: #(highlightColor)}
+
+show label "Compare with Min/Max Strategy" a7c7 f5ca91               {href: "https://go.lokad.com/d/68014/" ; labelIcon: "histogram" ; hrefAspect: white ; textAlign: center ; textBold: "true" ; tileTab: #(currentTab)}
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///---------------------------------------PREPROCESS----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+inspectorId = LinkLocationItemInspector
+selectedTab = concat("&t=", "Info")
+Items.hRefUrlRaw = sliceSearchUrl(inspectorId, Items.Id)
+Items.hRefUrl = concat(Items.hRefUrlRaw, selectedTab)
+Items.Url = replace(Items.hRefUrl , "~" , "https://go.lokad.com" )
+
+Items.CategoryDisplayRank = same(TopItemsParameters.CategoryDisplayRank)
+                            by TopItemsParameters.Category
+                            at Items.Category
+
+Items.IsTopItem = any(TopItemsParameters.*)
+
+// Items.WOODemand = same(WeeklyFc.WOODemand)
+// Items.SLTDemand = same(WeeklyFc.SLTDemand)
+// Items.TotalDemand = same(WeeklyFc.TotalDemand)
+Items.IsFirst = Items.Category == "Cosmetic"
+table Slices [slice] = slice by (not Items.IsFirst,Items.Category) title: Items.Category
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///---------------------------------PURCHASE RECOMMENDATIONS--------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+show scalar "Total Investments" c4     {textBold: "true" ; textAlign: center ; tileTab: #(currentTab)} with
+  sum(PORecommendations.InvestmentRequired) as "" {unit: #(DcUnit)}
+
+show scalar "Current Fill Rate" a4     {textBold: "true" ; textAlign: center ; tileTab: #(currentTab)} with
+  sum(PORecommendations.CurrentFR * PORecommendations.SalesWeight) as "" {numbers: percent}
+
+show scalar "Achieved Fill Rate" b4 449d44     {textBold: "true" ; textAlign: center ; tileTab: #(currentTab)} with
+  sum(PORecommendations.NewFR * PORecommendations.SalesWeight) as "" {numbers: percent}
+
+where PORecommendations.OrderQuantity > 0
+  show table "All Suppliers Purchase suggestions" d4g5 {tileTab: #(currentTab)} with
+    "🔎" as "Inspect" {columnReadOnly: "true" ; columnWidth: 2 ; href: #[Items.Url]}
+    Items.Id as "Sku"
+    Items.Name as "Name"
+    Items.Category as "Category"
+    Items.Supplier as "Supplier"
+
+    PORecommendations.OrderQuantity as "Sugg. Order Quantity" {unit: " units" ; cellBackground: #d1d1d1 ; textColor: #C7180F ; href: #[Items.Url]}
+    PORecommendations.InvestmentRequired as "Investment" {unit: #(DcUnit)}
+    PORecommendations.CurrentFR as "Current Fillrate" {numbers: percent}
+    PORecommendations.NewFR as "New Fillrate" {numbers: percent}
+    order by not Items.IsTopItem, Items.CategoryDisplayRank, - PORecommendations.InvestmentRequired
+
+  show table same("Category: \{Items.Category} Purchase suggestions") by slice d6g9  slices:Items.slice {tileTab: #(currentTab)} with //
+    "🔎" as "Inspect" {columnReadOnly: "true" ; columnWidth: 2 ; href: #[Items.Url]}
+    Items.Id as "Sku"
+    Items.Name as "Name"
+    Items.Category as "Category"
+    Items.Supplier as "Supplier"
+
+    PORecommendations.OrderQuantity as "Sugg. Order Quantity" {unit: " units" ; cellBackground: #d1d1d1 ; textColor: #C7180F ; href: #[Items.Url]}
+    PORecommendations.InvestmentRequired as "Investment" {unit: #(DcUnit)}
+    PORecommendations.CurrentFR as "Current Fillrate" {numbers: percent}
+    PORecommendations.NewFR as "New Fillrate" {numbers: percent}
+    order by not Items.IsTopItem, Items.CategoryDisplayRank, - PORecommendations.InvestmentRequired
+
+  show barchart "Recommended amount by supplier" a5c6 ec9539 {tileTab: #(currentTab)} with
+    sum(PORecommendations.InvestmentRequired) {unit: #(DcUnit)}
+    group by Items.Supplier into PORecommendations
+    order by sum(PORecommendations.InvestmentRequired) desc
+
+////Tab General View
+
+currentTab = "Validation"
+
+formButton = "Update"
+show form "" e7f7 {backgroundColor: #f2f2fa ; formButton: #(formButton) ; tileTab: #(currentTab)}
+show form "" a15c15 {tileTab: #(currentTab)} with
+  false as "Reset dashboard [DEMO] ?" form : "resetDashboard"
+
+// Retinitialize booleans for the demo
+exportAll = exportAll and not resetDashboard
+moveAll = moveAll and not resetDashboard
+
+
+table Suppliers = by Items.Supplier
+
+Suppliers.Supplier = same(Items.Supplier)
+Suppliers.TotalQuantityPurchased = sum(PORecommendations.OrderQuantity) by Items.Supplier at Suppliers.Supplier
+Suppliers.TotalAmountPurchased = sum(PORecommendations.InvestmentRequired) by Items.Supplier at Suppliers.Supplier
+
+Suppliers.IsExportedAndDeleted = same(ExportSuppliers.IsToExport and ExportSuppliers.IsToDelete) by ExportSuppliers.Supplier at Suppliers.Supplier or
+                                 same(ExportSuppliers.IsToMove and ExportSuppliers.IsToDelete) by ExportSuppliers.Supplier at Suppliers.Supplier or
+                                 same(ExportSuppliers.IsToExport and ExportSuppliers.IsToMove) by ExportSuppliers.Supplier at Suppliers.Supplier
+
+//## Supplier Export
+Suppliers.IsAlreadyExported = (not(Suppliers.Supplier in ExportSuppliers.Supplier) and Suppliers.Supplier != supplierReintegrate)
+                              and not resetDashboard // Has been exported/deleted in a previous run
+Suppliers.IsSupplierToExport = (same(ExportSuppliers.IsToExport)  by ExportSuppliers.Supplier at Suppliers.Supplier or (exportAll and not moveAll and not Suppliers.IsAlreadyExported))
+                                and not resetDashboard  and not Suppliers.IsExportedAndDeleted
+Suppliers.IsSupplierToDelete = (same(ExportSuppliers.IsToDelete)  by ExportSuppliers.Supplier at Suppliers.Supplier) and not resetDashboard  and not Suppliers.IsExportedAndDeleted
+Suppliers.IsSupplierToMove   = (same(ExportSuppliers.IsToMove)  by ExportSuppliers.Supplier at Suppliers.Supplier or (moveAll and not exportAll and not Suppliers.IsAlreadyExported)) and not resetDashboard  and not Suppliers.IsExportedAndDeleted
+
+Suppliers.IsValidationPending = not Suppliers.IsSupplierToExport and not Suppliers.IsSupplierToDelete and not Suppliers.IsSupplierToMove and not Suppliers.IsAlreadyExported
+
+show summary "General KPIs" a4d4 {textAlign: left ; backgroundColor: #(GP.ColorAlight) ; tileTab: #(currentTab)} with
+  sum(Suppliers.TotalQuantityPurchased) as "Total Suggested Qty" {textBold: "true" ; unit: #(GP.pcsUnit)}
+  sum(Suppliers.TotalQuantityPurchased) when Suppliers.IsValidationPending as "Remaining Qty to Validate" {textBold: "true" ; unit: #(GP.pcsUnit)}
+  sum(Suppliers.TotalAmountPurchased) when Suppliers.IsValidationPending as "Remaining Amount" {textBold: "true" ; unit: #(GP.DcUnit)}
+  count(Suppliers.IsValidationPending) when (Suppliers.TotalQuantityPurchased > 0) as "# Suppliers to validate" {textBold: "true"}
+
+Items.OrderQuantity = same(PORecommendations.OrderQuantity)
+Items.InvestmentRequired = same(PORecommendations.InvestmentRequired)
+Items.CurrentFR = same(PORecommendations.CurrentFR)
+Items.NewFR = same(PORecommendations.NewFR)
+
+Items.ChangedQty =single(Validation.FinalQty)
+Items.FinalQty = if (Items.ChangedQty > 0 and not resetDashboard) then Items.ChangedQty else Items.OrderQuantity
+
+Items.Validated =  (single(Validation.Validated) or resetDashboard)
+Items.IsToExport = Items.Validated and Suppliers.IsSupplierToExport
+
+labelboxdisplay = if any(Items.IsToExport) then "fixed" else "hidden"
+show label "https://go.lokad.com/DEMO/gateway/BigFiles/Browse/Download?hash=CB8060E2BF3726438529D2919C33EE3E&path=%2FImages%2Flogos&name=GreenPO.png" d13 {tileTab: #(currentTab);tilePlacement: #(labelboxdisplay)}
+
+where Items.IsToExport
+  show table "Purchase Orders already validated" a13c13 {backgroundColor: #(GP.blue) ; tileTab: #(currentTab)} with
+    Items.Id
+    Items.Supplier
+    Items.StockOnHand as "StockOnHand"
+    Items.StockOnOrder as "StockOnOrder"
+    Items.FinalQty
+    Items.CurrentFR as "CurrentFR"
+    Items.NewFR as "NewFR"
+
+///##--------------------------- [ EDITABLE SET-UP ] -------------------------------------
+table NewDeletedSuppliers max 500 = with
+  [|as SupplierIdStr |]
+  where DeletedSuppliers.SupplierIdStr != supplierReintegrate or DeletedSuppliers.SupplierIdStr == ""
+    [|DeletedSuppliers.SupplierIdStr|]
+  where Suppliers.IsSupplierToDelete
+    [|Suppliers.Supplier|]
+
+keep where not (Suppliers.IsSupplierToExport or Suppliers.IsSupplierToDelete or Suppliers.IsSupplierToMove or Suppliers.IsAlreadyExported)
+
+///##------------------------------- [ EXPORT ] -----------------------------------------
+
+Suppliers.CellColor = if Suppliers.IsSupplierToExport then GP.colorSkyBlue else
+                      if Suppliers.IsSupplierToMove   then GP.colorSkyBlue else
+                      if Suppliers.IsSupplierToDelete then "red" else
+                      if Suppliers.IsExportedAndDeleted then "red" else "white"
+
+Suppliers.CellColor = if (Suppliers.IsSupplierToExport and Suppliers.IsSupplierToMove) or
+                         (Suppliers.IsSupplierToExport and Suppliers.IsSupplierToDelete) or
+                         (Suppliers.IsSupplierToMove and Suppliers.IsSupplierToDelete) then GP.ColorA else Suppliers.CellColor
+
+show table "Suppliers to manage" a5d7 editable: "ExportSuppliers" {tileTab: #(currentTab)} with
+  Suppliers.Supplier as "Supplier"
+  Suppliers.TotalQuantityPurchased as "Total Quantity" {unit: #(GP.pcsUnit)}
+  Suppliers.TotalAmountPurchased as "Total Amount" {unit: #(DcUnit)}
+  Suppliers.IsSupplierToExport as "Export" {cellBackground: #[Suppliers.CellColor]}
+  Suppliers.IsSupplierToDelete as "Delete" {cellBackground: #[Suppliers.CellColor]}
+  Suppliers.IsSupplierToMove   as "Migrate" {cellBackground: #[Suppliers.CellColor]}
+  order by Suppliers.TotalAmountPurchased  desc
+
+///## Suppliers Orders Moves
+table BuyerList max 100  = by PurchasePerimeter.Buyer
+BuyerList.Buyer = same(PurchasePerimeter.Buyer)
+
+show form " " e5f6 {backgroundColor: #f2f2fa ; tileTab: #(currentTab)} with
+  "" as "Export to another Buyer" form:"BuyerToMoveOrders" {fieldType: dropdown ; fieldChoices: #(BuyerList.Buyer)}
+  "" as "Reintegrate a Supplier" form:"supplierReintegrate" {fieldType: dropdown ; fieldChoices: #(NewDeletedSuppliers.SupplierIdStr)}
+
+show form "Export All Suggestions" e4f4 {backgroundColor: #f2f2fa ; tileTab: #(currentTab)} with
+  exportAll as "To Suppliers"
+
+///Détail des suggestions
+
+where Items.OrderQuantity > 0
+  show table "All Suppliers Purchase suggestions" a8f12 editable: "PrioritaryValidation" {tileTab: #(currentTab)} with
+    "🔎" as "Inspect" {columnReadOnly: "true" ; columnWidth: 2 ; href: #[Items.Url]}
+    Items.Id into PORecommendations as "Id"
+    Items.Name as "Name"
+    Items.Category as "Category"
+    Items.Supplier as "Supplier"
+    Items.StockOnHand {unit: #(GP.pcsUnit)}
+    Items.StockOnOrder {unit: #(GP.pcsUnit)}
+    Items.Q30  {columnTooltipText: "Quantity Sold over last 30 days" ; unit: #(GP.pcsUnit)}
+    Items.Q90  {columnTooltipText: "Quantity Sold over last 90 days" ; unit: #(GP.pcsUnit)}
+    Items.Q365  {columnTooltipText: "Quantity Sold over last 365 days" ; unit: #(GP.pcsUnit)}
+    Items.OrderQuantity as "Sugg. Order Quantity" {unit: " units" ; cellBackground: #d1d1d1 ; textColor: #C7180F ; href: #[Items.Url]}
+    Items.FinalQty
+    Items.Validated as "Validation ?"
+    Items.InvestmentRequired as "Investment" {unit: #(DcUnit)}
+    Items.CurrentFR as "Current Fillrate" {numbers: percent}
+    Items.NewFR as "New Fillrate" {numbers: percent}
+    Items.SellPrice {unit: #(GP.DcUnit)}
+    Items.BuyPrice {unit: #(GP.DcUnit)}
+    Items.MOQ
+    Items.LotMultiplier
+    order by not Items.IsTopItem, Items.CategoryDisplayRank, - PORecommendations.InvestmentRequired

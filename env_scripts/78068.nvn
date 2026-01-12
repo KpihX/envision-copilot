@@ -1,0 +1,110 @@
+// Cloned from '/4. Optimization workflow/00 Home' on 2024-02-26
+// Cloned from '/4. Optimization workflow/00 Home' on 2024-02-20
+// Cloned from '/Optimization workflow/01 Home' (see https://go.lokad.com/Dashboard/51159) on 2021-12-03
+import "/1. utilities/Modules/Global Parameters" as GP with
+  ColorB
+
+/// --------------------------------- [ SETUP COLORS AND UNITS ] ---------------------------------
+/// --------------------------------- [ Header ] ---------------------------------
+// show markdown "Welcome" b1d1                                                                     {tileColor: #(highlightColor)} with  """
+// ## __Welcome to your Lokad cockpit!__
+// """
+show logo "" b1
+
+/// --------------------------------- [ Header ] ---------------------------------
+// show markdown "Welcome" b1d1                                                                     {tileColor: #(highlightColor)} with  """
+// ## __Welcome to your Lokad cockpit!__
+// """
+
+show label "Bienvenue dans votre cockpit Lokad!" c1e1 000000 {textAlign: center ; labelBorder: "none"}
+
+show label "https://go.lokad.com/gateway/BigFiles/browse/Download?hash=90F439C08030848A1DFA0CD2B55662FA&path=%2FBackground%2FGraphics%2FForms&name=LogoLokadVertical.jpg" c5e6 {textVerticalAlign: center}
+
+
+
+show markdown "" c3c4 with
+  """
+  [![Redirection](https://go.lokad.com/gateway/BigFiles/browse/Download?hash=04F2D448B4C11E484A539330F1499877&path=%2FBackground%2FGraphics%2FForms&name=Target.png)](https://go.lokad.com/d/78023/)
+  """
+show markdown "" b3b4 {textAlign: right ; tileZoom: "false"} with
+  """
+  #### **Optimisation Achats**
+  Commandes d'achats pour couvrir les besoins futurs
+  """
+
+
+
+show markdown "" c8c9 with
+  """
+  [![Redirection](https://go.lokad.com/gateway/BigFiles/browse/Download?hash=2C844E06958129FA02563C415CFAF23B&path=%2FBackground%2FGraphics%2FForms&name=data.png)](https://go.lokad.com/d/68005)
+  """
+
+show markdown "" b8b9 {tileZoom: "false"} with
+  """
+  #### **Qualité de la donnée**
+  Revue et validation
+  de la donnée reçue
+  """
+
+
+show markdown "" e3e4 with
+  """
+
+  [![Redirection](https://go.lokad.com/DEMO/gateway/BigFiles/Browse/Download?hash=66185F2D41CEA464D5CE689E9EF54E15&path=%2FImages%2FNewHomePage&name=truck.png)](https://go.lokad.com/d/78018)
+  """
+show markdown "" f3f4 {tileZoom: "false"} with
+  """
+  #### **Dispatch Optim.**
+  Transferts de stock suggérés
+  pour maximiser la marge
+  """
+
+
+
+show markdown "" f5f6 with
+  """
+  [![Redirection](https://go.lokad.com/DEMO/gateway/BigFiles/Browse/Download?hash=3FFD763481D930A36E195506A2FD4F07&path=%2FImages%2FNewHomePage&name=itemview.png)](https://go.lokad.com/d/68009)
+  """
+show markdown "" g5g6 {tileZoom: "false"} with
+  """
+  #### **Fiche Article**
+  Investigation des KPIs et des résultas au niveau Produit
+  """
+
+show markdown "" e8e9 with
+  """
+  [![Redirection](https://go.lokad.com/gateway/BigFiles/browse/Download?hash=523DE7DF8DE74524A95757B3EF652A84&path=%2FBackground%2FGraphics%2FForms&name=Finance.png)](https://go.lokad.com/d/68026)
+  """
+show markdown "" f8f9 {tileZoom: "false"} with
+  """
+  #### **Business Metrics**
+  Accès aux analyses de performance de votre business
+  """
+
+
+
+show markdown "" b5b6 with
+  """
+  [![Redirection](https://go.lokad.com/gateway/BigFiles/browse/Download?hash=1B2B9AA6AD4D74568FDA95C8FE7CD5CB&name=TimeSeriesGreyed.jpg)](https://go.lokad.com/d/78069)
+  """
+show markdown "" a5a6 {tileZoom: "false"} with
+  """
+  #### **Forecasts**
+  Analyse des prévisions
+  """
+
+show label "Video Tutorial" c7e7 {labelIcon: "files-magnifier" ; hrefAspect: white ; href: "https://www.lokad.com/technology/" ; textAlign: center ; tileColor: #(colorB)}
+
+
+// show markdown "Cockpit" a20b20 with  """
+// ![IMAGE ALT TEXT HERE](https://go.lokad.com/gateway/BigFiles/browse/Download?hash=060443D86F9E8874BCBC971582292DD7&name=cockpit-demo-account.jpg)
+// """
+
+// show markdown "Documentation" c19 with """ __This is the graphical overview that eases access to all relevant reports.
+// All created processes can be found in the [Projects][1] section. Submitted raw inputs can be accessed in [Files][1] .__
+
+//   [1]: https://go.lokad.com/projects
+//   [2]: https://go.lokad.com/files
+
+// """
+

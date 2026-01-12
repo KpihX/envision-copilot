@@ -1,0 +1,199 @@
+
+
+read "/Manual/Demo account project phases.xlsx" as Project with
+  Phase : text
+  PhaseCode : number
+  Description : text
+  PhaseImageURL : text
+
+show tabs "" a3h3 with
+  "Timeline and Milestones"
+  "Team"
+  "Documentation"
+
+show markdown "" b1e2 with """# Organization
+  #### Project timeline, team and main milestones
+"""
+show markdown "" a16g16 {tileTab: "Timeline and Milestones"} with """# Implementation steps
+"""
+
+// show markdown "" b2h2 with """#### Project timeline, team and main milestones"""
+show label (downloadUrl("57573E339DB4ABC099E34B31E5DE27FB", "Team.png")) a1a2
+
+Project.PhaseCodeText = text(Project.PhaseCode)
+Project.PhaseCodePadded = padLeft(Project.PhaseCodeText, "0", 2)
+Project.PhaseId = concat(Project.PhaseCodePadded, " - ", Project.Phase)
+
+/// TEAM
+
+show label "Supply Chain Scientists" a4c4  {tileTab: "Team"}
+show label "Company Team" e4g4  {tileTab: "Team"}
+show label "Commercial contact" a14c14  {tileTab: "Team"}
+
+// SCS 1
+show label (downloadUrl("44D97FD9A018D9A83B896623F9A47E6C", "Lokad-Simon-2013-140.jpg")) a5a6 {tileTab: "Team"}
+show markdown "" b5c6 {tileTab: "Team"} with """
+  **Name:** Simon Schalit
+
+  **Role:** Director of Operations - COO
+
+  **Contact:** contact@lokad.com
+               +33 1 42XXXXXX
+"""
+
+
+// SCS 2
+show label (downloadUrl("57573E339DB4ABC099E34B31E5DE27FB", "Team.png")) a8a9 {tileTab: "Team"}
+show markdown "" b8c9 {tileTab: "Team"} with """
+  **Name:** Elise Markel
+
+  **Role:** Lead Supply Chain Scientist
+
+  **Contact:** contact@lokad.com // +33 1 42YYYYYY
+"""
+
+// SCS 3
+show label (downloadUrl("57573E339DB4ABC099E34B31E5DE27FB", "Team.png")) a11a12 {tileTab: "Team"}
+show markdown "" b11c12 {tileTab: "Team"} with """
+  **Name:** Jean Dupont
+
+  **Role:** Supply Chain Scientist
+
+  **Contact:** contact@lokad.com // +33 1 42ZZZZZZ
+"""
+
+
+
+// Bus dev
+show label (downloadUrl("F8A85EAF0A42D57A54AA4F61172376CF", "Fabian.png")) a15a16 {tileTab: "Team"}
+show markdown "" b15c16 {tileTab: "Team"} with """
+  **Name:** Fabian Hoehner
+
+  **Role:** Sales Director
+
+  **Contact:** contact@lokad.com // +33 1 42000000
+"""
+
+// Client 1
+show label (downloadUrl("57573E339DB4ABC099E34B31E5DE27FB", "Team.png")) e5e6 {tileTab: "Team"}
+show markdown "" f5g6 {tileTab: "Team"} with """
+  **Name:** Isabelle Servat
+
+  **Role:** Supply chain Director
+
+  **Contact:** isabelle.servat@company.com // +44 3 42ZZZZZZ
+"""
+
+// Client 2
+show label (downloadUrl("57573E339DB4ABC099E34B31E5DE27FB", "Team.png")) e8e9 {tileTab: "Team"}
+show markdown "" f8g9 {tileTab: "Team"} with """
+  **Name:** Scott McNeil
+
+  **Role:** Category Manager
+
+  **Profile:** scott.mcneil@company.com // +44 3 42ZZZZZZ
+"""
+
+// Client 3
+show label (downloadUrl("57573E339DB4ABC099E34B31E5DE27FB", "Team.png")) e11e12  {tileTab: "Team"}
+show markdown "" f11g12 {tileTab: "Team"} with """
+  **Name:** Marina Rollini
+
+  **Role:** Buyer
+
+  **Profile:** marina.rollini@company.com // +44 3 42ZZZZZZ
+"""
+
+
+// Client 4
+show label (downloadUrl("57573E339DB4ABC099E34B31E5DE27FB", "Team.png")) e14e15  {tileTab: "Team"}
+show markdown "" f14g15 {tileTab: "Team"} with """
+  **Name:** Jon Lindsey
+
+  **Role:** Buyer
+
+  **Profile:** jon.lindsey@company.com // +44 3 42ZZZZZZ
+"""
+
+
+///{ sliceField: auto | dropdown | autocomplete | slider | radio | checkbox }
+table Slices [slice] = slice by Project.PhaseId title: Project.PhaseId
+Slices.PhaseId = single(Project.PhaseId)
+// Slices.Phase = single(Project.Phase)
+// Slices.PhaseCode = single(Project.PhaseCode)
+
+show slicepicker "Project Timeline" a21g22 {tileTab: "Timeline and Milestones"} with
+  // Slices. {sliceField: radio}
+  Slices.PhaseId as "Project Phase" {sliceField: slider}
+  // single(Catalog.IsActive) as "Active"  {sliceField: checkbox}
+  // Slices.Name {sliceField: dropdown}
+
+kickOff = date(2021,12,15)
+today = today()
+Project.PhaseStartDate = kickOff + ((Project.PhaseCode - 1) * 14)
+Project.PhaseEndDate = Project.PhaseStartDate + 13
+
+
+currentPhase = same(Project.Phase) when (Project.PhaseStartDate <= today and Project.PhaseEndDate >= today) default ""
+Project.Expected = if Project.PhaseStartDate >= today then "(Expected)" else ""
+
+show scalar "Project Kick Off" f1g1 d0021b {tileTab: "Timeline and Milestones" ; textAlign: right} with kickOff
+show scalar "Current Project Phase" f2g2 d0021b {tileTab: "Timeline and Milestones" ; textAlign: right} with currentPhase
+
+show scalar "Project Phase" a23c23 slices: Project.slice {tileTab: "Timeline and Milestones"} with same(Project.Phase)
+// show table same("Phase Description") by Slice e5h6 slices: Project.Slice {tileTab: "Timeline and Milestones"} with Project.Description
+show table "Project Phases" a24g28 {tileTab: "Timeline and Milestones"} with
+  Project.Phase as "Phase"
+  Project.Description as "Description" {columnWidth: 3}
+
+show scalar same("Project Phase Start Date \{Project.Expected}") by slice f23g23 slices: Project.slice {tileTab: "Timeline and Milestones"} with same(Project.PhaseStartDate)
+show scalar same("Project Phase End Date \{Project.Expected}") by slice d23e23 slices: Project.slice {tileTab: "Timeline and Milestones"} with same(Project.PhaseEndDate)
+
+show label same(Project.PhaseImageURL) by slice a17g20 {tileTab: "Timeline and Milestones"}
+
+show label (downloadUrl("9ADFA28360DAB7487984181FF06918D7", "TimelineTemplate.PNG")) a9g15 {tileTab: "Timeline and Milestones"}
+
+show markdown "Project Timeline" a4g8 {tileTab: "Timeline and Milestones"} with """
+  # General Timeline
+
+  __Phase I: Data Pipeline and Cleaning__
+  This phase involves the sharing of the Data Wishlist of fields and dataframes that will be required for phase 2 by Lokad, creation of an automated data pipeline
+  for a daily data update, and the creation of the Data Health dashboards for checking data integrity, primary and secondary keys between tables, missing or illogical values,
+  and that high level business KPIs are equivalent between Lokad and the Company.
+
+  __Phase II: Forecasting and Optimization__
+  The second phase begins with a deeper discussion of the economic and business factors that will be the primary drivers of the optimization, the scope of items to be included in the
+  forecast, dispatch, and purchasing optimizations. This phase is an iterative process as the initial forecast and optimization
+  is created and expected behaviors (seasonality, categories, etc.) are compared with the first results, and the scope is clarified and edge cases are handled.
+
+  __Phase III: Prototyping, Testing, and Finetuneing__
+  The final phase in the onboarding process, this is also primarily an iterative phase with the users using the recommended purchase and dispatch lists daily/weekly/etc. and
+  looking for stark discrepancies compared to the expected values, and modifying or finetuneing the optimization. Additional reporting dashboards and tools are also used and modified
+  as the user discovers which features they require or do not need.
+
+  __Phase IV: Production__
+  Weekly support for optimization and recommendation, as well as the creation of additional reporting dashboards if requested.
+
+"""
+
+
+// Usefuld links to documentation
+
+
+
+show label (downloadUrl("27056A00BBD150F5B2FA3E7FB2012143", "logo.png")) e1h2 {textVerticalAlign: center ; tileTab: "Documentation"}
+
+show label "Links to Lokad's documentation" a4h4 {tileTab: "Documentation"}
+
+show label "To Fillrate" e8h8                                 {href: #(dashUrl(68036)) ; hrefAspect: white ; textAlign: center ; tileTab: "Documentation"}
+show label "To Action Reward" e7h7                                 {href: #(dashUrl(68034)) ; hrefAspect: white ; textAlign: center ; tileTab: "Documentation"}
+show label "To Lokad TV" e6h6                                 {href: "https://www.youtube.com/@Lokad" ; hrefAspect: white ; textAlign: center ; tileTab: "Documentation"}
+show label "To Video Tutorial" e5h5                                 {href: "https://www.lokad.com/technology/" ; hrefAspect: white ; textAlign: center ; tileTab: "Documentation"}
+
+show label "To Envision Doc" e9h9                                 {href: "https://docs.lokad.com/" ; hrefAspect: white ; textAlign: center ; tileTab: "Documentation"}
+
+show label (downloadUrl("E90A22706A3450BDAAA3F390DBBAD05F", "LokadTV.PNG")) a5d10 {tileTab: "Documentation"}
+
+
+
+

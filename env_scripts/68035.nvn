@@ -1,0 +1,4 @@
+
+show label "Production processes documentation" a1h1 {textBold: "true" ; labelBorder: "none"}
+
+show label "🚧 This dashboard is restricted in this demo account. Please, contact Lokad's team." a2h2 {labelBorder: "none" ; textAlign: center}

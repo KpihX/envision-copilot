@@ -1,0 +1,595 @@
+read "/Input/Documentation/ActRwd Example/ActRwdDocsItems.ion" as Items[Id] with
+  Id : text
+  Dispersion : number
+  Alpha : number
+read "/Input/Documentation/ActRwd Example/ActRwdDocsOrders.ion" as Orders expect [Id, date] with
+  date : date
+  Id : text
+read "/Input/Documentation/ActRwd Example/ActRwdDocsDemand.ion" as Demand expect [Id, date] with
+  date : date
+  Id : text
+  N : number
+  demandModel : number
+read "/Input/Documentation/ActRwd Example/ActRwdDocsFC.ion" as FCItemSkus expect [Id] with
+  Id : text
+  Dispersion : number
+  alpha : number
+read form with
+  StockOnHand : number
+
+show label "Action Reward Documentation & Example" c1f1 {textBold: "true" ; textAlign: center ; textColor: #d0021b}
+
+show logo "" g1h1
+
+show label "Back" a1 {href: #(dashUrl(68031)) ; hrefAspect: white ; textAlign: center}
+
+show tabs "" a2h2 {textColor: #d0021b} with
+  "Doc" as "Documentation"
+  "Ex" as "Example"
+
+today = date(2023,07,24)
+
+keep where Id == "1AMRG00001"
+
+show form "Select Stock On Hand" d3h3 {tileTab: "Ex" ; formButton: "Run"}  with
+  StockOnHand as "StockOnHand"
+
+mydisp = same(Items.Dispersion) when(Items.Id=="1AMRG00001")
+myalpha = same(Items.Alpha) when(Items.Id=="1AMRG00001")
+
+table Obs[Ref] = with
+  [|"Product A" as Ref, StockOnHand as SOH, mydisp as dispersion, myalpha as alpha|]
+
+table p = with
+  [|"Product A" as R, today+21 as mydate, 100 as OrderQty|] //baptiste: On 2023-08-14, reverting today const to today as we had a same() failing on 2023-08-13. (24/07+3*7 = 07/08+7)
+  [|"Product A" , today+42 , 110 |]
+  [|"Product A" , today+7, 75 |]
+
+expect p.Ref = p.R
+
+table dem = by Demand.date
+
+dem.R = "Product A"
+expect dem.Ref = dem.R
+dem.demandModel = sum(Demand.demandModel) by [date] when(Demand.Id=="1AMRG00001")
+dem.N = same(Demand.N) by date when(Demand.Id=="1AMRG00001")
+
+dem.inboundStock = same(p.OrderQty) by [p.Ref,week(p.mydate)] at [dem.Ref,week(dem.date)]
+
+keep where dem.N > 0
+
+table sales = with
+  [| "Product A" as R, today as saledate, 63 as SoldQty |]
+  [|"Product A", today-7, 65|]
+  [|"Product A", today-14, 61|]
+  [|"Product A", today-21, 64|]
+  [|"Product A", today-28, 63|]
+  [|"Product A", today-35, 56|]
+  [|"Product A", today-42, 72|]
+  [|"Product A", today-49, 65|]
+  [|"Product A", today-56, 76|]
+  [|"Product A", today-63, 78|]
+  [|"Product A", today-70, 67|]
+  [|"Product A", today-77, 52|]
+  [|"Product A", today-84, 70|]
+
+expect sales.Ref = sales.R
+
+// Stats
+
+Obs.ReorderFrequency = 2
+Obs.SLT = 8
+Obs.POLeadTime = Obs.ReorderFrequency + Obs.SLT
+
+where dem.demandModel > 0
+
+  Obs.WOOUncovDemand, Obs.HoldingTime = actionrwd.reward(
+    TimeIndex: dem.N,
+    Baseline: dem.demandModel,
+    Dispersion: Obs.dispersion,
+    Alpha: Obs.alpha,
+    StockOnHand: Obs.SOH,
+    LeadTime: dirac(Obs.SLT),
+    StepOfReorder: Obs.ReorderFrequency,
+    ArrivalTime: dirac(dem.N),
+    StockOnOrder: dem.inboundStock)
+
+  Obs.DemandOnRW = actionrwd.segment(
+    TimeIndex: dem.N,
+    Baseline: dem.demandModel,
+    Dispersion: Obs.dispersion,
+    Alpha: Obs.alpha,
+    Start: dirac(Obs.SLT),
+    Duration: dirac(Obs.ReorderFrequency) )
+
+  Obs.TotalDemandPOLT = actionrwd.segment(
+    TimeIndex: dem.N,
+    Baseline: dem.demandModel,
+    Dispersion: Obs.dispersion,
+    Alpha: Obs.alpha,
+    Start: dirac(0),
+    Duration: dirac(Obs.POLeadTime) )
+
+
+Obs.SatisfiedDemand = round(mean(Obs.DemandOnRW) - mean(Obs.WOOUncovDemand))
+Obs.TotalDemandRLT = Obs.WOOUncovDemand + dirac(Obs.SatisfiedDemand)
+
+
+
+Obs.SellThrough = (1-cdf(Obs.WOOUncovDemand + 1)) //* uniform.right(1))
+
+show scalar "Sell Through" c25e28 {tileTab: "Ex"} with same(Obs.SellThrough)
+Obs.SellThrough = Obs.SellThrough + uniform.left(72)
+
+show scalar "Sell Through2" a63  {tileTab: "Ex"} with same(Obs.SellThrough)
+
+show scalar "Holding Time" f25h28 {tileTab: "Ex"} with same(Obs.HoldingTime)
+meanuncov = same(mean(Obs.WOOUncovDemand))
+show scalar "Uncovered Demand on WOO, μ=\{meanuncov}" d21h23 {tileTab: "Ex" ; color: "darkred"} with same(Obs.WOOUncovDemand)
+meantotal = same(mean(Obs.TotalDemandPOLT))
+show scalar "Demand on Entire SLT and WOO, μ=\{meantotal}" d15h17 {tileTab: "Ex" ; color: "lightblue"} with same(Obs.TotalDemandPOLT)
+meanRW = same(mean(Obs.DemandOnRW))
+show scalar "Demand on WOO, μ=\{meanRW}" d18h20 {tileTab: "Ex" ; color: "lightgreen"} with same(Obs.DemandOnRW)
+show scalar "Total Demand on WOO (Uncovered + Satisfied)" c39e41 {tileTab: "Ex" ; color: "orange"} with same(Obs.TotalDemandRLT)
+
+Obs.Fillrate = fillrate(Obs.TotalDemandRLT)
+Obs.CurrentFR = int(Obs.Fillrate, 0, Obs.SatisfiedDemand)
+
+show scalar "Fillrate" f39h41 {tileTab: "Ex" ; color: "gold"} with same(Obs.Fillrate)
+
+Obs.M = 38
+Obs.S = 0.4*Obs.M
+Obs.C = ((0.3 * 7)/365) * 8
+Obs.Reward = Obs.SellThrough * (Obs.M + Obs.S) - Obs.HoldingTime * Obs.C
+
+show scalar "Margin" a62 {tileTab: "Ex" ; color: "darkgreen"} with whichever(Obs.SellThrough*Obs.M)
+show scalar "Stockout Penalty" c62 {tileTab: "Ex" ; color: "darkblue"} with whichever(Obs.SellThrough*Obs.S)
+show scalar "Carrying Cost" d62 {tileTab: "Ex" ; color: "darkred"} with whichever(-Obs.HoldingTime*Obs.C)
+show scalar "Reward" b62 {tileTab: "Ex" ; color: "blue"} with whichever(Obs.Reward)
+
+table Extend = extend.ranvar(Obs.TotalDemandRLT)
+
+Extend.Margin = int(Obs.SellThrough*Obs.M,Extend.Min,Extend.Max)
+Extend.SOO = int(Obs.SellThrough*Obs.S,Extend.Min,Extend.Max)
+Extend.CarryingCosts = int(-Obs.HoldingTime*Obs.C,Extend.Min,Extend.Max)
+Extend.Reward = int(Obs.Reward,Extend.Min,Extend.Max)
+Extend.Margin,Extend.SOO  = match Extend.Min with
+  65 -> (76,30.4)
+  67 -> (76,30.4)
+  69 -> (76,30.4)
+  71 -> (76,30.4)
+  .. -> (Extend.Margin,Extend.SOO)
+
+
+table test = with
+  [| as min|]
+  [|Extend.Min|]
+  [|66|]
+  [|68|]
+  [|70|]
+  [|72|]
+  [|74|]
+  [|76|]
+  [|78|]
+  [|80|]
+  [|82|]
+  [|84|]
+  [|86|]
+  [|88|]
+  [|90|]
+  [|92|]
+  [|94|]
+  [|96|]
+  [|98|]
+  [|100|]
+  [|102|]
+  [|104|]
+  [|106|]
+  [|108|]
+  [|110|]
+  [|112|]
+  [|114|]
+  [|116|]
+  [|118|]
+  [|120|]
+  [|122|]
+  [|124|]
+  [|126|]
+  [|128|]
+  [|130|]
+  [|132|]
+  [|134|]
+  [|136|]
+  [|138|]
+  [|140|]
+  [|142|]
+  [|144|]
+  [|146|]
+  [|148|]
+  [|150|]
+  [|152|]
+  [|154|]
+  [|156|]
+  [|158|]
+  [|160|]
+  [|162|]
+  [|164|]
+  [|166|]
+
+
+test.margin = same(Extend.Margin) by Extend.Min at test.min
+test.SOO = same(Extend.SOO) by Extend.Min at test.min
+test.CarryingCosts = same(Extend.CarryingCosts) by Extend.Min at test.min
+test.margin = smudge(test.margin,test.margin > 0) scan test.min
+test.SOO = smudge(test.SOO,test.SOO > 0) scan test.min
+test.CarryingCosts = smudge(test.CarryingCosts,test.CarryingCosts < 0) scan test.min
+test.Reward = test.SOO + test.margin + test.CarryingCosts
+
+
+{color: #f9eac3 ; tileTab: "Ex" ; haxis { unit: "units" } ; vaxis { left { unit: "$" } }}
+show chart "Margin" c29e31  with
+  haxis by test.min
+  plot by test.min
+    single(test.margin) as "Margin" {seriesType: bar}
+{color: #FDFD96 ; tileTab: "Ex" ; haxis { unit: "units" } ; vaxis { left { unit: "$" } }}
+show chart "Stockout Penalty" c32e34  with
+  haxis by test.min
+  plot by test.min
+    single(test.SOO ) as "StockOutPenalty" {seriesType: bar}
+{color: "blue" ; tileTab: "Ex" ; haxis { unit: "units" } ; vaxis { left { unit: "$" } }}
+show chart "Reward" f32h34  with
+  haxis by test.min
+  plot by test.min
+    single(test.Reward) as "Reward" {seriesType: bar}
+
+table Extend2 = extend.ranvar(Obs.TotalDemandRLT,1,1,500)
+
+Extend2.CarryingCosts = int(-Obs.HoldingTime*Obs.C,Extend2.Min,Extend2.Max)
+{color: #F67828 ; tileTab: "Ex" ; haxis { unit: "units" } ; vaxis { left { unit: "$" } }}
+show chart "Carrying Cost" f29h31  with
+  haxis by Extend2.Min
+  plot by Extend2.Min
+    single(Extend2.CarryingCosts) as "CarryingCosts" {seriesType: bar}
+
+
+table G = extend.ranvar(Obs.WOOUncovDemand, 0, 1)
+where G.Min > 0
+  G.Q = G.Max - G.Min + 1
+  G.Reward = int(Obs.Reward, G.Min, G.Max)
+
+  G.RM = int(Obs.SellThrough*Obs.M, G.Min, G.Max)
+  G.RS = int(Obs.SellThrough*Obs.S, G.Min, G.Max)
+  G.RC = int(Obs.HoldingTime*Obs.C, G.Min, G.Max)
+
+  G.Cost = G.Q * 12
+  G.Score = G.Reward /. G.Cost
+  G.Rank = rank(G.Score, Obs.Ref, -G.Max)
+
+  G.Fillrate = int(fillrate(Obs.TotalDemandRLT), G.0, G.Max)
+  G.deltaFR = int(fillrate(Obs.TotalDemandRLT), G.Min, G.Max)
+
+  G.cumSumInvestment = cumsum(G.Cost) scan G.Rank
+  G.CumFRDelta = cumsum(G.deltaFR) scan G.Rank
+
+  Obs.RecOrderQty = sum(G.Q) when(G.Fillrate < 0.95)
+
+  show table "Prioritized Purchasing List" c35h37 {tileTab: "Ex"} with
+    G.Ref
+    G.Q as "Quantity to Purchase"
+    G.RM as "Reward Margin" {unit: "$"}
+    G.RS as "Reward Stockout Penalty" {unit: "$"}
+    G.RC as "Reward Carrying Cost" {unit: "$"}
+    G.Reward {unit: "$"}
+    G.Cost {unit: "$"}
+    cumsum(G.Cost) scan G.Rank as "Total Investment" {unit: "$"}
+    cumsum(G.Q) scan G.Rank as "Total Units Purchased"
+    G.Score
+    G.Rank
+    G.deltaFR as "Fillrate Gain" {numbers: percent}
+    G.Fillrate {numbers: percent}
+    G.Min
+    G.Max
+    G.Min >0 and G.Min < max(Obs.RecOrderQty * 1.5, 10) and G.Fillrate < 1.05
+    order by G.Rank
+
+  where G.Min >0 and G.Min < max(Obs.RecOrderQty * 1.5, 10) and G.Fillrate < 1.05
+    show chart "Driving forces" a42h47 { tileTab: "Ex" ; haxis { precision: 10 } ; vaxis { right { axisMax: "1" ; numbers: percent} ; left {unit: "$"} }} with
+      haxis by G.Max
+      plot by G.Max
+        same(G.cumSumInvestment) as "Investment" { unit: "$" ; color: #B3DFC4 ; seriesType: bar }
+        same(min(max(G.Score, 0),1)) as "ROI" { numbers: percent ; color: #FA0000 ; vaxis: right }
+        same(min(G.RM/((Obs.M)*G.Q), 1)) as "SellProbability" { numbers: percent ; color: #EB722D ; vaxis: right }
+        same(Obs.CurrentFR+ G.CumFRDelta) as "FillRate" { numbers: percent ; color: #4088CC ; vaxis: right }
+
+
+
+  show chart "Achieved Fillrate vs Investment" e62 {tileTab: "Ex"} with
+    plotxy G.cumSumInvestment as "Total Investment"
+      G.Fillrate as "Fill Rate"
+      order by G.cumSumInvestment
+
+  show summary "Purchase Quantity based off different Constraints" d49h50 {tileTab: "Ex"} with
+    sum(G.Q) when(G.Reward > 0) as "All units with positive ROI" {unit: " Units"}
+    sum(G.Q) when(G.Fillrate < 0.75) as "To Reach 75% Fillrate" {unit: " Units"}
+    sum(G.Q) when(G.Fillrate < 0.90) as "To Reach 90% Fillrate" {unit: " Units"}
+    sum(G.Q) when(G.Fillrate < 0.95) as "To Reach 95% Fillrate" {unit: " Units"}
+    sum(G.Q) when(G.Fillrate < 1.0) as "To Reach 100% Fillrate" {unit: " Units"}
+
+  show summary "Purchase Investment based off different Constraints" d51h52 {tileTab: "Ex"} with
+    sum(G.Cost) when(G.Reward > 0) as "All units with positive ROI" {unit: "$"}
+    sum(G.Cost) when(G.Fillrate < 0.75) as "To Reach 75% Fillrate" {unit: "$"}
+    sum(G.Cost) when(G.Fillrate < 0.90) as "To Reach 90% Fillrate" {unit: "$"}
+    sum(G.Cost) when(G.Fillrate < 0.95) as "To Reach 95% Fillrate" {unit: "$"}
+    sum(G.Cost) when(G.Fillrate < 1.0) as "To Reach 100% Fillrate" {unit: "$"}
+
+
+
+
+table ObsWk = cross(Obs,Week)
+ObsWk.isWOO = ObsWk.week >= week(today) + Obs.SLT and ObsWk.week < week(today) + Obs.POLeadTime
+ObsWk.isSLT = ObsWk.week < week(today) + Obs.SLT and ObsWk.week > week(today)
+show linechart "Timeline" d12h13 {tileTab: "Ex"} with
+  if week == week(today) then 1 else 0 as "Current Week" {seriesType: background ; color: "lightyellow"}
+  if same(ObsWk.isSLT) then 1 else 0 as "Supplier Leadtime = 8 Weeks" {seriesType: background ; color: "lightblue"}
+  if same(ObsWk.isWOO) then 1 else 0 as "WOO = 2 Weeks" {seriesType: background ; color: "lightgreen"}
+  group by week
+
+ObsWk.SoldQty = sum(sales.SoldQty) by [Ref,week(sales.saledate)] at [Ref,ObsWk.week]
+ObsWk.displayDemand = if ObsWk.week > week(today) then same(dem.demandModel) else ObsWk.SoldQty
+
+show linechart "Demand Forecast" d4h6 {tileTab: "Ex"} with
+  same(ObsWk.SoldQty) as "Sold Qty" {unit: " Units" ; seriesType: area ; color: "gray"}
+  same(ObsWk.displayDemand) as "Forecasted Demand" {unit: " Units" ; color: "blue" ; seriesPattern: dashed}
+  group by week
+
+def process stockDev(startStock : number, inQty:number, outQty:number) with
+  keep StockOnHand = -1
+  keep timeLineIndex = 0
+  if timeLineIndex == 0
+    StockOnHand = startStock
+  StockOnHand = max(StockOnHand - outQty + inQty , 0)
+  timeLineIndex = timeLineIndex + 1
+  return (StockOnHand)
+
+ObsWk.StockStart = Obs.SOH//sum(skus.StockOnOrder) by Id
+ObsWk.inBoundStock = sum(p.OrderQty) by [Ref,week(p.mydate)] at [Ref,week]
+ObsWk.Baseline = sum(dem.demandModel)
+where week >= week(monday(today))
+  ObsWk.StockDev = stockDev(ObsWk.StockStart, ObsWk.inBoundStock, ObsWk.Baseline) by ObsWk.Ref scan week
+  ObsWk.StockBeginningNextWeek = same(ObsWk.StockDev) by [ObsWk.Ref,ObsWk.week] at [ObsWk.Ref,ObsWk.week - 1]
+  ObsWk.StockBeginningNextWeek = if ObsWk.week >= week(monday(today) + 7) then ObsWk.StockBeginningNextWeek else ObsWk.StockStart
+  // ObsWk.ExpectedLostSales = if ObsWk.StockBeginningNextWeek > ObsWk.Baseline then 0 else abs(ObsWk.StockBeginningNextWeek - ObsWk.Baseline)
+  ObsWk.StockConsumed = min(ObsWk.StockBeginningNextWeek, ObsWk.Baseline)
+  ObsWk.ExpectedLostSales = ObsWk.Baseline - ObsWk.StockConsumed
+  where week <= week(monday(today)+260)
+    where week <= week(monday(today)+200)
+      show linechart "Current Expected Stock Evolution" d7h11 {tileTab: "Ex"}  with
+        same(if ObsWk.isWOO then 1 else 0) as "WOO" {seriesType: background ; color: "lightgreen"}
+        max(0,same(ObsWk.StockDev)-same(ObsWk.inBoundStock)) as "Units Remaining" {seriesType: bar ; seriesStack: bar ; unit: " Units" ; color: "lightblue"}
+        same(ObsWk.inBoundStock) as "Inbound Stock" {seriesType: bar ; seriesStack: bar ; unit: " Units" ; color: "green"}
+        same(-ObsWk.ExpectedLostSales) as "Expected Loss Sales" {seriesType: area ; unit: " Units" ; color: "maroon"}
+        sum(ObsWk.StockConsumed) as "Consumed" {unit: " Units" ; color: "red"}
+        group by week
+
+      ObsWk.RecOrderQty = same(Obs.RecOrderQty) by [Ref, week(today+Obs.SLT*7)] at [Ref, ObsWk.week]
+      ObsWk.StockDev2 = stockDev(ObsWk.StockStart, ObsWk.inBoundStock+ObsWk.RecOrderQty, ObsWk.Baseline) by ObsWk.Ref scan week
+      ObsWk.StockBeginningNextWeek2 = same(ObsWk.StockDev2) by [ObsWk.Ref,ObsWk.week] at [ObsWk.Ref,ObsWk.week - 1]
+      ObsWk.StockBeginningNextWeek2 = if ObsWk.week >= week(monday(today) + 7) then ObsWk.StockBeginningNextWeek2 else ObsWk.StockStart
+      // ObsWk.ExpectedLostSales = if ObsWk.StockBeginningNextWeek > ObsWk.Baseline then 0 else abs(ObsWk.StockBeginningNextWeek - ObsWk.Baseline)
+      ObsWk.StockConsumed2 = min(ObsWk.StockBeginningNextWeek2, ObsWk.Baseline)
+      ObsWk.ExpectedLostSales2 = ObsWk.Baseline - ObsWk.StockConsumed2
+
+      show linechart "With Our Recommended Order Qty" c53h57 {tileTab: "Ex"} with
+        same(if ObsWk.isWOO then 1 else 0) as "WOO" {seriesType: background ; color: "lightgreen"}
+        max(0,same(ObsWk.StockDev2)-same(ObsWk.inBoundStock)-same(ObsWk.RecOrderQty)) as "Units Remaining" {seriesType: bar ; seriesStack: bar ; unit: " Units" ; color: "lightblue"}
+        same(ObsWk.RecOrderQty) as "Recommended Order Qty" {seriesType: bar ; seriesStack: bar ; unit: " Units" ; color: "gold"}
+        same(ObsWk.inBoundStock) as "Inbound Stock" {seriesType: bar ; seriesStack: bar ; unit: " Units" ; color: "green"}
+        same(-ObsWk.ExpectedLostSales2) as "Expected Loss Sales" {seriesType: area ; unit: " Units" ; color: "maroon"}
+        sum(ObsWk.StockConsumed2) as "Consumed" {unit: " Units" ; color: "red"}
+        group by week
+
+
+show markdown "" a3c10 {tileTab: "Ex" ; backgroundColor: "white"} with """
+  ## Example
+
+  Our example will look at one SKU, it's forecast, current and future stock evolution, and economic factors for purchasing over the time period
+  we are responsible for covering based off the supplier leadtime and reorder frequency.
+
+  #### Current Situation
+
+  The average forecast and expected stock evolution of our SKU can be seen in the two graphs below.
+
+  The unit of the period used in action reward has been chosen as weeks, with the relevant time variables being:
+
+  - Supplier Leadtime = 8 weeks
+  - Reorder Frequency = 2 weeks
+
+  The current Stock On Hand is 200 units. There are 3 open Purchase Orders of 100, 150, and 75 units expected to arrive in
+  1 week, 3 weeks, and 6 weeks respectively.
+
+  #### Action Reward
+
+  Providing the supplier leadtime, reorder frequency, stock on hand, stock on order and estimated arrival period, and the probabilistic demand
+  distribution as inputs into action reward, we can calculate our probabilistic demand distributions over the entire purchase order leadtime, our
+  satisfied and uncovered demand over our window of opportunity, and our holding time and sellthrough distributions.
+"""
+
+show markdown "" a11c14 {tileTab: "Ex" ; backgroundColor: "white"} with """
+  #### Our Timeline
+
+  In our example the timeine we will consider is:
+
+  * In yellow is our __current week__ which is the time period N = 0 inwhich we can make a decision
+  * In blue is our __supplier leadtime__, 8 weeks in our example, which is the time period for the
+  order we place today to arrive (starting period N=0 to period N=11)
+  * In green is our __Window of Opportunity__, 2 weeks in our example, which is equivalent to our reorder period,
+  and is the coverage timespan we are responsiblef for covering the demand over with the action (ordering or not ordering) we take today
+"""
+
+show markdown "" a15c22 {tileTab: "Ex" ; backgroundColor: "white"} with """
+  #### Demand Distributions
+
+  * **Demand on Entire SLT + WOO:** The demand over the supplier leadtime and WOO is the total demand distribution over the entire timeline. *
+  This includes demand that will be met by our current stock on order and stock on hand, as well as the demand we are taking action to cover
+  over the window of opportunity.
+  * **Demand on WOO:** The demand on the WOO is the demand distribution over our entire window of opportunity.
+  * **Uncovered Demand on WOO:** The uncovered demand on the WOO is the demand distribution we are interested in covering by the action we are taking
+  right now. This represents the demand that is not covered by the current stock on hand and stock on order based off the demand that will be served over
+  the supplier leadtime. Any negative demand on this distribution represents units that are already covered by the current stock available.
+
+"""
+
+show markdown "" a25b28 {tileTab: "Ex" ; backgroundColor: "white"} with """
+  #### Holding Time and Sellthrough
+
+  * **Holding Time:** the holding time is the mean of the distribution of the holding timespan, which is the time in periods between when the unit is
+  received and is available to be serviced and the point in time in which it is finally serviced.
+  * **Sellthrough:** the sellthrough is the probability to sell a specific unit of uncovered Demand.
+
+"""
+
+show markdown "" a29b34 {tileTab: "Ex" ; backgroundColor: "white"} with """
+  #### Economic Parameter Reward
+
+  * **Margin:** M = SellPrice - BuyPrice - Average Shipping Cost
+  * **Stockout Penalty:** S = Margin * ImpactFactor
+  * **Carrying Cost:** C = ((annualCarryingCost * Δt) / 365) * BuyPrice
+    * Δt is our time step, which in our example is 7 (one week)
+    * annualCarryingCost is a per-period carrying cost relative to the purchase price
+
+  With these factors defined we calculate the Reward, or the expected return on investment as:
+  * **Reward** = SellThrough * (M + S) - HoldingTime * C
+"""
+
+show markdown "" a35b37 {tileTab: "Ex" ; backgroundColor: "white"} with """
+  The respective curves for each of these parameters can be seen, with each point representing the impact of an additional unit.
+
+  This gives us an estimate of the ROI for the purchase of each unit, allowing us to build a ranking of our
+  decisions in a prioritized purchasing list. This can be seen as a table or visualized for each unit and the value add in ROI and Fillrate.
+"""
+
+show markdown "" a39b41 {tileTab: "Ex" ; backgroundColor: "white"} with """
+  #### Fillrate Calculation
+
+  The fillrate is the ratio between the expected sales and the expected demand over the coverage timespan, or window of opportunity. The fillrate
+  is calculated over the estimate of the total demand of the coverage time period, which includes both the expected demand that is already satisfied by
+  the current stock available and the uncovered Demand.
+
+"""
+
+show markdown "" a49c52 {tileTab: "Ex" ; backgroundColor: "white"} with """
+  #### Final Purchase Decision
+
+  The final amount to be purchased can be decided by several constraints:
+
+  + Reaching desired fillrate
+  + Exhausting a set budget
+  + Purchasing for all decisions with a positive return on investment
+
+  In our example we are only focusing on one SKU, but these constraints can be applied at any level of aggregation (fillrate/budget per Reference in Catalog,
+  per Supplier, per store, etc.). Additonally, other economic constraints can sometimes play an important factor in the final ranking and decision making such
+  as supplier minimum order values, minimum order quantities, lot multipliers, and other constraints.
+"""
+
+show markdown "" a53b57 {tileTab: "Ex" ; backgroundColor: "white"} with """
+  Here with a purchase quantity equivalent to a fillrate of 90% we can see that it safely covers the demand through the window of opportunity.
+  It is also possible to see the evolution in fillrate per investment by each cost of unit purchased. This can give a clearer picture of
+  when the gain in fillrate begins to become negligible compared to the amount invested.
+
+  As this order covers the 2 week window of opportunity, the next order placed in another 2 weeks would also be arriving to cover the next
+  window of opportunity, continuing the cycle.
+"""
+
+/// --------------------------------------------------------------------------------------------------
+/// DOCUMENTATION
+/// --------------------------------------------------------------------------------------------------
+
+show markdown "" a3d7 {tileTab: "Doc"} with """
+  ## Action Reward Overview
+
+  The entire Lokad documentation on Action Reward can be found [[here]](https://docs.lokad.com/reference/abc/actionrwd.reward/).
+
+  The _action reward_ function is intended to compute the profitability of ordering one more unit of stock for a given SKU taking into account a probabilistic demand forecast,
+  a probabilistic lead time forecast, and other pertinent variables. This function is intended to be composed with a short series of economic variables as the expected marginal reward,
+  the per-period carrying cost, and the stock-out penalty (composed externally and not part of action reward itself).
+
+  The advantages of action reward are it is made to handle:
+
+  (a) non-stationary future demand
+  (b) non-deterministic lead times
+  (c) fine-grained information about the stock on order and its estimated arrival time
+  (d) decoupled ordering lead times and supplier lead times
+  (e) ownership perspective of the economic consequences of a decision
+
+  The __goal__ of action reward is to give the financial outcome of buying _one additional unit_ of an SKU.
+
+"""
+
+show label (downloadUrl("49A0955EF47E27181DCE96F3FC0736BA", "actionrwd1.png")) e3h7 {tileTab: "Doc"}
+
+show markdown "" a8h15 {tileTab: "Doc"} with """
+  ## Variables
+
+  #### Time Periods
+
+  The action reward function operates over _periods_, which are a uniform time step that can be a day, a week, a month, etc.
+
+  The coverage timespan or _Window of Opportunity_ (WOO) starts at the point of time in the future when the first order, that is passed today, would be received
+  and ends at the point in time where a second order passed at the next reorder opportunity would be received.
+
+  The supplier lead time and reorder frequency (in units of the user desired period) are user inputs used.
+
+  #### Demand Forecast
+
+  The _demand_ estimates the probability distribution of the demand that is not yet covered by existing stock within the coverage timespan. Based off this
+  demand distribution the total demand over the supplier lead time and WOO, demand on the WOO, and uncovered demand on the WOO will be calculated for use in the
+  final decision making.
+
+  #### Stock Situation
+
+  The current stock on hand and the current stock on order with its estimated arrival time are also inputted by the user. This evolution in stock that is available
+  to satisfy demand is used to estimate what demand is currently and will be satisfied by current/future stock over the supplier leadtime and WOO.
+
+  #### Economic Factors
+
+  From an economic perspective the three main variables considered are the gross margin, the stockout penalty, and the carrying cost.
+
+  The _gross margin_ is calculated from the final sell price agains the item buy price, but can also include other costs that take away from the final
+  margin (additional transport costs to final warehouse/store, etc.)
+
+  The _stockout penalty_ is the negative impact of stocking out and not being able to satisfy Demand.
+
+  The gross margin and stockout penalty are both functions driven by the Demand. If a unit is not serviced with the coverage timespan, then its gross margin
+  does not belong to the present order, but a future one. Conversely, if the unit is sold during the coverage period, the lack of the unit could generate a
+  stockout and a loss of sales. Thus, from an action reward persepctive the margin and stockout penalty are largely correlated.
+
+  The _carrying cost_ represents the financial cost of storing a unit of stock. This factor is based off of the _holding time_ of a unit which is the time from
+  when the unit arrives and is available to be serviced until it is serviced. Action reward assumes that the only way to lower the current stock is by selling a
+  unit, and thus the negative impact of the carrying cost is felt throughout the entire holding time.
+
+"""
+
+show markdown "" a16h22 {tileTab: "Doc"} with """
+  ## Process
+
+  1. Establish inputs and current situation:
+    + Current Stock on Hand
+    + Current Stock on Order and expected arrival
+    + Supplier Leadtime and Reorder frequency in unit equivalent to desired period
+    + Forecast parameters for constructing probabilistic demand distribution for each period
+      that you want to forecast over (at least supplier leadtime and reorder frequency)
+    + Economic parameters (gross margin, stockout penalty, and carrying cost)
+  2. With these inputs use action reward to calculate:
+    + the uncovered demand on the window of opportunity
+    + the sellthrough distribution
+    + the holding time distribution
+  3. Using the outputs from action reward calculate the estimated return on investment for each
+  unit that could be purchased, and rank each unit's return on investment to build a prioritized
+  purchasing list
+  4. Calculate the fillrate over the window of opportunity based off the uncovered and satisfied demand
+  over the window of opportunity
+  5. Decision to purchase enough units to reach desired fillrate or until purchasing budget is exhausted. Additional
+  constraints such as MOVs, MOQs, etc. can be taken into place additionally (more can be read about that
+  [[here]](https://docs.lokad.com/library/moqs-and-other-ordering-constraints/)).
+
+"""

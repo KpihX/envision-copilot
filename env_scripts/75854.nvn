@@ -1,0 +1,512 @@
+///Optimization of dispatch from 1 warehouse to multiple locations
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// --------------------------------------READ INPUT TABLES-----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+import "/1. utilities/Modules/Global Parameters" as GP with
+  DcUnit
+  ColorB
+
+  ConfirmButton
+
+const testStorage = ""
+const inputPath = "\{testStorage}/Clean/"
+
+read "\{inputPath}Locations.ion" as Locations[Loc] with
+  Loc : text
+  CarryingCostWeight : number
+
+
+read "\{inputPath}Items.ion" as Skus[Sku unsafe] expect[Loc] with
+  Sku : text
+  Ref : text
+  Loc : text
+  Name : text
+  Category : text
+  SellPrice : number
+  BuyPrice : number
+  RedispatchCycle : number
+  DispatchLT : number
+  StockOnHand : number
+  StockOnOrder : number
+  LeadTime : number
+  ImageUrl : text
+  StartDate : date
+  EndDate : date
+  Supplier : text
+  LotMultiplierDispatch : number
+  IsClean : boolean
+
+read "\{testStorage}Clean/Orders.ion" as Orders expect [Sku,Loc,Date] with
+  Sku : text
+  "OrderDate" as Date : date
+  Ref : text
+  Loc : text
+  Quantity : number
+  LokadNetAmount : number
+  OrderId : text
+  IsFirstOrder : boolean
+  HealthLog : text
+  IsClean : boolean
+
+read "/Clean/PO.ion" as PO expect[Sku,Loc,Date] with
+  Sku : text
+  "OrderDate" as Date : date
+  Loc : text
+  Ref : text
+  DeliveryDate : date
+  Quantity : number
+  Supplier : text
+  PONumber : text
+  IsInCatalog : boolean
+  IsClean : boolean
+  InputDate : date
+  InputPath : text
+
+read "\{inputPath}Forecast/Periodic/WeeklyFc.ion" as WeeklyFC expect[Sku, Date] with
+  Sku : text
+  "Monday" as Date : date
+  DemandQty : number
+  Cache : number
+  IsPast : boolean
+  FutureWeekRank : number
+  Alpha : number
+  Dispersion : number
+  Baseline : number
+  Demand : ranvar
+  LowerBarTotal2 : number
+  LowerBarTotal1 : number
+  HighBarTotal2 : number
+  HighBarTotal1 : number
+  CumDemand : ranvar
+
+read "/Manual/TopItemsParameters.xlsx" as TopItemsParameters expect[Sku] with
+  CategoryDisplayRank : number
+  Category : text
+  ItemDisplayRank : number
+  Ref : text
+  Sku : text
+
+read form with
+  FRTarget : number
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// ------------------------------------------SETUP-------------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///Colors-------------------------------------------------------------------------------------------
+
+highlightColor =  colorB
+
+
+
+
+///Global parameters--------------------------------------------------------------------------------
+
+oend = max(WeeklyFC.Date) when(WeeklyFC.IsPast)
+
+
+
+///Editable body------------------------------------------------------------------------------------
+
+show logo "" a1
+show markdown "Dispatch suggestions" b1h1 with """
+  ### **Dispatch suggestions**
+"""
+
+show markdown "" b2h2  with """
+  __This dashboard provides a dispatch suggestion utilizing the ROI optimization of probablistic forecasts.__
+  __See full documentation below__
+"""
+
+show label "" a2h2 9b9b9b
+
+show markdown "Overall view" a15h30  with  """
+### Documentation Dispatch Suggestions
+
+`Sku`: reference x location code.
+
+`Ref` : reference code.
+
+`Loc` : warehouse code.
+
+`Name`: reference name.
+
+`Category`: reference category.
+
+__`Dispatch suggestion`__: recommended dispatch quantity to cover the next responsibility window.
+
+__`Current Fill Rate`__: overall fill rate associated to the current stock on hand and on order, i.e. the proportion of the demand
+already covered by the current stock on hand and on order.
+
+__`Achieved Fill Rate`__: overall fill rate associated to the current stock on hand and on order and the recommended dispatch suggestion, i.e. the proportion of the demand
+which will be covered after dispatching.
+
+`Stock DC before Dispatch`: quantity in stock in the central warehouse (DC) before any dispatch decision.
+
+`Stock DC after Dispatch`: quantity in stock in the central warehouse (DC) after applying all dispatch suggestions.
+
+### Documentation Micro Decisions
+
+#### General Remark:
+
+To perform this dispatch optimization, we compute for each dispatchable unit, whether it is more profitable
+to send it to 1 of the 2 downstream location of to keep it in DC. In order to do that, we virtually empty the stock in DC and then, for each unit
+compute the reward of putting it back in DC or sending it to EDB, MAN and LON.
+
+The micro decisions represent the status of each of these decisions so, in this table, the currentFR in DC is the FR without StockOnHand (ie 0 if there is no StockOnOrder).
+
+`Rank`: Order of the micro decisions (sorted by descending Score).
+
+`StockOnHand`: Stock on hand before dispatch in the location.
+
+`LotMultiplier`: numbers of pcs by which we can dispatch the Sku (for one ref, can change depending on the location).
+
+`Min`: rank of the 1st unit dispatched with this decision.
+
+`Max`: rank of the last unit dispatched with this decision.
+
+`Q`: quantity we are considering dispatching for this decision (1 if no specific constraint, more if LotMultiplier or MOQ). Equal to Max-Min+1.
+
+`Transportation LT`: time it takes for a unit to be available in the destination location from the moment the dispatch decision is taken. It includes loading and unloading the truck and the time of the drive.
+
+`CurrentFR`: Sku's FR before dispatch.
+
+`FillRateDelta`: Sku's FR gain if the decision is selected.
+
+`CumFillRateDelta`: Sku's FR gain if the decision and the previous ones are selected.
+
+`OverallFRGain`: Overall FR gain if the decision is selected.
+
+`CumOverallFRGain`: Overall FR gain if the decision and all the possible previous possible decisions are selected.
+
+`CumStockDispatchedByRef`: Quantity dispatched by Sku if the decision and the previous ones are selected.
+
+`NewFR EDB/MAN/LON`: FR in EDB/MAN/LON if the decision and all the possible previous possible decisions are selected.
+
+`FR target by location`: Maximum FR reachable for each location (manual input, forced to 100% for DC).
+
+`Reward`: Expected economic gain of the decision.
+
+`Score`: ROI of the decision (if positive). The decisions with the highest score are the most interesting economically.
+
+`IsEnoughStockRemaining`: is there enough stock available to take this dispatch decision knowing the initial stock and the quantity dispatched with the previous eligible decisions.
+
+`IsEligible`: Decision selected for dispatch (enough stock and below FR target).
+
+"""
+
+// show label "https://go.lokad.com/d/66208/ Configuration de l'optimisation de dispatch" f1h1                                                  {labelIcon: "container" ; textAlign: center ; hrefAspect: white ; tileColor: #(highlightColor)}
+show label "Sanity checks on dispatch suggestions"    c13h13             {labelIcon: "analytics-magnifier" ; labelBorder: "none" ; textBold: "true" ; tileColor: #(highlightColor)}
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///---------------------------------------PREPROCESS----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+///Global parameters--------------------------------------------------------------------------------
+keep where Skus.IsClean
+keep where PO.DeliveryDate > oend + 7
+
+table SkusWeek = cross(Skus, Week)
+
+
+
+show form "Select target for downstream warehouses" a3b4 {formButton: #(confirmButton)} with
+  FRTarget as "FR Target (%)"
+
+show assert "Target FR should be between 0 and 100" a6b6 {tilePlacement: #(if FRTarget >= 0 and FRTarget <= 100 then "hidden" else "fixed")} with
+  FRTarget >= 0 and FRTarget <= 100 as "Target FR should be between 0 and 100"
+
+show label "FR Documentation" a5b5 f5ca91               {href: "https://go.lokad.com/d/68036" ; labelIcon: "manual-list" ; textAlign: center ; hrefAspect: white ; labelBorder: "none" ; textBold: "true" ; iconColor: #d0021b}
+
+
+///Leadtimes----------------------------------------------------------------------------------------
+
+
+Skus.RedispatchCycleWeeks = ceiling(Skus.RedispatchCycle / 7)
+
+Skus.DispatchLTWeeks = round(Skus.DispatchLT/7) //round and not ceiling because we want to round to 0 weeks here
+                                                //assumption : DispatchLT negligible compared to DipatchCycle
+
+Skus.TotalLTWeeks = Skus.DispatchLTWeeks + Skus.RedispatchCycleWeeks
+
+///Agressiveness factor input
+//Put a bias into having more stock at the central warehouse as
+//we can always send stock later to satellite warehouses but we can't send stock back
+Skus.AgressivenessFactor = 0.3
+Skus.AgressivenessFactor = if Skus.Loc == "DC" then 2*Skus.AgressivenessFactor else Skus.AgressivenessFactor //max(min(Items.AgressivenessFactorIni / 5, 1), 0.2)
+
+///Economic parameters
+//Margin
+Skus.M = Skus.SellPrice - Skus.BuyPrice
+
+//OOS penalty
+Skus.S = - Skus.AgressivenessFactor * Skus.M
+
+//Carrying cost
+Skus.CarryingCost = 0.3 * Locations.CarryingCostWeight // % per-period carrying cost relative to purchase price
+                                                        //Loc dependent parameter is there so that users can manually modify the storage cost per Location
+Skus.C = Skus.CarryingCost * Skus.BuyPrice * 7 / 365
+
+Skus.AM = 0.3
+Skus.AC = 1 - 0.2 * Skus.DispatchLTWeeks / 52
+
+
+
+show table "Economic parameters" e12h12    with
+  Skus.Sku
+  Skus.Loc
+  Skus.Category
+
+  Skus.SellPrice
+  Skus.BuyPrice
+
+  Skus.M
+  Skus.S
+
+  Skus.CarryingCost
+  Skus.TotalLTWeeks
+  Skus.C
+  Skus.DispatchLTWeeks
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///----------------------------------------Dispatch LIST--------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//All stock in DC potentially can be dispatched to any of the locations
+
+//As there is also demand in DC, we wirtually empty DC from all its stock
+//and we will reaffect it in the relevant locations (DC being one of the options)
+
+Skus.DispersionSku = 1
+SkusWeek.BaselineSku = same(WeeklyFC.Baseline) * 7 ////Changed to create a story in the dispatch (Swann 22.02.2024)
+SkusWeek.FutureWeekRank = same(WeeklyFC.FutureWeekRank)
+
+
+where SkusWeek.FutureWeekRank > 0
+  Skus.Demand = actionrwd.segment(
+    TimeIndex: SkusWeek.FutureWeekRank,
+    BaseLine: SkusWeek.BaselineSku,
+    Dispersion: Skus.DispersionSku,
+    Alpha: 0.05,
+    Start: dirac(1),
+    Duration: dirac(Skus.DispatchLTWeeks),
+    Samples : 1500)
+
+
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///----------------------------------------Dispatch LIST--------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///Action reward call--------------------------------------------------------------------------------
+
+table Grid = extend.ranvar(Skus.Demand, 0, Skus.LotMultiplierDispatch) //add a reach if needed
+
+// ///Dispatch list------------------------------------------------------------------------------------
+
+// ///Qty
+Grid.Q = Grid.Max - Grid.Min + 1
+
+// ///Fill rate
+Skus.FR = fillrate(Skus.Demand)
+Skus.CurrentFR = int(Skus.FR, 0,  0) ///We start from 0 to define ideal ROPs
+
+where date >= oend - 365 and date <= oend
+  Skus.LastYearSales = sum(Orders.LokadNetAmount)
+  lastYearOverallSales = sum(Orders.LokadNetAmount)
+  lastYearSalesEDB = sum(Orders.LokadNetAmount) when(Orders.Loc == "EDB")
+  lastYearSalesLON = sum(Orders.LokadNetAmount) when(Orders.Loc == "LON")
+  lastYearSalesMAN = sum(Orders.LokadNetAmount) when(Orders.Loc == "MAN")
+  lastYearSalesDC = sum(Orders.LokadNetAmount) when(Orders.Loc == "DC")
+  Skus.SalesWeight = Skus.LastYearSales / lastYearOverallSales
+  overallCurrentFR = sum(Skus.CurrentFR * Skus.SalesWeight)
+  Skus.SalesWeightEDB = sum(Orders.LokadNetAmount) when(Orders.Loc == "EDB") / lastYearSalesEDB
+  Skus.SalesWeightLON = sum(Orders.LokadNetAmount) when(Orders.Loc == "LON") / lastYearSalesLON
+  Skus.SalesWeightMAN = sum(Orders.LokadNetAmount) when(Orders.Loc == "MAN") / lastYearSalesMAN
+  Skus.SalesWeightDC = sum(Orders.LokadNetAmount) when(Orders.Loc == "DC") / lastYearSalesDC
+
+Grid.FillRateDelta = int(Skus.FR, Grid.Min, Grid.Max)
+Skus.RM = stockrwd.m(Skus.Demand, Skus.AM) * Skus.M
+Skus.RS = stockrwd.s(Skus.Demand) * Skus.S
+Skus.RC = stockrwd.c(Skus.Demand, Skus.AC) * Skus.C
+
+Grid.M = int(Skus.RM, Grid.Min, Grid.Max)
+Grid.S = int(Skus.RS, Grid.Min, Grid.Max)
+Grid.C = int(Skus.RC, Grid.Min, Grid.Max)
+Grid.Reward = Grid.M + Grid.S + Grid.C
+
+
+
+Grid.Cost = Grid.Q * Skus.BuyPrice
+
+Grid.Score = Grid.Reward /. Grid.Cost
+
+where Grid.Min > 0
+  Grid.Rank = rank(Grid.Score, Sku, -Grid.Max)
+  Grid.OverallFRGain = Grid.FillRateDelta * Skus.SalesWeight
+  Grid.CumOverallFRGain = sum(Grid.OverallFRGain) scan Grid.Rank
+  Grid.CumFillRateDelta = sum(Grid.FillRateDelta) scan Grid.Rank
+
+  overallFRTarget = FRTarget / 100
+
+  Grid.IsEligible = Grid.CumOverallFRGain <= (overallFRTarget - overallCurrentFR)
+  where Grid.IsEligible
+    Skus.DispatchQuantity = sum(Grid.Q) //qty that arrives in store
+// ///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ///---------------------------------DISPATCH RECOMMENDATIONS--------------------------------
+// ///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    show table "Grid" e11h11   with
+      Grid.Rank as "Rank"
+      Grid.Loc as "Loc"
+      Skus.Ref as "Ref"
+      Sku as "Sku"
+      Skus.Category
+      Skus.BuyPrice
+      Skus.SellPrice
+      Skus.M as "Margin"
+      Skus.StockOnHand
+      Grid.Q
+      Grid.Min
+      Grid.Max
+      Skus.DispatchLTWeeks as "Transportation LT" {unit: " week(s)"}
+      Skus.RedispatchCycleWeeks as "Redispacth LT" {unit: " week(s)"}
+      Skus.CurrentFR {numbers: percent}
+      Grid.FillRateDelta {numbers: percent}
+      Grid.CumFillRateDelta {numbers: percent}
+      Grid.OverallFRGain {numbers: percent}
+      Grid.CumOverallFRGain {numbers: percent}
+
+
+
+
+
+      Grid.Reward as "Reward"
+      Grid.Score as "Score"
+
+      Grid.IsEligible
+
+      order by Grid.Rank
+
+Skus.NewFR = int(Skus.FR, 0,  Skus.DispatchQuantity)
+show table "ROP recommendations" e7h10 write:"/Clean/Simulation/ROP.ion" with
+  Skus.Sku
+  Skus.Ref
+  Skus.Loc
+  Skus.M
+  sum(PO.Quantity) into Skus as "StockOnOrder"
+  Skus.DispatchQuantity as "ROP"
+  Skus.FR {numbers: percent}
+  Skus.CurrentFR as "CurrentFR" {numbers: percent}
+  Skus.NewFR {numbers: percent}
+  Skus.LastYearSales
+  Skus.SalesWeight {numbers: percent}
+  Skus.SalesWeight * Skus.NewFR as "OverallFRContrib" {numbers: percent}
+  order by Sku
+
+
+show scalar "FR after dispatch" c5     {textAlign: center ; precision: 1} with
+  sum(Skus.NewFR * Skus.SalesWeight) as "" {numbers: percent}
+show scalar "FR after dispatch EDB" e5      {textAlign: center ; precision: 1} with
+  sum(Skus.NewFR * Skus.SalesWeightEDB) as "" {numbers: percent}
+show scalar "FR after dispatch MAN" f5     {textAlign: center ; precision: 1} with
+  sum(Skus.NewFR * Skus.SalesWeightMAN) as "" {numbers: percent}
+show scalar "FR after dispatch LON" g5     {textAlign: center ; precision: 1} with
+  sum(Skus.NewFR * Skus.SalesWeightLON) as "" {numbers: percent}
+show scalar "FR after dispatch DC" h5     {textAlign: center ; precision: 1} with
+  sum(Skus.NewFR * Skus.SalesWeightDC) as "" {numbers: percent}
+
+description = "Overall FR gain after applying the dispatch suggestions"
+show scalar "FR gain" c4 449d44     {textBold: "true" ; textAlign: center ; tileTooltipText: #(description)} with
+  sum(Skus.NewFR * Skus.SalesWeight)  as "" {numbers: percent}
+description = "FR gain at the location after applying the dispatch suggestions"
+show scalar "FR gain EDB" e4 449d44     {textBold: "true" ; textAlign: center ; tileTooltipText: #(description)} with
+  sum(Skus.NewFR * Skus.SalesWeightEDB)  as "" {numbers: percent}
+show scalar "FR gain MAN" f4 449d44   {textBold: "true" ; textAlign: center ; tileTooltipText: #(description)} with
+  sum(Skus.NewFR * Skus.SalesWeightMAN)  as "" {numbers: percent}
+show scalar "FR gain LON" g4 449d44   {textBold: "true" ; textAlign: center ; tileTooltipText: #(description)} with
+  sum(Skus.NewFR * Skus.SalesWeightLON)as "" {numbers: percent}
+description = "Minor FR loss in the central warehouse: the dispatch moves units towards a location where they are much more useful."
+show scalar "FR gain DC" h4 8787F3  {textBold: "true" ; textAlign: center ; tileTooltipText: #(description)} with
+  sum(Skus.NewFR * Skus.SalesWeightDC)  as "" {numbers: percent}
+
+
+show barchart "Dispatch value by Category" a7b8 ec9539  with
+  sum(Skus.DispatchQuantity * Skus.SellPrice) {unit: #(dcUnit)}
+  group by Skus.Category
+  order by sum(Skus.DispatchQuantity) desc
+
+show barchart "Dispatch value by Location" a9b10 ec9539  with
+  sum(Skus.DispatchQuantity * Skus.SellPrice) {unit: #(dcUnit)}
+  group by Skus.Loc
+  order by sum(Skus.DispatchQuantity) desc
+
+
+// where any(Skus.NewStockWarehouse == 0 and Skus.StockAvailableForDispatch > 0) by Skus.Ref
+
+//   issueName = "Stock out in DC after Dispatch"
+//   failedLines = distinct(Skus.Ref)
+//   repColor = if failedLines > 0 then colorWarning else ""
+//   EmoAtt = if failedLines > 0 then "⚠️" else ""
+//   description = "1 line per Sku for all the Refs for which the dispatch decisions led to a stock out in the central location."
+//   show table "\{EmoAtt} \{issueName} [\{failedLines} ref(s)]" c15h15 { tileColor: #(repColor); tileTooltipText: #(description) }      with
+//     Skus.Sku as "Sku"  {href: #[Skus.Url_ItemInspector]}
+//     Skus.Ref
+//     Skus.Loc
+//     Skus.Category as "Category"
+//     Skus.TotalLTWeeks as "Lead Time" {unit: " week(s)"}
+//     Skus.StockOnHand as "Stock On Hand" {unit: #(pcsUnit)}
+//     Skus.StockOnOrder as "Stock On Order" {unit: #(pcsUnit)}
+//     Skus.DispatchQuantity as "Dispatch suggestion" {cellBackground: #d1d1d1 ; textColor: #C7180F ; unit: #(pcsUnit)}
+//     Skus.CurrentFRForDisplay as "Current FR" {numbers: percent}
+//     Skus.NewFR as "New FR" {numbers: percent}
+//     Skus.StockAvailableForDispatch as "Stock in DC before Dispatch" {unit: #(pcsUnit)}
+//     Skus.NewStockWarehouse as "Stock in DC after Dispatch" {unit: #(pcsUnit)}
+//     order by - Skus.DispatchQuantityWarehouse
+
+//   show assert "⚠️ Too many stock outs in DC after dispatch" g7h7  { tilePlacement: #(if failedLines < 10 then "hidden" else "fixed")} with
+//     failedLines < 10 as "⚠️ Too many stock outs in DC after dispatch"
+//     all(Skus.NewStockWarehouse >= 0) as "⚠️ Negative stock in DC after Dispatch"
+
+
+// ///Explanations / stories to look into when explaining / analyzing the dashboard
+// show markdown "" a4h18  with """
+
+//   This explanation uses examples of the scenario with an input target FR of 88%. For other input values
+//   the results will be a bit different but the general ideas remain valid.
+
+//   #### Fill rate
+
+//   The target fill rate is used to limit the amount of stock you'd like to ship to the downstream warehouses. It is important to be able to control
+//   this as we assume here that, once the stock is shipped to one of the downstream locations, it is stuck there.
+
+//   ##### Things to notice regarding the overall FR:
+//   * The fill rate decreases slightly in DC: this is expected as we move stock from DC to other locations
+//   * The overall fill rate increases: thanks to this dispatch optimization, we make the most of the stock we have. We lose a little bit of FR in DC
+//   to win more in the other locations -> we move the stock to the locations where it has the most impact.
+//   * We reach 88% FR for EDB and LON: we reached the limit set by the target FR. There could be extra dispatch decisions that could make sense but,
+//   through the parameters selected, we decided that we'd rather keep the stock in DC and keep options for a future dispatch decision.
+//   * We are above 88% for MAN: we are already well above the target at MAN so it is not worth it to dispatch anything there.
+//   * We do not have any products for which the dispatch empties the stock in DC. This is a possibility that might happen if there is very few demand in DC compared to the downstream locations and/or
+//   there is an imminent stock arrival in DC.
+
+//   #### Underlying hypotheses:
+//   The window of opportunity considered for the warehouses are:
+//   * The redispatch period (3 or 4 weeks) for the dowstream locations. It is the shortest time between 2 possible stock arrivals (assuming the SLT for the purchase is bigger than this which is the case here)
+//   * The SLT for DC. It is a much larger location but, as there is no dispatch possible for DC, we need to have enough stock to cover at least from here to the next stock arrival, that can't happen before 1 SLT.
+
+//   Having a larger horizon considered for DC is one way of pushing the optimization to prefer keeping stock in the upstream warehouse.
+//   Another way is to increase the stockout penalty for DC. Here we set it up to be twice as big for DC.
+
+//   #### Details for specific products:
+//   * CT-118 : we send stock to EDB and LON. The stock in DC is huge so we could even send more without fear of being stocked out in DC. However the FR target prevents
+//   us from doing so. We avoid sending downstream huge amount of stock that might not be managable and just send what is needed.
+
+//   """
+//   // #### Details for specific products:
+//   // * DS-123 : we send stock to EDB, MAN and LON. The stock in DC is huge so we could even send more without fear of being stocked out in DC. However the FR target prevents
+//   // us from doing so. We avoid sending downstream huge amount of stock that might not be managable and just send what is needed. For LON, DS-123 has a lot multiplier of 10.
+//   // As we reached a FR of 99.9% for that Sku and as the dispatch quantity is 60, we can assume that, without lot multiplier, the dispatch suggestion would
+//   // have been between 51 and 59.

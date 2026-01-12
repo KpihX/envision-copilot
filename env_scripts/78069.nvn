@@ -1,0 +1,889 @@
+/// Input:  /Clean/
+// Cloned from '/4. Optimization workflow/03 Forecasting' on 2024-02-26
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// --------------------------------------READ INPUT TABLES-----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+import "/1. utilities/Modules/Global Parameters" as GP with
+  DcUnit
+  ColorB
+  ColorLightBg
+  LinkLocationItemInspector
+
+const testStorage = ""
+const inputPath = "\{testStorage}/Clean/"
+const exportFile = "/Clean/validation/"
+read "\{inputPath}Items.ion" as Items[Id unsafe] with
+  IsTopItem : boolean
+  "Sku" as Id : text
+  Name : text
+  Category : text
+  SellPrice : number
+  ImageUrl : text
+  ImagePath : text
+  StartDate : date
+  EndDate : date
+  IsClean : boolean
+  LeadTime : number
+  ReorderCycle : number
+
+read "\{inputPath}Items.ion" as MySettings with
+  "Category" as Category : text
+
+read "/Manual/TopItemsParameters.xlsx" as TopItemsParameters expect[Id] with
+  CategoryDisplayRank : number
+  Category : text
+  ItemDisplayRank : number
+  Ref : text
+  "Sku" as Id : text
+
+read "\{inputPath}Forecast/Periodic/WeeklyFc.ion" as WeeklyFc expect[Id, date] with
+  "Sku" as Id : text
+  "Monday" as date: date
+  DemandQty : number
+  Cache : number
+  IsPast : boolean
+  FutureWeekRank : number
+  IsSLT : boolean
+  IsWOO : boolean
+  Baseline : number
+  Demand : ranvar
+  LowerBarTotal2 : number
+  LowerBarTotal1 : number
+  HighBarTotal2 : number
+  HighBarTotal1 : number
+  WOODemand : ranvar
+
+read "\{inputPath}Forecast/Periodic/FcItems.ion" as FcItems expect[Id] with
+  Id : text
+  GapToTarget : number
+  CategoryGapToTarget : number
+  overallGapToTarget : number
+  ForecastSanityLabel : text
+  CategoryForecastSanityLabel : text
+  overallForecastSanityLabel : text
+  sanityQTarget : number
+  quantileLow1 : number
+  quantileLow2 : number
+  quantileHigh1 : number
+  quantileHigh2 : number
+
+
+read upload "editabletable" as editable expect[Id] with
+  "Sku" as Id: text
+  "Week N+1" as Week0 : number
+  "Week N+2" as Week1 : number
+  "Week N+3" as Week2 : number
+  "Week N+4" as Week3 : number
+  "Week N+5" as Week4 : number
+  "Week N+6" as Week5 : number
+  "Week N+7" as Week6 : number
+  "Week N+8" as Week7 : number
+  "Week N+9" as Week8 : number
+  "Week N+10" as Week9 : number
+
+read "\{exportFile}TestEditable.ion" as EditableCheck expect[Id] with
+  "Sku" as Id : text
+  Snapshot : date
+  "Week N+1" as Week0 : number
+  "Week N+2" as Week1 : number
+  "Week N+3" as Week2 : number
+  "Week N+4" as Week3 : number
+  "Week N+5" as Week4 : number
+  "Week N+6" as Week5 : number
+  "Week N+7" as Week6 : number
+  "Week N+8" as Week7 : number
+  "Week N+9" as Week8 : number
+  "Week N+10" as Week9 : number
+
+read "\{exportFile}ManualForecasts.ion" as ManualForecasts expect[Id, date] with
+  Id : text
+  date: date
+  ManualOverride : number
+
+
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// ------------------------------------------SETUP-------------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///Colors-------------------------------------------------------------------------------------------
+
+highlightColor = ColorB
+bgLight = ColorLightBg
+
+// Fix Colors:
+passiveColor = "#919191"
+
+///Global parameters--------------------------------------------------------------------------------
+show tabs "" a3h3 with
+  "OverallView" as "Vue générale"
+  "CategoryView" as "Vue par Categorie"
+  "ItemView" as "Vue Article"
+
+pcsUnit = " Pcs"
+magnifierIcon = "🔎"
+
+///Editable body------------------------------------------------------------------------------------
+
+show logo "" a1
+show label "Validation du Forecast " b1c1 {labelBorder: "none"}
+
+show markdown "Documentation" b2h2                                  with
+  """
+  __Cet écran presente un éventail de differents scenarios futurs possibles. It provides the opportunity to understand and to fine-tune the Lokad forecasting output.__
+  """
+
+show label "" a2h2 9b9b9b
+
+
+
+show label "Suivant" h1                 {href: "https://go.lokad.com/d/68020" ; hrefAspect: white ; textAlign: center}
+show label "Précédent" g1                 {href: "https://go.lokad.com/d/68018" ; hrefAspect: white ; textAlign: center}
+show label "Analyse détaillée du forecast" a6b6 {href: "https://go.lokad.com/d/68002/" ; hrefAspect: white ; textAlign: center;tileTab: "OverallView"}
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///-----------------------------------------PREPROCESS----------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///Global parameters--------------------------------------------------------------------------------
+
+oend = max(WeeklyFc.date) when(WeeklyFc.IsPast)
+now = oend
+
+lookbackDays = 365 + 2 * 30.5
+lookforwardDays = min(max(WeeklyFc.date) - oend, 52 * 7)
+
+keep where date <= oend + lookforwardDays
+
+///Links to inspectors
+
+keep where Items.IsClean
+
+inspectorId = LinkLocationItemInspector
+selectedTab = concat("&t=", "Info")
+Items.hRefUrlRaw = sliceSearchUrl(inspectorId, Items.Id)
+Items.hRefUrl = concat(Items.hRefUrlRaw, selectedTab)
+
+Items.Url = replace(Items.hRefUrl , "~" , "https://go.lokad.com" )
+
+///Life cycle
+Items.LifeCycleLabel = if Items.StartDate > now - 365 then "New" else
+      if Items.EndDate <= now + 365 then "Discontinued" else "Unchanged"
+
+///Forecast-----------------------------------------------------------------------------------------
+
+
+//Dispersion at overall level
+quantileLow1 = same(FcItems.quantileLow1)
+quantileLow2 = same(FcItems.quantileLow2)
+quantileHigh1 = same(FcItems.quantileHigh1)
+quantileHigh2 = same(FcItems.quantileHigh2)
+
+///Forecast sanity
+
+//Forecast sanity label
+overallForecastSanityLabel = same(FcItems.overallForecastSanityLabel)
+
+//Forecast confidence index
+low = "🟢⚫⚫⚫⚫"
+medium = "🟢🟢🟢⚫⚫"
+high = "🟢🟢🟢🟢🟢"
+
+highThreshold = 0.05
+mediumThreshold = 0.08
+
+
+
+overallGapToTarget = same(FcItems.overallGapToTarget)
+overallForecastConfidenceIndex = if abs(overallGapToTarget) < highThreshold then high else
+      if abs(overallGapToTarget) < mediumThreshold then medium else low
+
+///Economic kpis------------------------------------------------------------------------------------
+
+///Item level
+Items.SalesL365 = sum(WeeklyFc.DemandQty) when (WeeklyFc.date > oend - 365)
+Items.TurnoverL365 = sum(WeeklyFc.DemandQty * Items.SellPrice) when (WeeklyFc.date > oend - 365)
+
+
+
+///Category level
+Items.CategoryTurnoverL365 = sum(Items.TurnoverL365) by Items.Category
+
+///Overall level
+totalTurnoverL365 = sum(Items.TurnoverL365)
+
+///Slices-------------------------------------------------------------------------------------------
+
+Items.CategoryDisplayRank = same(TopItemsParameters.CategoryDisplayRank)
+                            by TopItemsParameters.Category
+                            at Items.Category
+
+Items.ItemDisplayRank = same(TopItemsParameters.ItemDisplayRank)
+
+Items.PageName = Items.Category
+Items.PagePosition = Items.ItemDisplayRank
+where Items.ItemDisplayRank > 0
+  Items.PagePosition = rankrev () by Items.PageName scan -Items.ItemDisplayRank
+
+table Slices [slice] = slice by [Items.CategoryDisplayRank, Items.PageName] title: Items.PageName
+Slices.PageName = same(Items.PageName)
+Slices.Category = same(Items.Category)
+
+
+/// -------------------------------------- [ IMPLEMENT FORM ] --------------------------------------
+
+/// UNIFY DEMAND SIZES:
+WeeklyFc.OverallWeeklyDemand = sum(WeeklyFc.Demand * ceiling(Items.SellPrice)) by WeeklyFc.date
+WeeklyFc.TotalDemLw3 = quantile(WeeklyFc.OverallWeeklyDemand, 0.001)
+WeeklyFc.TotalDemLw2 = quantile(WeeklyFc.OverallWeeklyDemand, quantileLow2)
+WeeklyFc.TotalDemLw1 = quantile(WeeklyFc.OverallWeeklyDemand, quantileLow1)
+WeeklyFc.TotalDemMed = if WeeklyFc.IsPast then 0 else mean(WeeklyFc.OverallWeeklyDemand)
+WeeklyFc.TotalDemUp1 = quantile(WeeklyFc.OverallWeeklyDemand, quantileHigh1)
+WeeklyFc.TotalDemUp2 = quantile(WeeklyFc.OverallWeeklyDemand, quantileHigh2)
+WeeklyFc.TotalDemUp3 = quantile(WeeklyFc.OverallWeeklyDemand, 0.999)
+
+WeeklyFc.CategoryWeeklyDemand = sum(WeeklyFc.Demand * ceiling(Items.SellPrice)) by [Items.Category, WeeklyFc.date]
+WeeklyFc.GrpDemLw2 = quantile(WeeklyFc.CategoryWeeklyDemand, quantileLow2)
+WeeklyFc.GrpDemLw1 = quantile(WeeklyFc.CategoryWeeklyDemand, quantileLow1)
+WeeklyFc.GrpDemMed = if WeeklyFc.IsPast then 0 else mean(WeeklyFc.CategoryWeeklyDemand)
+WeeklyFc.GrpDemUp1 = quantile(WeeklyFc.CategoryWeeklyDemand, quantileHigh1)
+WeeklyFc.GrpDemUp2 = quantile(WeeklyFc.CategoryWeeklyDemand, quantileHigh2)
+
+WeeklyFc.DemLw2 = max(quantile(WeeklyFc.Demand, quantileLow2), 0 )
+WeeklyFc.DemLw1 = max(quantile(WeeklyFc.Demand, quantileLow1), 0 )
+WeeklyFc.DemMed = if not WeeklyFc.IsPast then WeeklyFc.Baseline else 0
+WeeklyFc.DemUp1 = max(quantile(WeeklyFc.Demand, quantileHigh1), 0 )
+WeeklyFc.DemUp2 = max(quantile(WeeklyFc.Demand, quantileHigh2), 0 )
+WeeklyFc.BackgroundPeriod = if WeeklyFc.IsPast then 1 else 0
+
+///Economic kpis------------------------------------------------------------------------------------
+///Item level
+Items.SalesN365 = sum(WeeklyFc.Baseline) when(WeeklyFc.date > now and WeeklyFc.date <= now + 365)
+Items.TurnoverN365 = sum(WeeklyFc.Baseline * Items.SellPrice) when(WeeklyFc.date > now and WeeklyFc.date <= now + 365)
+///Category level
+Items.CategoryTurnoverN365 = sum(Items.TurnoverN365) by Items.Category
+///Overall level
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///-----------------------------------------OVERALL LEVEL-------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+selectedTab = concat("&t=", "CategoryView")
+Items.CatUrlRaw = (sliceSearchUrl(51249, Items.Category))
+Items.CatUrl = concat(Items.CatUrlRaw, selectedTab)
+
+///Overall summary
+show table "Categories" c4h6              {tileTab: "OverallView" ; textBold: "true"} with
+  "🔎" as "Vers Forecast" {columnReadOnly: "true" ; columnWidth: 2 ; value { textBold: "true" } ; href: #[same(Items.CatUrl)]}
+  Items.Category as "Catégorie" {value { textColor: "#000" } ; href: #[same(Items.CatUrl)]}
+  same(Items.CategoryTurnoverL365 / totalTurnoverL365) as "% Turnover" {numbers: percent}
+  same(round(Items.CategoryTurnoverL365)) as "Turnover 365 derniers jours" {numbers: simple ; unit: #(DcUnit)}
+  same(round(Items.CategoryTurnoverN365)) as "Turnover 365 prochains jours" {numbers: simple ; unit: #(DcUnit)}
+  same(Items.CategoryTurnoverN365 / Items.CategoryTurnoverL365 - 1) as "Tendance globale" {numbers: percent}
+  group by Items.Category
+  order by same(Items.CategoryTurnoverL365) desc
+
+///Turnover
+show linechart "Prévision des ventes (montant net)" a7h10               {tileTab: "OverallView"} with
+  1 as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden ; unit: #(DcUnit)}
+  same(WeeklyFc.BackgroundPeriod) as "" {seriesType: background ; seriesOpacity: 0.3 ; color: #fadac3}
+  same(WeeklyFc.TotalDemUp3) + sum(WeeklyFc.DemandQty * Items.SellPrice) as "Improbable Haut" {seriesType: area ; color: #FFE4B7 ; unit: #(DcUnit)}
+  same(WeeklyFc.TotalDemUp2) + sum(WeeklyFc.DemandQty * Items.SellPrice) as "Possible Haut" {seriesType: area ; color: #fbc367 ; unit: #(DcUnit)}
+  same(WeeklyFc.TotalDemUp1) + sum(WeeklyFc.DemandQty * Items.SellPrice) as "Certain Haut" {seriesType: area ; color: #fb8f62 ; unit: #(DcUnit)}
+  same(WeeklyFc.TotalDemMed) + sum(WeeklyFc.DemandQty * Items.SellPrice) as "Moyenne attendue" {seriesType: area ; color: #fb8f62 ; unit: #(DcUnit)}
+  same(WeeklyFc.TotalDemLw1) + sum(WeeklyFc.DemandQty * Items.SellPrice) as "Certain Bas" {seriesType: area ; color: #fbc367 ; unit: #(DcUnit)}
+  same(WeeklyFc.TotalDemLw2) + sum(WeeklyFc.DemandQty * Items.SellPrice) as "Possible Bas" {seriesType: area ; color: #FFE4B7 ; unit: #(DcUnit)}
+  same(WeeklyFc.TotalDemLw3) + sum(WeeklyFc.DemandQty * Items.SellPrice) as "Improbable Bas" {seriesType: area ; color: #ffffff ; unit: #(DcUnit)}
+
+  same(WeeklyFc.TotalDemMed) + sum(WeeklyFc.DemandQty * Items.SellPrice) as "Moyenne attendue" {color: #c62a2a ; seriesLegend: hidden ; unit: #(DcUnit)}
+  group by WeeklyFc.date
+
+///Forecast confidence
+show summary "Qualité du Forecast" a4b5                                                        {tileTab: "OverallView" ; tileColor: #(highlightColor)} with
+  count(Items.*) as "# Items forecastés" {unit: " Articles" ; textBold: "true"}
+  overallForecastSanityLabel as "Précision forecast Q 95%" {textBold: "true"}
+  overallForecastConfidenceIndex as ""
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///-----------------------------------------CATEGORY LEVEL------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///Slices names
+Slices.CategoryLabel = concat(" Vue globale ",Slices.Category)
+
+///Reporting----------------------------------------------------------------------------------------
+
+///Overall summary
+show summary Slices.CategoryLabel  a4c5  slices:slice              {tileTab: "CategoryView" ; tileColor: #(highlightColor)} with
+  same(Items.CategoryTurnoverL365 / totalTurnoverL365) as "% Turnover" {numbers: percent ; textBold: "true"}
+  same(Items.CategoryTurnoverL365) as "Turnover L365 d" {numbers: simple ; textBold: "true" ; unit: #(DcUnit)}
+  same(Items.CategoryTurnoverN365) as "Turnover N365 d" {numbers: simple ; textBold: "true" ; unit: #(DcUnit)}
+  same(Items.CategoryTurnoverN365 / Items.CategoryTurnoverL365 - 1) as "Tendance" {numbers: percent ; textBold: "true"}
+  count(Items.*) as "# Articles" {textBold: "true"}
+
+///Turnover
+WeeklyFc.slice = Items.slice
+where WeeklyFc.date > monday(oend - lookbackDays)
+  show linechart "Montant Net" a7h10 slices:slice              {tileTab: "CategoryView"} with
+    1 as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden ; unit: #(DcUnit)}
+    same(WeeklyFc.BackgroundPeriod) as "" {seriesType: background ; seriesOpacity: 0.3 ; color: #fadac3}
+    same(WeeklyFc.GrpDemUp2) + sum(WeeklyFc.DemandQty * Items.SellPrice) as "Possible Haut" {seriesType: area ; color: #fbc367 ; unit: #(DcUnit)}
+    same(WeeklyFc.GrpDemUp1) + sum(WeeklyFc.DemandQty * Items.SellPrice) as "Certain Haut" {seriesType: area ; color: #fb8f62 ; unit: #(DcUnit)}
+    same(WeeklyFc.GrpDemMed) + sum(WeeklyFc.DemandQty * Items.SellPrice) as "Moyenne Attendue" {seriesType: area ; color: #fb8f62 ; unit: #(DcUnit)}
+    same(WeeklyFc.GrpDemLw1) + sum(WeeklyFc.DemandQty * Items.SellPrice) as "Certain Bas" {seriesType: area ; color: #fbc367 ; unit: #(DcUnit)}
+    same(WeeklyFc.GrpDemLw2) + sum(WeeklyFc.DemandQty * Items.SellPrice) as "Possible Bas" {seriesType: area ; color: #ffffff ; unit: #(DcUnit)}
+
+    same(WeeklyFc.GrpDemMed) + sum(WeeklyFc.DemandQty * Items.SellPrice) as "Moyenne Attendue" {color: #c62a2a ; seriesLegend: hidden ; unit: #(DcUnit)}
+    group by WeeklyFc.date
+
+
+  // same(Items.CategoryForecastSanityLabel) as "Accuracy in 95% interval" ///!!!!!!!
+  // same(Items.CategoryForecastConfidenceIndex) as ""                     /// !!!!!!
+
+///Leading products comparison
+Items.TrendSpec = Items.TurnoverN365 / Items.TurnoverL365 - 1
+Items.TrendCategory = match Items.TrendSpec with //match does not work with negative values !!!
+  .. 0  -> "Negative"
+  0.. 0.05  -> "[0% ; +5%]"
+  0.05 .. 0.1  -> "[+5% ; +10%]"
+  0.1 .. 0.15  -> "[+10% ; +15%]"
+  0.15 .. 0.2  -> "[+15% ; +20%]"
+  0.2 ..   -> "> +20%"
+
+Items.TrendCategory2 = match Items.TrendSpec with //match does not work with negative values !!!
+  .. 0  -> "0"
+  0.. 0.05  -> "f"
+  0.05 .. 0.1  -> "g"
+  0.1 .. 0.15  -> "h"
+  0.15 .. 0.2  -> "i"
+  0.2 ..   -> "j"
+
+where Items.TrendCategory == "Negative"
+  Items.TrendCategory =  match abs(Items.TrendSpec) with
+    0.. 0.05  -> "[-5% ; 0%]"
+    0.05 .. 0.1  -> "[-10% ; -5%]"
+    0.1 .. 0.15  -> "[-15% ; -10%]"
+    0.15 .. 0.2  -> "[-20% ; -15%]"
+    0.2 ..   -> "< -20%"
+
+  Items.TrendCategory2 =  match abs(Items.TrendSpec) with
+    0.. 0.05  -> "e"
+    0.05 .. 0.1  -> "d"
+    0.1 .. 0.15  -> "c"
+    0.15 .. 0.2  -> "b"
+    0.2 ..   -> "a"
+
+Items.TrendCategoryRank = -1
+where argwhichever() by Items.TrendCategory
+  Items.TrendCategoryRank = rankrev () scan - Items.TrendSpec
+Items.TrendCategoryRank = same(Items.TrendCategoryRank) when(Items.TrendCategoryRank != -1) by Items.TrendCategory
+
+
+show barchart "Tendance du Turnover actuel" d4h6 f87551  slices:slice                                        {barchartGroups: bottom ; seriesType: stack ; tileTab: "CategoryView"}  with
+  sum(Items.TurnoverL365) when(Items.TrendCategoryRank == 1) as "Turnover L365 d" {color: #FF0000 ; seriesLegend: hidden ; seriesOpacity: 0.75}
+  sum(Items.TurnoverL365) when(Items.TrendCategoryRank == 2) as "Turnover L365 d" {color: #FF3300 ; seriesLegend: hidden ; seriesOpacity: 0.75}
+  sum(Items.TurnoverL365) when(Items.TrendCategoryRank == 3) as "Turnover L365 d" {color: #ff6600 ; seriesLegend: hidden ; seriesOpacity: 0.75}
+  sum(Items.TurnoverL365) when(Items.TrendCategoryRank == 4) as "Turnover L365 d" {color: #ff9900 ; seriesLegend: hidden ; seriesOpacity: 0.75}
+  sum(Items.TurnoverL365) when(Items.TrendCategoryRank == 5) as "Turnover L365 d" {color: #FFCC00 ; seriesLegend: hidden ; seriesOpacity: 0.75}
+  sum(Items.TurnoverL365) when(Items.TrendCategoryRank == 6) as "Turnover L365 d" {color: #FFFF00 ; seriesLegend: hidden ; seriesOpacity: 0.75}
+  sum(Items.TurnoverL365) when(Items.TrendCategoryRank == 7) as "Turnover L365 d" {color: #ccff00 ; seriesLegend: hidden ; seriesOpacity: 0.75}
+  sum(Items.TurnoverL365) when(Items.TrendCategoryRank == 8) as "Turnover L365 d" {color: #99ff00 ; seriesLegend: hidden ; seriesOpacity: 0.75}
+  sum(Items.TurnoverL365) when(Items.TrendCategoryRank == 9) as "Turnover L365 d" {color: #66ff00 ; seriesLegend: hidden ; seriesOpacity: 0.75}
+  sum(Items.TurnoverL365) when(Items.TrendCategoryRank == 10) as "Turnover L365 d" {color: "33ff00" ; seriesLegend: hidden ; seriesOpacity: 0.75}
+  sum(Items.TurnoverL365) as "Turnover L365 d" {seriesType: bar ; seriesOpacity: 0}
+  group by Items.TrendCategory
+  order by same(Items.TrendCategory2)
+
+Items.CumTurnoverL365 = sum(Items.TurnoverL365) by Items.Category scan - Items.TurnoverL365
+Items.BestSellerRank = rankrev () by Items.Category scan - Items.CumTurnoverL365
+
+bestSellerDisplayNb = 40
+where Items.BestSellerRank <= bestSellerDisplayNb
+  show barchart "Pareto Catégorie (\{bestSellerDisplayNb} top best-sellers)" a4e7 slices:slice                          {barchartGroups: bottom ; tileTab: "ItemView"} with
+    same(Items.CumTurnoverL365 / Items.CategoryTurnoverL365) as "% Ventes" {numbers: percent ; unit: " overall sales" ; seriesType: bar ; color: #fbc367}
+    same(Items.CumTurnoverL365 / Items.CategoryTurnoverL365) when(Items.IsTopItem) as "Référence" {numbers: percent ; unit: " overall sales" ; seriesLegend: label ; color: #ff9500 ; seriesType: bar}
+    group by Items.Id
+    order by same(Items.CumTurnoverL365)
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///------------------------------------------ITEMS LEVEL--------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+testItem = 0
+
+DateWeek0 = monday(now)+ 7
+DateWeek1 = monday(now)+ 2*7
+DateWeek2 = monday(now)+ 3*7
+DateWeek3 = monday(now)+ 4*7
+DateWeek4 = monday(now)+ 5*7
+DateWeek5 = monday(now)+ 6*7
+DateWeek6 = monday(now)+ 7*7
+DateWeek7 = monday(now)+ 8*7
+DateWeek8 = monday(now)+ 9*7
+DateWeek9 = monday(now)+ 10*7
+
+EditableCheck.UnChanged0 = EditableCheck.Week0 == single(editable.Week0) by editable.Id at EditableCheck.Id
+EditableCheck.UnChanged1 = EditableCheck.Week1 == single(editable.Week1) by editable.Id at EditableCheck.Id
+EditableCheck.UnChanged2 = EditableCheck.Week2 == single(editable.Week2) by editable.Id at EditableCheck.Id
+EditableCheck.UnChanged3 = EditableCheck.Week3 == single(editable.Week3) by editable.Id at EditableCheck.Id
+EditableCheck.UnChanged4 = EditableCheck.Week4 == single(editable.Week4) by editable.Id at EditableCheck.Id
+EditableCheck.UnChanged5 = EditableCheck.Week5 == single(editable.Week5) by editable.Id at EditableCheck.Id
+EditableCheck.UnChanged6 = EditableCheck.Week6 == single(editable.Week6) by editable.Id at EditableCheck.Id
+EditableCheck.UnChanged7 = EditableCheck.Week7 == single(editable.Week7) by editable.Id at EditableCheck.Id
+EditableCheck.UnChanged8 = EditableCheck.Week8 == single(editable.Week8) by editable.Id at EditableCheck.Id
+EditableCheck.UnChanged9 = EditableCheck.Week9 == single(editable.Week9) by editable.Id at EditableCheck.Id
+
+table WeeklyFCModified = extend.range(WeeklyFc.1)
+
+
+//Intergrate manual modifications that were done in previous runs. Those are accounted for in the ManualForecasts file
+WeeklyFCModified.AvgDemand = single(ManualForecasts.ManualOverride) by [ManualForecasts.Id, ManualForecasts.date] at [WeeklyFCModified.Id, WeeklyFCModified.date]
+//General case : if no previous modification, then input the actual forecast
+WeeklyFCModified.AvgDemand = if WeeklyFCModified.AvgDemand == 0 then WeeklyFc.Baseline else WeeklyFCModified.AvgDemand
+//Take into account the last batch of changes integrated through the editable
+WeeklyFCModified.AvgDemand = if single(EditableCheck.UnChanged0) by EditableCheck.Id at WeeklyFCModified.Id then WeeklyFCModified.AvgDemand else
+      same(editable.Week0) by [Id, DateWeek0] at [Id, WeeklyFCModified.date] +
+                              (if single(EditableCheck.UnChanged1) by EditableCheck.Id at WeeklyFCModified.Id then WeeklyFCModified.AvgDemand else same(editable.Week1) by [Id, DateWeek1] at [Id, WeeklyFCModified.date]) +
+                              (if single(EditableCheck.UnChanged2) by EditableCheck.Id at WeeklyFCModified.Id then WeeklyFCModified.AvgDemand else same(editable.Week2) by [Id, DateWeek2] at [Id, WeeklyFCModified.date]) +
+                              (if single(EditableCheck.UnChanged3) by EditableCheck.Id at WeeklyFCModified.Id then WeeklyFCModified.AvgDemand else same(editable.Week3) by [Id, DateWeek3] at [Id, WeeklyFCModified.date]) +
+                              (if single(EditableCheck.UnChanged4) by EditableCheck.Id at WeeklyFCModified.Id then WeeklyFCModified.AvgDemand else same(editable.Week4) by [Id, DateWeek4] at [Id, WeeklyFCModified.date]) +
+                              (if single(EditableCheck.UnChanged5) by EditableCheck.Id at WeeklyFCModified.Id then WeeklyFCModified.AvgDemand else same(editable.Week5) by [Id, DateWeek5] at [Id, WeeklyFCModified.date]) +
+                              (if single(EditableCheck.UnChanged6) by EditableCheck.Id at WeeklyFCModified.Id then WeeklyFCModified.AvgDemand else same(editable.Week6) by [Id, DateWeek6] at [Id, WeeklyFCModified.date]) +
+                              (if single(EditableCheck.UnChanged7) by EditableCheck.Id at WeeklyFCModified.Id then WeeklyFCModified.AvgDemand else same(editable.Week7) by [Id, DateWeek7] at [Id, WeeklyFCModified.date]) +
+                              (if single(EditableCheck.UnChanged8) by EditableCheck.Id at WeeklyFCModified.Id then WeeklyFCModified.AvgDemand else same(editable.Week8) by [Id, DateWeek8] at [Id, WeeklyFCModified.date]) +
+                              (if single(EditableCheck.UnChanged9) by EditableCheck.Id at WeeklyFCModified.Id then WeeklyFCModified.AvgDemand else same(editable.Week9) by [Id, DateWeek9] at [Id, WeeklyFCModified.date])
+//Integrated the most recent batch of changes to the ManualForecasts file
+
+Items.Week0 = single(WeeklyFCModified.AvgDemand) when(WeeklyFCModified.date == DateWeek0)
+Items.Week1 = single(WeeklyFCModified.AvgDemand) when(WeeklyFCModified.date == DateWeek1)
+Items.Week2 = single(WeeklyFCModified.AvgDemand) when(WeeklyFCModified.date == DateWeek2)
+Items.Week3 = single(WeeklyFCModified.AvgDemand) when(WeeklyFCModified.date == DateWeek3)
+Items.Week4 = single(WeeklyFCModified.AvgDemand) when(WeeklyFCModified.date == DateWeek4)
+Items.Week5 = single(WeeklyFCModified.AvgDemand) when(WeeklyFCModified.date == DateWeek5)
+Items.Week6 = single(WeeklyFCModified.AvgDemand) when(WeeklyFCModified.date == DateWeek6)
+Items.Week7 = single(WeeklyFCModified.AvgDemand) when(WeeklyFCModified.date == DateWeek7)
+Items.Week8 = single(WeeklyFCModified.AvgDemand) when(WeeklyFCModified.date == DateWeek8)
+Items.Week9 = single(WeeklyFCModified.AvgDemand) when(WeeklyFCModified.date == DateWeek9)
+
+// where WeeklyFCModified.date > now
+show table "Modifications Forecasts - 10 prochaines semaines" f4h7 editable:"editabletable"             {tileTab: "ItemView"} with
+  Id as "Sku" {columnReadOnly: "true" ; cellBackground: #(bgLight) ; textColor: #(passiveColor)}
+  Items.Name as "Nom" {columnReadOnly: "true" ; cellBackground: #(bgLight) ; textColor: #(passiveColor)}
+  Items.Category as "Categorie" {columnReadOnly: "true" ; cellBackground: #(bgLight) ; textColor: #(passiveColor)}
+  Items.Week0 as "Week N+1" //{columnPrepend: #(text(DateWeek0))}
+  Items.Week1 as "Week N+2" //{columnPrepend: #(text(DateWeek1))}
+  Items.Week2 as "Week N+3" //{columnPrepend: #(text(DateWeek2))}
+  Items.Week3 as "Week N+4" //{columnPrepend: #(text(DateWeek3))}
+  Items.Week4 as "Week N+5" //{columnPrepend: #(text(DateWeek4))}
+  Items.Week5 as "Week N+6" //{columnPrepend: #(text(DateWeek5))}
+  Items.Week6 as "Week N+7" //{columnPrepend: #(text(DateWeek6))}
+  Items.Week7 as "Week N+8" //{columnPrepend: #(text(DateWeek7))}
+  Items.Week8 as "Week N+9" //{columnPrepend: #(text(DateWeek8))}
+  Items.Week9 as "Week N+10"// {columnPrepend: #(text(DateWeek9))}
+  order by [-Items.CategoryTurnoverL365, Items.PageName, Items.ItemDisplayRank <= 0, Items.ItemDisplayRank]
+
+show table "Test export for editable" h46            {tileTab: "ItemView"} with
+  Id as "Sku" {columnReadOnly: "true" ; cellBackground: #(bgLight) ; textColor: #(passiveColor)}
+  today() as "Snapshot" {columnReadOnly: "true" ; cellBackground: #(bgLight) ; textColor: #(passiveColor)}
+  Items.Name as "Name" {columnReadOnly: "true" ; cellBackground: #(bgLight) ; textColor: #(passiveColor)}
+  Items.Category as "Category" {columnReadOnly: "true" ; cellBackground: #(bgLight) ; textColor: #(passiveColor)}
+  Items.Week0 as "Week N+1" {columnPrepend: #(text(DateWeek0))}
+  Items.Week1 as "Week N+2" {columnPrepend: #(text(DateWeek1))}
+  Items.Week2 as "Week N+3" {columnPrepend: #(text(DateWeek2))}
+  Items.Week3 as "Week N+4" {columnPrepend: #(text(DateWeek3))}
+  Items.Week4 as "Week N+5" {columnPrepend: #(text(DateWeek4))}
+  Items.Week5 as "Week N+6" {columnPrepend: #(text(DateWeek5))}
+  Items.Week6 as "Week N+7" {columnPrepend: #(text(DateWeek6))}
+  Items.Week7 as "Week N+8" {columnPrepend: #(text(DateWeek7))}
+  Items.Week8 as "Week N+9" {columnPrepend: #(text(DateWeek8))}
+  Items.Week9 as "Week N+10" {columnPrepend: #(text(DateWeek9))}
+  order by [-Items.CategoryTurnoverL365, Items.PageName, Items.ItemDisplayRank <= 0, Items.ItemDisplayRank]
+
+// show table "ManualForecasts" g45 export:"\{exportFile}ManualForecasts.ion" with
+//   Id
+//   Date
+//   ManualForecasts.ManualOverride
+
+
+
+// show table "ManualForecastsT" g46 with
+//   Id
+//   Date
+//   ManualForecasts.ManualOverride
+// show table "EditableT" d49  with
+//   editable.Id as "id"
+//   editable.Week0 as "Week0"
+//   editable.Week1 as "Week1"
+//   editable.Week2 as "Week2"
+//   editable.Week3 as "Week3"
+//   editable.Week4 as "Week4"
+//   editable.Week5 as "Week5"
+//   editable.Week6 as "Week6"
+//   editable.Week7 as "Week7"
+//   editable.Week8 as "Week8"
+//   editable.Week9 as "Week9"
+// show table "EditableCheckT" e49  with
+//   EditableCheck.Id as "Id"
+//   EditableCheck.Snapshot as "Snapshot"
+//   EditableCheck.Week0 as "Week0"
+//   EditableCheck.Week1 as "Week1"
+//   EditableCheck.Week2 as "Week2"
+//   EditableCheck.Week3 as "Week3"
+//   EditableCheck.Week4 as "Week4"
+//   EditableCheck.Week5 as "Week5"
+//   EditableCheck.Week6 as "Week6"
+//   EditableCheck.Week7 as "Week7"
+//   EditableCheck.Week8 as "Week8"
+//   EditableCheck.Week9 as "Week9"
+//   EditableCheck.UnChanged0 as "UnChanged0"
+//   EditableCheck.UnChanged1 as "UnChanged1"
+//   EditableCheck.UnChanged2 as "UnChanged2"
+//   EditableCheck.UnChanged3 as "UnChanged3"
+//   EditableCheck.UnChanged4 as "UnChanged4"
+//   EditableCheck.UnChanged5 as "UnChanged5"
+//   EditableCheck.UnChanged6 as "UnChanged6"
+//   EditableCheck.UnChanged7 as "UnChanged7"
+//   EditableCheck.UnChanged8 as "UnChanged8"
+//   EditableCheck.UnChanged9 as "UnChanged9"
+
+////Next item---------------------------------------------------------------------------------------
+testItem = testItem + 1
+
+where (Items.PagePosition == testItem)
+  Slices.SelectedItem = same(Id) by Items.PageName at Slices.PageName when (Items.PagePosition == testItem)
+  Slices.SelectedItemName = same(Items.Name) by Items.PageName at Slices.PageName when (Items.PagePosition == testItem)
+  Slices.DisplaySelectedItem = concat(Slices.SelectedItem, " - ", Slices.SelectedItemName)
+
+  show label Slices.DisplaySelectedItem a8h8 9b9b9b              {tileTab: "ItemView"}
+
+  ///Item presentation
+  Slices.Url = concat(same(Items.Url)," \{magnifierIcon}")
+  show label Slices.Url a11                                                    {textAlign: center ; tileTab: "ItemView"}
+
+  Slices.ImageUrl = same(downloadUrl(Items.ImagePath))
+  show label Slices.ImageUrl a9a10              {tileTab: "ItemView"}
+
+  show summary "" b9b11 slices:slice                                                    {tileTab: "ItemView" ; tileColor: #(highlightColor)} with
+    same(Items.LifeCycleLabel) as "Life Cycle"
+    same(Items.SalesL365) as "L365 d" {numbers: simple ; unit: #(pcsUnit)}
+    same(Items.SalesN365) as "N365 d" {numbers: simple ; unit: #(pcsUnit)}
+    same(Items.SalesN365 /. Items.SalesL365 - 1) as "Trend" {numbers: percent}
+    same(Items.LeadTime) as "Avg LT" {unit: " d"}
+    same(Items.ReorderCycle) as "Reorder Cycle" {unit: " d"}
+
+  ///Forecast display
+  where WeeklyFc.date > monday(oend - lookbackDays)
+    show linechart "Demande" c9f11 slices:slice              {tileTab: "ItemView"} with
+      1 as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden ; unit: #(pcsUnit)}
+      same(WeeklyFc.BackgroundPeriod) as "" {seriesType: background ; seriesOpacity: 0.3 ; color: #fadac3}
+      same(if WeeklyFc.IsSLT then 1 else 0) as "" {seriesType: background ; color: #f2eeee ; seriesLegend: hidden ; unit: #(pcsUnit)}
+      same(if WeeklyFc.IsWOO then 1 else 0) as "" {seriesType: background ; color: #ae4141 ; seriesLegend: hidden ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemUp2) + sum(WeeklyFc.DemandQty) as "Possible Haut" {seriesType: area ; color: #fbc367 ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemUp1) + sum(WeeklyFc.DemandQty) as "Certain Haut" {seriesType: area ; color: #fb8f62 ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemMed) + sum(WeeklyFc.DemandQty) as "Moyenne attendue" {seriesType: area ; color: #fb8f62 ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemLw1) + sum(WeeklyFc.DemandQty) as "Certain Bas" {seriesType: area ; color: #fbc367 ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemLw2) + sum(WeeklyFc.DemandQty) as "Possible Bas" {seriesType: area ; color: #ffffff ; unit: #(pcsUnit)}
+
+      sum(WeeklyFc.DemMed) + sum(WeeklyFc.DemandQty) as "Moyenne attendue" {color: #c62a2a ; seriesLegend: hidden ; unit: #(pcsUnit)}
+      group by WeeklyFc.date
+
+  show scalar "Demande à couvrir (Fenêtre de responsabilité)" g9h11 ae4141 slices:slice              {tileTab: "ItemView"} with same(WeeklyFc.WOODemand) {color: #ae4141}
+
+////Next item---------------------------------------------------------------------------------------
+testItem = testItem + 1
+where (Items.PagePosition == testItem)
+  Slices.SelectedItem = same(Id) by Items.PageName at Slices.PageName when (Items.PagePosition == testItem)
+  Slices.SelectedItemName = same(Items.Name) by Items.PageName at Slices.PageName when (Items.PagePosition == testItem)
+  Slices.DisplaySelectedItem = concat(Slices.SelectedItem, " - ", Slices.SelectedItemName)
+
+  show label Slices.DisplaySelectedItem a12h12 9b9b9b              {tileTab: "ItemView"}
+
+  ///Item presentation
+  Slices.Url = concat(same(Items.Url)," \{magnifierIcon}")
+  show label Slices.Url a15                                                    {textAlign: center ; tileTab: "ItemView"}
+
+  Slices.ImageUrl = same(downloadUrl(Items.ImagePath))
+  show label Slices.ImageUrl a13a14              {tileTab: "ItemView"}
+
+  show summary "" b13b15 slices:slice                                                    {tileTab: "ItemView" ; tileColor: #(highlightColor)} with
+    same(Items.LifeCycleLabel) as "Life Cycle"
+    same(Items.SalesL365) as "L365 d" {numbers: simple ; unit: #(pcsUnit)}
+    same(Items.SalesN365) as "N365 d" {numbers: simple ; unit: #(pcsUnit)}
+    same(Items.SalesN365 / Items.SalesL365 - 1) as "Trend" {numbers: percent}
+    same(Items.LeadTime) as "Avg LT" {unit: " d"}
+    same(Items.ReorderCycle) as "Reorder Cycle" {unit: " d"}
+
+  ///Forecast display
+  where WeeklyFc.date > monday(oend - lookbackDays)
+    show linechart "Demande" c13f15 slices:slice              {tileTab: "ItemView"} with
+      same(WeeklyFc.BackgroundPeriod) as "" {seriesType: background ; seriesOpacity: 0.3 ; color: #fadac3}
+      1 as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden ; unit: #(pcsUnit)}
+      same(if WeeklyFc.IsSLT then 1 else 0) as "" {seriesType: background ; color: #f2eeee ; seriesLegend: hidden ; unit: #(pcsUnit)}
+      same(if WeeklyFc.IsWOO then 1 else 0) as "" {seriesType: background ; color: #ae4141 ; seriesLegend: hidden ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemUp2) + sum(WeeklyFc.DemandQty) as "Possible Haut" {seriesType: area ; color: #fbc367 ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemUp1) + sum(WeeklyFc.DemandQty) as "Certain Haut" {seriesType: area ; color: #fb8f62 ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemMed) + sum(WeeklyFc.DemandQty) as "Moyenne attendue" {seriesType: area ; color: #fb8f62 ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemLw1) + sum(WeeklyFc.DemandQty) as "Certain Bas" {seriesType: area ; color: #fbc367 ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemLw2) + sum(WeeklyFc.DemandQty) as "Possible Bas" {seriesType: area ; color: #ffffff ; unit: #(pcsUnit)}
+
+      sum(WeeklyFc.DemMed) + sum(WeeklyFc.DemandQty) as "Moyenne attendue" {color: #c62a2a ; seriesLegend: hidden ; unit: #(pcsUnit)}
+      group by WeeklyFc.date
+
+  show scalar "Demande à couvrir (Fenêtre de responsabilité)" g13h15 ae4141 slices:slice              {tileTab: "ItemView"} with same(WeeklyFc.WOODemand) {color: #ae4141}
+
+////Next item---------------------------------------------------------------------------------------
+testItem = testItem + 1
+where (Items.PagePosition == testItem)
+  Slices.SelectedItem = same(Id) by Items.PageName at Slices.PageName when (Items.PagePosition == testItem)
+  Slices.SelectedItemName = same(Items.Name) by Items.PageName at Slices.PageName when (Items.PagePosition == testItem)
+  Slices.DisplaySelectedItem = concat(Slices.SelectedItem, " - ", Slices.SelectedItemName)
+
+  show label Slices.DisplaySelectedItem a16h16 9b9b9b              {tileTab: "ItemView"}
+
+  ///Item presentation
+  Slices.Url = concat(same(Items.Url)," \{magnifierIcon}")
+  show label Slices.Url a19                                                    {textAlign: center ; tileTab: "ItemView"}
+
+  Slices.ImageUrl = same(downloadUrl(Items.ImagePath))
+  show label Slices.ImageUrl a17a18              {tileTab: "ItemView"}
+
+  show summary "" b17b19 slices:slice                                                    {tileTab: "ItemView" ; tileColor: #(highlightColor)} with
+    same(Items.LifeCycleLabel) as "Life Cycle"
+    same(Items.SalesL365) as "L365 d" {numbers: simple ; unit: #(pcsUnit)}
+    same(Items.SalesN365) as "N365 d" {numbers: simple ; unit: #(pcsUnit)}
+    same(Items.SalesN365 /. Items.SalesL365 - 1) as "Trend" {numbers: percent}
+    same(Items.LeadTime) as "Avg LT" {unit: " d"}
+    same(Items.ReorderCycle) as "Reorder Cycle" {unit: " d"}
+
+  ///Forecast display
+  where WeeklyFc.date > monday(oend - lookbackDays)
+    show linechart "Demande" c17f19 slices:slice              {tileTab: "ItemView"} with
+      same(WeeklyFc.BackgroundPeriod) as "" {seriesType: background ; seriesOpacity: 0.3 ; color: #fadac3}
+      1 as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden ; unit: #(pcsUnit)}
+      same(if WeeklyFc.IsSLT then 1 else 0) as "" {seriesType: background ; color: #f2eeee ; seriesLegend: hidden ; unit: #(pcsUnit)}
+      same(if WeeklyFc.IsWOO then 1 else 0) as "" {seriesType: background ; color: #ae4141 ; seriesLegend: hidden ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemUp2) + sum(WeeklyFc.DemandQty) as "Possible Haut" {seriesType: area ; color: #fbc367 ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemUp1) + sum(WeeklyFc.DemandQty) as "Certain Haut" {seriesType: area ; color: #fb8f62 ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemMed) + sum(WeeklyFc.DemandQty) as "Moyenne attendue" {seriesType: area ; color: #fb8f62 ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemLw1) + sum(WeeklyFc.DemandQty) as "Certain Bas" {seriesType: area ; color: #fbc367 ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemLw2) + sum(WeeklyFc.DemandQty) as "Possible Bas" {seriesType: area ; color: #ffffff ; unit: #(pcsUnit)}
+
+      sum(WeeklyFc.DemMed) + sum(WeeklyFc.DemandQty) as "Moyenne attendue" {color: #c62a2a ; seriesLegend: hidden ; unit: #(pcsUnit)}
+      group by WeeklyFc.date
+
+  show scalar "Demande à couvrir (Fenêtre de responsabilité)" g17h19 ae4141 slices:slice              {tileTab: "ItemView"} with same(WeeklyFc.WOODemand) {color: #ae4141}
+
+////Next item---------------------------------------------------------------------------------------
+testItem = testItem + 1
+where (Items.PagePosition == testItem)
+  Slices.SelectedItem = same(Id) by Items.PageName at Slices.PageName when (Items.PagePosition == testItem)
+  Slices.SelectedItemName = same(Items.Name) by Items.PageName at Slices.PageName when (Items.PagePosition == testItem)
+  Slices.DisplaySelectedItem = concat(Slices.SelectedItem, " - ", Slices.SelectedItemName)
+
+  show label Slices.DisplaySelectedItem a20h20 9b9b9b              {tileTab: "ItemView"}
+
+  ///Item presentation
+  Slices.Url = concat(same(Items.Url)," \{magnifierIcon}")
+  show label Slices.Url a23                                                    {textAlign: center ; tileTab: "ItemView"}
+
+  Slices.ImageUrl = same(downloadUrl(Items.ImagePath))
+  show label Slices.ImageUrl a21a22              {tileTab: "ItemView"}
+
+  show summary "" b21b23 slices:slice                                                    {tileTab: "ItemView" ; tileColor: #(highlightColor)} with
+    same(Items.LifeCycleLabel) as "Life Cycle"
+    same(Items.SalesL365) as "L365 d" {numbers: simple ; unit: #(pcsUnit)}
+    same(Items.SalesN365) as "N365 d" {numbers: simple ; unit: #(pcsUnit)}
+    same(Items.SalesN365 /. Items.SalesL365 - 1) as "Trend" {numbers: percent}
+    same(Items.LeadTime) as "Avg LT" {unit: " d"}
+    same(Items.ReorderCycle) as "Reorder Cycle" {unit: " d"}
+
+  ///Forecast display
+  where WeeklyFc.date > monday(oend - lookbackDays)
+    show linechart "Demande" c21f23 slices:slice              {tileTab: "ItemView"} with
+      same(WeeklyFc.BackgroundPeriod) as "" {seriesType: background ; seriesOpacity: 0.3 ; color: #fadac3}
+      1 as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden ; unit: #(pcsUnit)}
+      same(if WeeklyFc.IsSLT then 1 else 0) as "" {seriesType: background ; color: #f2eeee ; seriesLegend: hidden ; unit: #(pcsUnit)}
+      same(if WeeklyFc.IsWOO then 1 else 0) as "" {seriesType: background ; color: #ae4141 ; seriesLegend: hidden ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemUp2) + sum(WeeklyFc.DemandQty) as "Possible Haut" {seriesType: area ; color: #fbc367 ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemUp1) + sum(WeeklyFc.DemandQty) as "Certain Haut" {seriesType: area ; color: #fb8f62 ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemMed) + sum(WeeklyFc.DemandQty) as "Moyenne attendue" {seriesType: area ; color: #fb8f62 ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemLw1) + sum(WeeklyFc.DemandQty) as "Certain Bas" {seriesType: area ; color: #fbc367 ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemLw2) + sum(WeeklyFc.DemandQty) as "Possible Bas" {seriesType: area ; color: #ffffff ; unit: #(pcsUnit)}
+
+      sum(WeeklyFc.DemMed) + sum(WeeklyFc.DemandQty) as "Moyenne attendue" {color: #c62a2a ; seriesLegend: hidden ; unit: #(pcsUnit)}
+      group by WeeklyFc.date
+
+  show scalar "Demande à couvrir (Fenêtre de responsabilité)" g21h23 ae4141 slices:slice              {tileTab: "ItemView"} with same(WeeklyFc.WOODemand) {color: #ae4141}
+
+////Next item---------------------------------------------------------------------------------------
+testItem = testItem + 1
+where (Items.PagePosition == testItem)
+  Slices.SelectedItem = same(Id) by Items.PageName at Slices.PageName when (Items.PagePosition == testItem)
+  Slices.SelectedItemName = same(Items.Name) by Items.PageName at Slices.PageName when (Items.PagePosition == testItem)
+  Slices.DisplaySelectedItem = concat(Slices.SelectedItem, " - ", Slices.SelectedItemName)
+
+  show label Slices.DisplaySelectedItem a24h24 9b9b9b              {tileTab: "ItemView"}
+
+  ///Item presentation
+  Slices.Url = concat(same(Items.Url)," \{magnifierIcon}")
+  show label Slices.Url a27                                                    {textAlign: center ; tileTab: "ItemView"}
+
+  Slices.ImageUrl = same(downloadUrl(Items.ImagePath))
+  show label Slices.ImageUrl a25a26              {tileTab: "ItemView"}
+
+  show summary "" b25b27 slices:slice                                                    {tileTab: "ItemView" ; tileColor: #(highlightColor)} with
+    same(Items.LifeCycleLabel) as "Life Cycle"
+    same(Items.SalesL365) as "L365 d" {numbers: simple ; unit: #(pcsUnit)}
+    same(Items.SalesN365) as "N365 d" {numbers: simple ; unit: #(pcsUnit)}
+    same(Items.SalesN365 /. Items.SalesL365 - 1) as "Trend" {numbers: percent}
+    same(Items.LeadTime) as "Avg LT" {unit: " d"}
+    same(Items.ReorderCycle) as "Reorder Cycle" {unit: " d"}
+
+  ///Forecast display
+  where WeeklyFc.date > monday(oend - lookbackDays)
+    show linechart "Demande" c25f27 slices:slice              {tileTab: "ItemView"} with
+      same(WeeklyFc.BackgroundPeriod) as "" {seriesType: background ; seriesOpacity: 0.3 ; color: #fadac3}
+      1 as "" {seriesType: background ; color: #ffffff ; seriesLegend: hidden ; unit: #(pcsUnit)}
+      same(if WeeklyFc.IsSLT then 1 else 0) as "" {seriesType: background ; color: #f2eeee ; seriesLegend: hidden ; unit: #(pcsUnit)}
+      same(if WeeklyFc.IsWOO then 1 else 0) as "" {seriesType: background ; color: #ae4141 ; seriesLegend: hidden ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemUp2) + sum(WeeklyFc.DemandQty) as "Possible Haut" {seriesType: area ; color: #fbc367 ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemUp1) + sum(WeeklyFc.DemandQty) as "Certain Haut" {seriesType: area ; color: #fb8f62 ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemMed) + sum(WeeklyFc.DemandQty) as "Moyenne attendue" {seriesType: area ; color: #fb8f62 ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemLw1) + sum(WeeklyFc.DemandQty) as "Certain Bas" {seriesType: area ; color: #fbc367 ; unit: #(pcsUnit)}
+      sum(WeeklyFc.DemLw2) + sum(WeeklyFc.DemandQty) as "Possible Bas" {seriesType: area ; color: #ffffff ; unit: #(pcsUnit)}
+
+      sum(WeeklyFc.DemMed) + sum(WeeklyFc.DemandQty) as "Moyenne attendue" {color: #c62a2a ; seriesLegend: hidden ; unit: #(pcsUnit)}
+      group by WeeklyFc.date
+
+  show scalar "Demande à couvrir (Fenêtre de responsabilité)" g25h27 ae4141 slices:slice              {tileTab: "ItemView"} with same(WeeklyFc.WOODemand) {color: #ae4141}
+
+show label "" a28h28 9b9b9b               {tileTab: "ItemView"}
+
+// show form "" b52       {formButton: "Run"}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+show markdown "Overall view" a11h18                                            {tileTab: "OverallView"} with  """
+### Documentation
+
+__Forecasting Quality__:
+
+Forecasted items: number of items in scope for which a sales forecast is made
+
+Accuracy in 95% interval: accuracy of the quantile 95 demand scenario, i.e. the scenario which covers 95% of all future plausible demand scenarios.
+An overshoot means an overall over forecast, while an undershoot means an overall under forecast.
+
+__Forecast confidence index:__
+
+The forecast confidence index shows if the forecast model correctly fits with the past:
+
+🟢🟢🟢🟢🟢: model fits with the past sales within a +- 5% range
+
+🟢🟢🟢⚫⚫: model fits with the past sales within a +- 8% range
+
+🟢⚫⚫⚫⚫: model fits with the past sales within a range > 8%
+
+See our [forecast page](https://go.lokad.com/d/68002/) for more details
+
+__Categories__:
+
+To forecast: link to the associated forecast tab of the given category
+
+Category: category name
+
+%Turnover: category's proportion of the overall turnover
+
+Turnover L365 d: category's turnover over the last 365 days
+
+Turnover N365 d: category's turnover expected for the next 365 days
+
+Overall Trend: category's expected trend on the next 365 days (ratio of: Turnover N365 d / Turnover L365 d - 1)
+
+__Sales forecast (net amount)__: displays overall past sales amount and overall forecasted future average demand amount, as well as a likely and a plausible area
+
+"""
+
+show markdown "Category view" a11h16                                            {tileTab: "CategoryView"} with  """
+### Documentation
+
+__Category Overview__:
+
+% Turnover: category's proportion of the overall turnover
+
+Turnover L365 d: category's turnover over the last 365 days
+
+Turnover N365 d: category's turnover expected for the next 365 days
+
+Trend: category's expected trend on the next 365 days (ratio of: Turnover N365 d / Turnover L365 d - 1)
+
+__Forecasting Quality__:
+
+Forecasted items: number of items of the category in scope for which a sales forecast is made
+
+__Trend for current Turnover__: displays the category's turnover over the last 365 days depending on the trend on the next 365 days. This bar chart helps
+understand which part of the overall current turnover will increase or decrease in the future
+
+__NetAmount__: displays category's past sales amount and category's forecasted future average demand amount, as well as a likely and a plausible area
+
+"""
+
+show markdown "Item view" a29h36                                            {tileTab: "ItemView"} with  """
+### Documentation
+
+__Category's pareto__: displays the x top best sellers and the proportion of the overall turnover they represent. In dark orange are shown
+the specific items displayed below and for which a specific focus is made
+
+__Overrule Quantities - over next 10 weeks__: allows one to manually change the average forecasted demand of every reference from all categories over the next 10 weeks. Once a change is made,
+one needs to relaunch the dashboard clicking
+
+Sku: reference code
+
+Name: reference name
+
+Category: name of the category
+
+Week N+x: average forecasted demand of a reference for a given week. Can be changed by the user
+
+__Reference focus__:
+
+Magnifying glass icon: link to the item inspector dashboard which displays all information of the given reference
+
+Life cycle: life cycle of the reference, either new if launched less than 365 days ago, discontinued or unchanged if not new nor discontinued
+
+L365 d: category's sold units over the last 365 days
+
+N365 d: category's sold units over the next 365 days
+
+Trend: category's expected trend on the next 365 days (ratio of: N365 d / L365 d - 1)
+
+Avg LT: reference average supplier LeadTime
+
+Reorder Cycle: reference average reorder frequency
+
+Demand Quantity: displays reference past sales and reference forecasted future average demand, as well as a likely and a plausible area
+
+Demand to cover (Responsibility window): demand forecasted quantity distribution over the responsibility window (in dark red), i.e. a reorder cycle period in a supplier LeadTime period
+
+"""

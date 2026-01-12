@@ -1,0 +1,947 @@
+///Optimization of dispatch from 1 warehouse to multiple locations
+// Cloned from '/4. Optimization workflow/07 Standard Dispatch Suggestion New' on 2024-02-26
+// Cloned from '/4. Optimization workflow/07 Standard Dispatch Suggestion' on 2024-02-21
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// --------------------------------------READ INPUT TABLES-----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+import "/1. utilities/Modules/Global Parameters" as GP with
+  DcUnit
+  ColorB
+  ColorWarning
+  LinkLocationItemInspector
+  ConfirmButton
+
+const testStorage = ""
+const inputPath = "\{testStorage}/Clean/"
+
+read "\{inputPath}Locations.ion" as Locations[Loc] with
+  Loc : text
+  CarryingCostWeight : number
+
+
+read "\{inputPath}Items.ion" as Skus[Sku unsafe] expect[Loc] with
+  Sku : text
+  Ref : text
+  Loc : text
+  Name : text
+  Category : text
+  SellPrice : number
+  BuyPrice : number
+  RedispatchCycle : number
+  DispatchLT : number
+  StockOnHand : number
+  StockOnOrder : number
+  LeadTime : number
+  ImageUrl : text
+  StartDate : date
+  EndDate : date
+  Supplier : text
+  LotMultiplierDispatch : number
+  IsClean : boolean
+  Q30 : number
+  Q90 : number
+
+read "\{testStorage}Clean/Orders.ion" as Orders expect [Sku,Loc,Date] with
+  Sku : text
+  "OrderDate" as Date : date
+  Ref : text
+  Loc : text
+  Quantity : number
+  LokadNetAmount : number
+  OrderId : text
+  IsFirstOrder : boolean
+  HealthLog : text
+  IsClean : boolean
+
+read "/Clean/PO.ion" as PO expect[Sku,Loc,Date] with
+  Sku : text
+  "OrderDate" as Date : date
+  Loc : text
+  Ref : text
+  DeliveryDate : date
+  Quantity : number
+  Supplier : text
+  PONumber : text
+  IsInCatalog : boolean
+  IsClean : boolean
+  InputDate : date
+  InputPath : text
+
+read "\{inputPath}Forecast/Periodic/WeeklyFc.ion" as WeeklyFC expect[Sku, Date] with
+  Sku : text
+  "Monday" as Date : date
+  DemandQty : number
+  Cache : number
+  IsPast : boolean
+  FutureWeekRank : number
+  Alpha : number
+  Dispersion : number
+  Baseline : number
+  Demand : ranvar
+  LowerBarTotal2 : number
+  LowerBarTotal1 : number
+  HighBarTotal2 : number
+  HighBarTotal1 : number
+  CumDemand : ranvar
+
+read "/Manual/TopItemsParameters.xlsx" as TopItemsParameters expect[Sku] with
+  CategoryDisplayRank : number
+  Category : text
+  ItemDisplayRank : number
+  Ref : text
+  Sku : text
+read "/Clean/Simulation/SimulationStandard.ion" as SimulationStandard expect[Sku] with
+  Sku : text
+  "Date" as DispatchDate : date
+  Baseline : number
+  FutureWeekRank : number
+  ROP : number
+  DayRank : number
+  ForecastWeekAfter : number
+  EOQ : number
+  StockOnHand : number
+  StockEvolOnHand : number
+  StockEvolOnOrder : number
+  OrderedQty : number
+  StockDelivered : number
+
+read form with
+  FRTarget : number
+  constraints : number
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// ------------------------------------------SETUP-------------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///Colors-------------------------------------------------------------------------------------------
+
+highlightColor =  colorB
+colorWarning =  colorWarning
+LinkLocationItemInspector =  LinkLocationItemInspector
+
+backgroundColorforsummarytile = "#f5f5f5"
+
+///Global parameters--------------------------------------------------------------------------------
+
+pcsUnit = " Pcs"
+oend = max(WeeklyFC.Date) when(WeeklyFC.IsPast)
+
+///Global parameters--------------------------------------------------------------------------------
+show tabs "" a1f1 with
+  "Général"
+  "Paramètres, Alertes et Documentation"
+  "Simulation Moyen Terme"
+  "Export" {tabDisplay: "false"}
+
+///Editable body------------------------------------------------------------------------------------
+
+
+show label "Suggestions de Dispatch" a2f2 {textAlign: center ; textVerticalAlign: center ; textBold: "true"}
+
+
+// show label "https://go.lokad.com/d/66208/ Configuration de l'optimisation de dispatch" f1h1                                                  {labelIcon: "container" ; textAlign: center ; hrefAspect: white ; tileColor: #(highlightColor)}
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///---------------------------------------PREPROCESS----------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Skus.M = Skus.SellPrice - Skus.BuyPrice
+Skus.MarginRate = Skus.M/Skus.SellPrice
+Skus.RankMarginRate = rankrev()  scan Skus.MarginRate
+Skus.RankMarginRatePercent = Skus.RankMarginRate/(count(Skus.*) by Skus.1)
+Skus.StockOnHand = if Skus.Loc == "DC" then round(Skus.StockOnHand*1.4) else Skus.StockOnHand
+
+
+selectedTab = concat("&t=", "Info")
+Skus.Url_ItemInspector = sliceSearchUrl(LinkLocationItemInspector,Skus.Sku)
+
+Skus.CategoryDisplayRank = same(TopItemsParameters.CategoryDisplayRank)
+                            by TopItemsParameters.Category
+                            at Skus.Category
+
+Skus.ItemDisplayRank = same(TopItemsParameters.ItemDisplayRank)
+Skus.IsTopItem = any(TopItemsParameters.*)
+
+///Global parameters--------------------------------------------------------------------------------
+keep where Skus.IsClean
+keep where PO.DeliveryDate > oend + 7
+
+table SkusWeek = cross(Skus, Week)
+
+
+Week.monday = monday(week)
+
+lastPastWeek = max(WeeklyFC.Date) when(WeeklyFC.FutureWeekRank == 0)
+WeeklyFC.IsLastPastWeek = WeeklyFC.Date == lastPastWeek
+
+lookbackDays = 52 * 7
+lookforwardDays = 26 * 7
+
+{formButtonAlign: center ; tileTab: "Paramètres, Alertes et Documentation" ; formButton: #(confirmButton)}
+show form "Cible de FR pour le réseau" a3b4  with
+  FRTarget as "FR Cible (%)"
+
+show assert "Target FR should be between 0 and 100" a23b23 {tileTab: "Paramètres, Alertes et Documentation" ; tilePlacement: #(if FRTarget >= 0 and FRTarget <= 100 then "hidden" else "fixed")} with
+  FRTarget >= 0 and FRTarget <= 100 as "Target FR should be between 0 and 100"
+
+show label "FR Documentation" f12 f5ca91               {tileTab: "Paramètres, Alertes et Documentation" ; href: "https://go.lokad.com/d/68036" ; labelIcon: "manual-list" ; textAlign: center ; hrefAspect: white ; labelBorder: "none" ; textBold: "true" ; iconColor: #d0021b}
+
+///Slices-------------------------------------------------------------------------------------------
+
+Skus.CategoryDisplayRank = rankd(Skus.Category)
+
+
+Skus.PageName = Skus.Category
+
+table Slices [slice] = slice by [Skus.CategoryDisplayRank, Skus.PageName] title: Skus.PageName
+
+///References attributes----------------------------------------------------------------------------
+//LM, MOQ...
+
+///Purchase orders----------------------------------------------------------------------------------
+
+///Arrival
+//in real life, probably want to set up a different rule for very late POs
+PO.ArrivalTime = max(ceiling((PO.DeliveryDate - lastPastWeek)) / 7, 0)
+
+///Leadtimes----------------------------------------------------------------------------------------
+
+
+Skus.RedispatchCycleWeeks = ceiling(Skus.RedispatchCycle / 7)
+
+Skus.DispatchLTWeeks = round(Skus.DispatchLT/7) //round and not ceiling because we want to round to 0 weeks here
+                                                //assumption : DispatchLT negligible compared to DipatchCycle
+
+Skus.TotalLTWeeks = Skus.DispatchLTWeeks + Skus.RedispatchCycleWeeks
+
+///Agressiveness factor input
+//Put a bias into having more stock at the central warehouse as
+//we can always send stock later to satellite warehouses but we can't send stock back
+Skus.AgressivenessFactor = 0.3
+Skus.AgressivenessFactor = if Skus.Loc == "DC" then 2*Skus.AgressivenessFactor else Skus.AgressivenessFactor //max(min(Items.AgressivenessFactorIni / 5, 1), 0.2)
+
+///Economic parameters
+//Margin
+Skus.M = Skus.SellPrice - Skus.BuyPrice
+
+//OOS penalty
+Skus.S = - Skus.AgressivenessFactor * Skus.M
+
+//Carrying cost
+Skus.CarryingCost = 0.3 * Locations.CarryingCostWeight // % per-period carrying cost relative to purchase price
+                                                        //Loc dependent parameter is there so that users can manually modify the storage cost per Location
+Skus.C = Skus.CarryingCost * Skus.BuyPrice * 7 / 365
+
+show table "Economic parameters" a32      {tileTab: "Export"} with
+  Skus.Sku
+  Skus.Loc
+  Skus.Category
+
+  Skus.SellPrice
+  Skus.BuyPrice
+
+  Skus.M
+  Skus.S
+
+  Skus.CarryingCost
+  Skus.TotalLTWeeks
+  Skus.C
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///----------------------------------------Dispatch LIST--------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//All stock in DC potentially can be dispatched to any of the locations
+Skus.StockAvailableForDispatch = single(Skus.StockOnHand) when(Skus.Loc == "DC") by Skus.Ref
+//As there is also demand in DC, we wirtually empty DC from all its stock
+//and we will reaffect it in the relevant locations (DC being one of the options)
+Skus.StockAvailable = if Skus.Loc == "DC" then 0 else Skus.StockOnHand
+
+Skus.Dispersion = same(WeeklyFC.Dispersion)
+Skus.Alpha = same(WeeklyFC.Alpha)
+
+trajectoryCount = 500
+
+WeeklyFC.TimeIndex = 0
+WeeklyFC.CumDemand = dirac(0)
+
+//in real life you shouldn't use poisson() but a distribution that fits what you can expect from the supplier
+//typically computed from the PO history
+// Skus.SumBaselineLT = sum(WeeklyFC.Baseline) when(WeeklyFC.Date >= now and WeeklyFC.Date < now + Skus.RedispatchCycleWeeks)
+
+where (not WeeklyFC.IsPast) or WeeklyFC.Date == oend //currentWeek defined as past in preprocessing
+                                                     //for dispatch we take it into account as we can have a 0 weeks LT
+  WeeklyFC.TimeIndex = (rankrev () by WeeklyFC.Sku scan -WeeklyFC.Date) - 1 //start rank at 0, needed for 0 weeks LT
+
+  ///Satisfiable demand and Holding time
+  Skus.SatisfiableDemand, Skus.HoldingTime = actionrwd.reward(
+    TimeIndex: WeeklyFC.TimeIndex,
+    Baseline: WeeklyFC.Baseline,
+    Dispersion: Skus.Dispersion,
+    Alpha: Skus.Alpha,
+    StockOnHand: Skus.StockAvailable,
+    StockOnOrder : PO.Quantity,
+    ArrivalTime : poisson(ceiling(PO.ArrivalTime)), //dirac(0) --> considered as stock on hand, error if < 0
+    LeadTime: poisson(Skus.DispatchLTWeeks),
+    StepOfReorder: Skus.RedispatchCycleWeeks,
+    Samples: trajectoryCount,
+    Seed: 1)
+
+  //Rwd
+  Skus.StockLeftEndDispatchLT = max(0, -Skus.SatisfiableDemand)
+
+  //Fillrate
+  // Skus.MeanPriorDemand = mean(Skus.DemandOLT)
+  Skus.MeanPriorDemand = sum(WeeklyFC.Baseline)
+                        when (WeeklyFC.TimeIndex >= Skus.DispatchLTWeeks and
+                        WeeklyFC.TimeIndex < Skus.DispatchLTWeeks + Skus.RedispatchCycleWeeks)
+
+  Skus.SatisfiedDemand = round(max(0, Skus.MeanPriorDemand - mean(Skus.SatisfiableDemand))) //Demand satisfied by the available stock by the end of t + SLT. Just for
+  Skus.TotalDemand = Skus.SatisfiableDemand + Skus.SatisfiedDemand // All these offset
+  // Skus.FillRateTotalDemand = fillrate(Skus.TotalDemand)
+
+  WeeklyFC.CumDemand = actionrwd.demand(
+    TimeIndex: WeeklyFC.TimeIndex,
+    BaseLine: WeeklyFC.Baseline,
+    Dispersion: Skus.Dispersion,
+    Alpha: Skus.Alpha)
+
+  WeeklyFC.PreviousCumDemand = same(WeeklyFC.CumDemand)
+                                when(WeeklyFC.TimeIndex != 0)
+                                by [WeeklyFC.Sku, WeeklyFC.TimeIndex]
+                                at [WeeklyFC.Sku, WeeklyFC.TimeIndex - 1]
+
+  ///Satisfied demand
+  Skus.AvgDemandOnRLT = sum(WeeklyFC.Baseline)
+                          when(WeeklyFC.TimeIndex >= Skus.DispatchLTWeeks and WeeklyFC.TimeIndex < Skus.TotalLTWeeks)
+  Skus.SatisfiedDemand = max(round(Skus.AvgDemandOnRLT - mean(Skus.SatisfiableDemand)),0) //is this max relevant ?
+
+  ///New all RLT demand rebuilt
+  Skus.TotalDemandRLT = Skus.SatisfiableDemand + dirac(Skus.SatisfiedDemand)
+
+  ///Sell through
+  //SellThrough: probability to sell a specific unit of the satisfiable demand on responsibility window
+  //Ex: probability of selling the 6th unit = probability of selling exactly 6 units + probability of selling exactly 7 units +
+  // ... probability of selling the maximum of the satisfiable demand
+  Skus.SellThrough = (1 - cdf(Skus.SatisfiableDemand + 1)) * uniform.right(1) //values in negative are not relevant
+
+///Dispatch list------------------------------------------------------------------------------------
+
+  ///Grid
+  //Action reward considers the additional units to purchase so the Grid has to start at 1
+
+  Skus.Reach = if Skus.Loc != "DC" then max(quantile (Skus.SatisfiableDemand, 1),0) +  max(Skus.LotMultiplierDispatch-1,0) else
+                  max(max(quantile (Skus.SatisfiableDemand, 1),0) +  max(Skus.LotMultiplierDispatch-1,0),Skus.StockAvailableForDispatch)
+  table Grid = extend.ranvar(Skus.SatisfiableDemand, 0, Skus.LotMultiplierDispatch, Skus.Reach)
+
+  //For DC we want to make sure we can reaffect all the stock back to DC even if the demand is much lower (over stock) hence the different reach
+
+  Grid.Ref = Skus.Ref
+  ///Qty
+  Grid.Q = Grid.Max - Grid.Min + 1
+
+  ///Fill rate
+  Skus.FR = fillrate(Skus.TotalDemandRLT)
+  Skus.CurrentFR = min(int(Skus.FR, 0, Skus.SatisfiedDemand),0.999)
+  Skus.CurrentFRForDisplay = if Skus.Loc == "DC" then min(int(Skus.FR, 0, Skus.SatisfiedDemand+Skus.StockOnHand),0.999) else Skus.CurrentFR
+
+  ///Fabian wants Sell Probability, for reporting purposes
+  //Subtility: what if there is a group (lot multiplier)? We display the proba of selling first and last unit
+  Grid.SellProbabilityMin = round(100*max(0,valueAt(Skus.SellThrough,Grid.Min)),1) ///max for rounding mistakes, we could have -1.10e-7 which then is displayed as -0.00 which doesn't look good for probability
+  Grid.SellProbabilityMax = round(100*max(0,valueAt(Skus.SellThrough,Grid.Max)),1) ///max for rounding mistakes, we could have -1.10e-7 which then is displayed as -0.00 which doesn't look good for probability
+
+  Grid.SellProbability = if Grid.Min != Grid.Max then concat(Grid.SellProbabilityMin - Grid.SellProbabilityMax, "%") else concat(Grid.SellProbabilityMax,"%")
+
+
+  ///Target
+  locFRTarget = FRTarget / 100
+
+  where Date >= oend - 365 and Date <= oend
+    Skus.LastYearSales = sum(Orders.LokadNetAmount)
+    lastYearOverallSales = sum(Orders.LokadNetAmount)
+    lastYearSalesEDB = sum(Orders.LokadNetAmount) when(Orders.Loc == "EDB")
+    lastYearSalesLON = sum(Orders.LokadNetAmount) when(Orders.Loc == "LON")
+    lastYearSalesMAN = sum(Orders.LokadNetAmount) when(Orders.Loc == "MAN")
+    lastYearSalesDC = sum(Orders.LokadNetAmount) when(Orders.Loc == "DC")
+
+    Skus.SalesWeight = Skus.LastYearSales / lastYearOverallSales
+    Skus.SalesWeightEDB = sum(Orders.LokadNetAmount) when(Orders.Loc == "EDB") / lastYearSalesEDB
+    Skus.SalesWeightLON = sum(Orders.LokadNetAmount) when(Orders.Loc == "LON") / lastYearSalesLON
+    Skus.SalesWeightMAN = sum(Orders.LokadNetAmount) when(Orders.Loc == "MAN") / lastYearSalesMAN
+    Skus.SalesWeightDC = sum(Orders.LokadNetAmount) when(Orders.Loc == "DC") / lastYearSalesDC
+
+    overallCurrentFR = sum(Skus.CurrentFR * Skus.SalesWeight)
+    EDBCurrentFR = sum(Skus.CurrentFR * Skus.SalesWeightEDB)
+    LONCurrentFR = sum(Skus.CurrentFR * Skus.SalesWeightLON)
+    MANCurrentFR = sum(Skus.CurrentFR * Skus.SalesWeightMAN)
+    DCCurrentFR = sum(Skus.CurrentFR * Skus.SalesWeightDC)
+
+    Skus.CategoryLastYearSales = sum(Orders.LokadNetAmount) by Skus.Category
+    Skus.CategorySalesWeight = Skus.LastYearSales / Skus.CategoryLastYearSales
+    Skus.CategoryCurrentFR = sum(Skus.CurrentFR * Skus.CategorySalesWeight) by Skus.Category
+
+    Skus.SupplierLastYearSales = sum(Orders.LokadNetAmount) by Skus.Supplier
+    Skus.SupplierSalesWeight = Skus.LastYearSales / Skus.SupplierLastYearSales
+
+    Skus.CurrentFR_AtLocation =  match Skus.Loc with
+      "DC" ->  sum(Skus.CurrentFRForDisplay * Skus.SalesWeightDC) by Skus.1
+      "EDB" -> sum(Skus.CurrentFRForDisplay * Skus.SalesWeightEDB) by Skus.1
+      "MAN" -> sum(Skus.CurrentFRForDisplay * Skus.SalesWeightMAN) by Skus.1
+      "LON" -> sum(Skus.CurrentFRForDisplay * Skus.SalesWeightLON) by Skus.1
+
+
+  Grid.FillRateDelta = int(Skus.FR, Skus.SatisfiedDemand + Grid.Min, Skus.SatisfiedDemand + Grid.Max)
+
+  //SIMON : there is no concept of cost of inventory in a dispatch (the stock is already there). Only a concept of cost of commitment, which is 0 at DC, and less than usual cost of stock at satelite
+  Skus.C = if Skus.Loc == "DC" then 0 else Skus.C/2
+
+  ///Score
+  Skus.RwdM = Skus.SellThrough * Skus.M
+  Skus.RwdS = - Skus.SellThrough * Skus.S
+  Skus.RwdC = Skus.HoldingTime * Skus.C
+
+
+
+  Skus.Reward = Skus.RwdM + Skus.RwdS - Skus.RwdC
+
+  Grid.M = int(Skus.RwdM, Grid.Min, Grid.Max)
+  Grid.S = int(Skus.RwdS, Grid.Min, Grid.Max)
+  Grid.C = int(Skus.RwdC, Grid.Min, Grid.Max)
+  Grid.Reward = int(Skus.Reward, Grid.Min, Grid.Max)
+  Grid.HoldingTime = int(Skus.HoldingTime, Grid.Min, Grid.Max)
+
+  Grid.Cost = Grid.Q * Skus.BuyPrice
+
+  //Same rule as solve.moq for score of a negative reward
+  Grid.Score = if Grid.Reward >= 0 then Grid.Reward /. Grid.Cost else Grid.Reward / max(Grid.FillRateDelta, 1e-12)
+  Grid.ScoreDisplayed = if Grid.Reward >= 0 then Grid.Reward /. Grid.Cost else Grid.Reward * Grid.Cost
+
+  ///SIMON
+  Grid.Score = Grid.Reward
+  Grid.ScoreDisplayed = Grid.Score
+  ///SIMON
+
+  ///Micro decisions build
+  //removing unecessary scenario ([0,0] segment created by default in the grid)
+  Grid.IsEnoughStockRemaining = true //init
+  where Grid.Min > 0
+  //Ranking potential dispatches accoring to the score
+    Grid.Rank = rank(Grid.Score, Sku, -Grid.Max)
+    Grid.OverallFRGain = Grid.FillRateDelta * Skus.SalesWeight
+    loop 3 //we use cum FR to determine what is eligible but what is eligible has an impact on the cum FR. looping 3 times should be enough to reach stable point.
+      ///Handle case when FR is already reached so decision shouldn't count in CumStockDispatchedByRef as it won't be taken
+      //easy to understand edge case when set a FR target of 0%
+      Grid.CumFRGainEDB = sum(if Grid.IsEnoughStockRemaining and Grid.Loc == "EDB" then Grid.FillRateDelta * Skus.SalesWeightEDB else 0) scan Grid.Rank
+      Grid.CumFRGainLON = sum(if Grid.IsEnoughStockRemaining and Grid.Loc == "LON" then Grid.FillRateDelta * Skus.SalesWeightLON else 0) scan Grid.Rank
+      Grid.CumFRGainMAN = sum(if Grid.IsEnoughStockRemaining and Grid.Loc == "MAN" then Grid.FillRateDelta * Skus.SalesWeightMAN else 0) scan Grid.Rank
+      Grid.CumFRGainDC = sum(if Grid.IsEnoughStockRemaining and Grid.Loc == "DC" then Grid.FillRateDelta * Skus.SalesWeightDC else 0) scan Grid.Rank
+
+      Grid.CumOverallFRGain = sum(if Grid.IsEnoughStockRemaining then Grid.OverallFRGain else 0) scan Grid.Rank //just for debugging micr decisions
+      Grid.CumFillRateDelta = sum(if Grid.IsEnoughStockRemaining then Grid.FillRateDelta else 0) by Sku scan Grid.Rank //just for debugging micro decisions
+
+      Grid.IsBelowTargetEDB = Grid.CumFRGainEDB <= (locFRTarget - EDBCurrentFR) or Grid.Loc != "EDB"
+      Grid.IsBelowTargetLON = Grid.CumFRGainLON <= (locFRTarget - LONCurrentFR) or Grid.Loc != "LON"
+      Grid.IsBelowTargetMAN = Grid.CumFRGainMAN <= (locFRTarget - MANCurrentFR) or Grid.Loc != "MAN"
+
+      Grid.CumStockDispatchedByRef = sum(if Grid.IsBelowTargetEDB and Grid.IsBelowTargetLON and Grid.IsBelowTargetMAN then Grid.Q else 0)
+                                        scan Grid.Rank by [Grid.Ref]
+
+      Grid.IsEnoughStockRemaining = Skus.StockAvailableForDispatch >= Grid.CumStockDispatchedByRef and Skus.StockAvailableForDispatch > 0
+
+
+      ///Eligible decisions
+      Grid.IsEligible = Grid.IsEnoughStockRemaining and
+                        (Grid.CumFRGainEDB <= (locFRTarget - EDBCurrentFR) or Grid.Loc != "EDB") and
+                        (Grid.CumFRGainLON <= (locFRTarget - LONCurrentFR) or Grid.Loc != "LON") and
+                        (Grid.CumFRGainMAN <= (locFRTarget - MANCurrentFR) or Grid.Loc != "MAN") and
+                        (Grid.CumFRGainDC <= (1 - DCCurrentFR) or Grid.Loc != "DC") //should always be true (can't go above 100%). Could be removed but left
+                                                                                    //here so that it is explicit that we should allow 100% FR in upstream warehouse
+
+    where Grid.IsEligible
+      Skus.DispatchQuantity = sum(Grid.Q) //qty that arrives in store
+      Skus.DispatchQuantityWarehouse = sum(Grid.Q) when(Grid.Loc != "DC") by [Grid.Ref] at [Skus.Ref] //qty that leaves from entrepot
+
+
+ //Writing full prioritized list
+    // where Grid.IsEnoughStockRemaining //discussion with Fabian : only wants to display all possible decisions
+    show table "Grid"  {tileTab: "Export"} with
+      Grid.Rank as "Rank"
+      Grid.Loc as "Loc"
+      Grid.Ref as "Ref"
+      Sku as "Sku"
+      Skus.Category
+      Skus.BuyPrice
+      Skus.SellPrice
+      Skus.M as "Margin"
+      Skus.StockOnHand
+      Skus.StockAvailableForDispatch
+      Grid.Q
+      Grid.Min
+      Grid.Max
+      Skus.DispatchLTWeeks as "Transportation LT" {unit: " week(s)"}
+      Skus.RedispatchCycleWeeks as "Redispacth LT" {unit: " week(s)"}
+      Skus.CurrentFR {numbers: percent}
+      Grid.FillRateDelta {numbers: percent}
+      Grid.CumFillRateDelta {numbers: percent}
+      Grid.OverallFRGain {numbers: percent}
+      Grid.CumOverallFRGain {numbers: percent}
+      Grid.CumStockDispatchedByRef
+      Grid.CumFRGainEDB + EDBCurrentFR as "NewFR EDB" {numbers: percent}
+      Grid.CumFRGainLON + LONCurrentFR as "NewFR LON" {numbers: percent}
+      Grid.CumFRGainMAN + MANCurrentFR as "NewFR MAN" {numbers: percent}
+      Grid.IsBelowTargetEDB
+      Grid.IsBelowTargetLON
+      Grid.IsBelowTargetMAN
+      (Grid.CumFRGainDC <= (1 - DCCurrentFR) or Grid.Loc != "DC")
+      locFRTarget as "FR target by location" {numbers: percent}
+
+
+      Grid.Reward as "Reward"
+      Grid.Score as "Score"
+
+      Grid.IsEnoughStockRemaining
+      Grid.IsEligible
+
+      order by Grid.Rank
+
+ //Displaying full simplified prioritized list
+    // where Grid.IsEnoughStockRemaining //discussion with Fabian : only wants to display all possible decisions
+    Skus.BuyPrice = if Skus.Ref == "CT-118" then 76 else Skus.BuyPrice
+    description = "All possible decisions (unit by unit) weighted in the optimisation."
+    where Grid.IsEnoughStockRemaining and Grid.Score > 0 and Grid.Cost > 0
+      description = "All possible decisions (unit by unit) weighted in the optimisation."
+      show summary "" a8f10 {tileTab: "Paramètres, Alertes et Documentation" ; backgroundColor: #(backgroundColorforsummarytile)} with ""
+      show table "Toutes les micro decisions" a8f10  {tileTab: "Paramètres, Alertes et Documentation" ; tileTooltipText: #(description)} with
+        Grid.Rank as "Rang" {textAlign:center}
+        Loc as "Destination Loc" {textAlign:center;cellBackground: #D5F0F7}
+        Grid.Ref as "Ref" {textAlign:center}
+        // Sku as "Sku"
+        // Skus.Category
+        Skus.BuyPrice {textAlign:center}
+        // Skus.SellPrice
+        Skus.M as "Marge Brute" {textAlign:center}
+        Skus.StockOnHand {textAlign:center}
+        Skus.StockAvailableForDispatch as "Stock DC avant Dispatch" {textAlign:center}
+        Skus.LotMultiplierDispatch as "Multiple de Lot" {textAlign:center}
+        Grid.Q as "Quantité" {textAlign:center}
+        Grid.Max as "Unités dispatchées" {textAlign:center}
+        Grid.SellProbability as "Probabilité vente" {textAlign:center;numbers: percent ; columnTooltipText: "In case of lots, we display: 'proba of selling 1st unit - proba of selling last unit'"}
+        Skus.DispatchLTWeeks as "Délai de transport" {unit: " week(s)"}
+
+        // Skus.CurrentFR {numbers: percent}
+        // Grid.FillRateDelta {numbers: percent}
+        // Grid.CumFillRateDelta {numbers: percent}
+        // Grid.OverallFRGain {numbers: percent}
+        // Grid.CumOverallFRGain {numbers: percent}
+        // Grid.CumStockDispatchedByRef
+        // Grid.CumFRGainEDB + EDBCurrentFR as "Nouveau FR EDB" {numbers: percent}
+        // Grid.CumFRGainLON + LONCurrentFR as "Nouveau FR LON" {numbers: percent}
+        // Grid.CumFRGainMAN + MANCurrentFR as "Nouveau FR MAN" {numbers: percent}
+        // Grid.IsBelowTargetEDB
+        // Grid.IsBelowTargetLON
+        // Grid.IsBelowTargetMAN
+        // locFRTarget as "FR target by location" {numbers: percent}
+        Grid.M {cellBackground: #e1fae8;textAlign:center}
+        Grid.S {cellBackground: #CBE6D5;textAlign:center}
+        Grid.C {cellBackground: #f7ceb7;textAlign:center;value { minPrecision: 2 }}
+        Grid.Score as "Score" {cellBackground: #BBDCF0;textAlign:center}
+        // Grid.Reward
+        // Grid.HoldingTime //SIMON
+        // Grid.Score as "Score"
+        // Grid.IsEligible
+
+        order by Grid.Rank
+
+  ///Final purchase reporting
+  Skus.NewStockWarehouse = Skus.StockAvailableForDispatch - Skus.DispatchQuantityWarehouse
+  Skus.NewFR = min(int(Skus.FR, 0, Skus.SatisfiedDemand + Skus.DispatchQuantity), 0.999)
+
+
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///---------------------------------DISPATCH RECOMMENDATIONS--------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+show table "Dispatch recommendations"   {tileTab: "Export"} with
+  Skus.Sku
+  Skus.Ref
+  Skus.Loc
+  Skus.M
+  Skus.StockOnHand
+  sum(PO.Quantity) into Skus as "StockOnOrder"
+  Skus.DispatchQuantity as "Qty to Dispatch"
+  Skus.StockOnHand + Skus.DispatchQuantity as "StockOnHand after Dispatch" //approximation : only valid because we assume it takes 0 week for the stock to arrive
+  Skus.FR {numbers: percent}
+  Skus.CurrentFRForDisplay as "CurrentFR" {numbers: percent}
+  Skus.NewFR {numbers: percent}
+  Skus.LastYearSales
+  Skus.SalesWeight {numbers: percent}
+  Skus.SalesWeight * Skus.NewFR as "OverallFRContrib" {numbers: percent}
+  Skus.AvgDemandOnRLT
+  Skus.SatisfiableDemand
+  Skus.SatisfiedDemand
+  Skus.TotalDemandRLT
+  Skus.StockAvailableForDispatch
+  Skus.DispatchQuantityWarehouse
+  Skus.NewStockWarehouse
+  order by Sku
+
+show summary "" a3c5 {tileTab: "Général" ; backgroundColor: #(backgroundColorforsummarytile)} with ""
+show label "Evolution FR"  a3c3 {tileTab: "Général" ; labelBorder: "none" ; textAlign: center ; textBold: "true"}
+show gauge "FR actuel" a4a5     {tileTab: "Général" ; textAlign: center ; precision: 1 ; gaugeFillColor: #89c8f0} with
+  sum(Skus.CurrentFRForDisplay * Skus.SalesWeight) as "" {numbers: percent}
+
+// show label "https://go.lokad.com/DEMO/gateway/BigFiles/Browse/Download?hash=5548517A9555509655CCF373F131C353&path=%2FImages%2FNewHomePage&name=test5.png" b5b6 {tileTab: "Général"}
+// show scalar "" b5c6 with"⟹" // "➡"
+
+show gauge "Nouveau FR" c4c5     {tileTab: "Général" ; textAlign: center ; precision: 1 ; gaugeFillColor: #7fc779} with
+  sum(Skus.NewFR * Skus.SalesWeight) as "" {numbers: percent}
+
+// description = "Overall FR gain after applying the dispatch suggestions"
+
+
+Skus.NewFRatLocation = match Skus.Loc with
+  "DC" -> sum(Skus.NewFR * Skus.SalesWeightDC) by Skus.1
+  "EDB" -> sum(Skus.NewFR * Skus.SalesWeightEDB) by Skus.1
+  "MAN" -> sum(Skus.NewFR * Skus.SalesWeightMAN) by Skus.1
+  "LON" ->  sum(Skus.NewFR * Skus.SalesWeightLON) by Skus.1
+
+show summary "" a12f13 {tileTab: "Général" ; backgroundColor: #(backgroundColorforsummarytile)} with ""
+where Skus.DispatchQuantity > 0 and Skus.Loc != "DC" //dispatch to DC considered in the logic to be able to properly reaffect stock
+                                                     //this is factice, no stock is going to move from DC to DC so don't display it in
+                                                     //the summary of the results for the client
+  show table "Recommandations détaillées de Dispatch" a12f13 {tileTab: "Général"} with
+    Skus.Sku as "Sku"  {href: #[Skus.Url_ItemInspector]}
+    Skus.Loc
+    Skus.DispatchQuantity as "Qté reco." {textBold: "true" ; cellBackground: #d1d1d1 ; unit: #(pcsUnit)}
+    Skus.CurrentFRForDisplay as "FR actuel" {numbers: percent}
+    Skus.NewFR as "Nouveau FR" {numbers: percent ; cellBackground: #e1fae8}
+    Skus.LotMultiplierDispatch as "Multiple" {unit: #(pcsUnit) ; textBold: #[if Skus.LotMultiplierDispatch > 1 then true else false]}
+    Skus.TotalLTWeeks as "Lead Time" {unit: " semaine(s)"}
+    Skus.StockOnHand as "Stock Dispo." {unit: #(pcsUnit)}
+    Skus.StockOnOrder as "Stock en transit" {unit: #(pcsUnit)}
+    round(mean(Skus.TotalDemand)) as "Demande" {unit: #(pcsUnit)}
+    Skus.Q30 {columnTooltipText: "Quantité vendue sur les 30 derniers jours"}
+    Skus.Q90 {columnTooltipText: "Quantité vendue sur les 90 derniers jours"}
+    order by - Skus.DispatchQuantityWarehouse
+
+
+Skus.NewFRatLocation = match Skus.Loc with
+  "DC" -> sum(Skus.NewFR * Skus.SalesWeightDC) by Skus.1
+  "EDB" -> sum(Skus.NewFR * Skus.SalesWeightEDB) by Skus.1
+  "MAN" -> sum(Skus.NewFR * Skus.SalesWeightMAN) by Skus.1
+  "LON" -> sum(Skus.NewFR * Skus.SalesWeightLON) by Skus.1
+
+Skus.OrderLoc = match Skus.Loc with
+  "DC" -> 1
+  "EDB" -> 3
+  "MAN" -> 4
+  "LON" -> 2
+
+where Skus.Loc != "DC"
+  {barchartGroups: bottom ; tileTab: "Général" ; vaxis { axisMax: "1" }}
+  show barchart "Evolution FR par Loc" a6c8   with
+    same(Skus.NewFRatLocation) as "Nouveau Fillrate" {numbers: percent ; seriesType: bar ; color: #7fc779 ; areaTo: 0.5 ; seriesLegendRank: "2"}
+    same(Skus.CurrentFR_AtLocation) as "Fillrate Actuel" {numbers: percent ; seriesType: bar ; color: #89c8f0 ; areaTo: 0.5 ; seriesLegendRank: "1"}
+    group by Skus.Loc
+    order by same(Skus.OrderLoc)
+
+  Skus.ValueByCategoryColor = match Skus.Category with
+    "Medical Supplies" ->  "#89c8f0"
+    "Medical Patient Care" ->  "#89c8f0"
+    "Cosmetic" ->  "#89c8f0"
+    "Drugs" -> "#89c8f0"
+
+
+
+  show barchart "Dispatch value by Category" d6f8  {tileTab: "Général"} with
+    sum(Skus.DispatchQuantity * Skus.SellPrice) {unit: #(dcUnit) ; color: #[same(Skus.ValueByCategoryColor)]}
+    group by Skus.Category
+    order by sum(Skus.DispatchQuantity) desc
+
+
+
+
+show summary "" d3f5 {tileTab: "Général" ; backgroundColor: #(backgroundColorforsummarytile)} with ""
+show label "Principaux KPIs" d3f3 {tileTab: "Général" ; labelBorder: "none" ; textAlign: center ; textBold: "true"}
+show scalar "Gain FR" d5 7fc779     {tileTab: "Général" ; textBold: "true" ; textAlign: center} with
+  sum(Skus.NewFR * Skus.SalesWeight) - sum(Skus.CurrentFRForDisplay * Skus.SalesWeight) as "" {numbers: percent ; plusSign: nonzero}
+
+totalValueDispatched = round(sum(Skus.DispatchQuantity*Skus.SellPrice) when (Skus.Loc != "DC"))
+
+show scalar "Valeur totale transférée" f5 {tileTab: "Général" ; textAlign: center ; textBold: "true" ; unit: "$"} with totalValueDispatched as ""
+
+totalQtyDispatched = sum(Skus.DispatchQuantity) when (Skus.Loc != "DC")
+show scalar "Quantité Transférée" d4 {tileTab: "Général" ; textAlign: center ; textBold: "true"} with totalQtyDispatched as ""
+show scalar "Capacité" e4 {tileTab: "Général" ; textBold: "true" ; textAlign: center} with constraints
+pickingWorkload = totalQtyDispatched/constraints
+pickingWorkloadColor = if pickingWorkload <= 1 then "7fc779" else "#9c2727"
+show scalar "Charge capacitaire" f4 {tileTab: "Général" ; textAlign: center ; textBold: "true" ; numbers: percent ; tileTooltipText: "Quantité Transférée/Capacité" ; tileColor: #(pickingWorkloadColor)} with pickingWorkload
+
+///Linechart with previous Dispatched Qty and FR over last 30 days
+
+startingCurrentFR = sum(Skus.CurrentFRForDisplay * Skus.SalesWeight)
+startingNewFR = sum(Skus.NewFR * Skus.SalesWeight)
+where Date >= oend - 30 and Date <= oend
+  Day.RandomCurrentFR = if Date == oend then startingCurrentFR else 0.8 +0.1* random.uniform(Day.0,Day.1)
+  Day.RandomNewFR = if Date == oend then startingNewFR else  max(0.82 +0.1* random.uniform(Day.0,Day.1),Day.RandomCurrentFR +0.05* random.uniform(Day.0,Day.1))
+  {tileTab: "Général" ; vaxis { left { axisMin: "75" ; axisMax: "97" ; axisMin: "75" } }}
+  // { vaxis { right { axisMax: 1000 } } }
+  show linechart "Niveau de Fillrate sur les 30 derniers jours" a9f11   with
+    Day.RandomNewFR * 100 as "Nouveau Fillrate" {seriesType: area ; color: #7fc779 ; areaTo: 75 ; seriesOpacity: 0.1 ; seriesLegend: hidden}//{color: #7fc779}//
+    Day.RandomNewFR * 100 as "Nouveau Fillrate" {color: #7fc779}//{color: #7fc779}//
+    Day.RandomCurrentFR * 100 as "Fillrate Actuel" {color: "1A56DB"}//{color: "1A56DB"}//
+    Day.RandomCurrentFR * 100 as "Fillrate Actuel" {seriesType: area ; color: "1A56DB" ; areaTo: 75 ; seriesOpacity: 0.1 ; seriesLegend: hidden}//{color: "1A56DB"}//
+
+//Tiletab : Paramètres, Alertes et Documentation
+///Alerts and Checks
+
+currentTab = "Paramètres, Alertes et Documentation"
+//Form
+
+show form "Capacité maximale (unités/jour)" d3e4 {tileTab: #(currentTab) ; formButton: #(confirmButton)} with constraints as "Contraintes"
+
+////Alerts section
+
+show label "Vérifications de cohérences sur les suggestions"    a5f5             {labelBorder: "none" ; textBold: "true" ; textAlign: center ; tileTab: #(currentTab)}
+show summary "" a6f7 {tileTab: #(currentTab) ; backgroundColor: #(backgroundColorforsummarytile)} with ""
+
+where any(Skus.NewStockWarehouse == 0 and Skus.StockAvailableForDispatch > 0) by Skus.Ref
+
+  issueName = "Rupture entrepôt après le dispatch"
+  failedLines = distinct(Skus.Ref)
+  repColor = if failedLines > 0 then colorWarning else ""
+  EmoAtt = if failedLines > 0 then "⚠️" else ""
+  description = "1 line per Sku for all the Refs for which the dispatch decisions led to a stock out in the central location."
+  show table "\{EmoAtt} \{issueName}" a6f7 {tileTab: #(currentTab) ; tileColor: #(repColor) ; tileTooltipText: #(description)}      with
+    Skus.Sku as "Sku"  {href: #[Skus.Url_ItemInspector]}
+    Skus.Ref
+    Skus.Loc
+    Skus.Category as "Category"
+    Skus.TotalLTWeeks as "Lead Time" {unit: " week(s)"}
+    Skus.StockOnHand as "Stock On Hand" {unit: #(pcsUnit)}
+    Skus.StockOnOrder as "Stock On Order" {unit: #(pcsUnit)}
+    Skus.DispatchQuantity as "Dispatch suggestion" {cellBackground: #d1d1d1 ; textColor: #C7180F ; unit: #(pcsUnit)}
+    Skus.CurrentFRForDisplay as "Current FR" {numbers: percent}
+    Skus.NewFR as "New FR" {numbers: percent}
+    Skus.StockAvailableForDispatch as "Stock in DC before Dispatch" {unit: #(pcsUnit)}
+    Skus.NewStockWarehouse as "Stock in DC after Dispatch" {unit: #(pcsUnit)}
+    order by - Skus.DispatchQuantityWarehouse
+
+  show assert "⚠️ Too many stock outs in DC after dispatch" d30f30  {tileTab: "Général" ; tilePlacement: #(if failedLines < 10 then "hidden" else "fixed")} with
+    failedLines < 10 as "⚠️ Too many stock outs in DC after dispatch"
+    all(Skus.NewStockWarehouse >= 0) as "⚠️ Negative stock in DC after Dispatch"
+
+show label "Documentation"  a11f11 {labelBorder: "none" ; textBold: "true" ; textAlign: center ; tileTab: #(currentTab)}
+
+
+
+show markdown "Overall view" a12e18 {tileTab: #(currentTab)} with  """
+### Documentation Dispatch Suggestions
+
+`Sku`: reference x location code.
+
+`Ref` : reference code.
+
+`Loc` : warehouse code.
+
+`Name`: reference name.
+
+`Category`: reference category.
+
+__`Dispatch suggestion`__: recommended dispatch quantity to cover the next responsibility window.
+
+__`Current Fill Rate`__: overall fill rate associated to the current stock on hand and on order, i.e. the proportion of the demand
+already covered by the current stock on hand and on order.
+
+__`Achieved Fill Rate`__: overall fill rate associated to the current stock on hand and on order and the recommended dispatch suggestion, i.e. the proportion of the demand
+which will be covered after dispatching.
+
+`Stock DC before Dispatch`: quantity in stock in the central warehouse (DC) before any dispatch decision.
+
+`Stock DC after Dispatch`: quantity in stock in the central warehouse (DC) after applying all dispatch suggestions.
+
+### Documentation Micro Decisions
+
+#### General Remark:
+
+To perform this dispatch optimization, we compute for each dispatchable unit, whether it is more profitable
+to send it to 1 of the 2 downstream location of to keep it in DC. In order to do that, we virtually empty the stock in DC and then, for each unit
+compute the reward of putting it back in DC or sending it to EDB, MAN and LON.
+
+The micro decisions represent the status of each of these decisions so, in this table, the currentFR in DC is the FR without StockOnHand (ie 0 if there is no StockOnOrder).
+
+`Rank`: Order of the micro decisions (sorted by descending Score).
+
+`StockOnHand`: Stock on hand before dispatch in the location.
+
+`LotMultiplier`: numbers of pcs by which we can dispatch the Sku (for one ref, can change depending on the location).
+
+`Min`: rank of the 1st unit dispatched with this decision.
+
+`Max`: rank of the last unit dispatched with this decision.
+
+`Q`: quantity we are considering dispatching for this decision (1 if no specific constraint, more if LotMultiplier or MOQ). Equal to Max-Min+1.
+
+`Transportation LT`: time it takes for a unit to be available in the destination location from the moment the dispatch decision is taken. It includes loading and unloading the truck and the time of the drive.
+
+`CurrentFR`: Sku's FR before dispatch.
+
+`FillRateDelta`: Sku's FR gain if the decision is selected.
+
+`CumFillRateDelta`: Sku's FR gain if the decision and the previous ones are selected.
+
+`OverallFRGain`: Overall FR gain if the decision is selected.
+
+`CumOverallFRGain`: Overall FR gain if the decision and all the possible previous possible decisions are selected.
+
+`CumStockDispatchedByRef`: Quantity dispatched by Sku if the decision and the previous ones are selected.
+
+`NewFR EDB/MAN/LON`: FR in EDB/MAN/LON if the decision and all the possible previous possible decisions are selected.
+
+`FR target by location`: Maximum FR reachable for each location (manual input, forced to 100% for DC).
+
+`Reward`: Expected economic gain of the decision.
+
+`Score`: ROI of the decision (if positive). The decisions with the highest score are the most interesting economically.
+
+`IsEnoughStockRemaining`: is there enough stock available to take this dispatch decision knowing the initial stock and the quantity dispatched with the previous eligible decisions.
+
+`IsEligible`: Decision selected for dispatch (enough stock and below FR target).
+
+"""
+
+
+////Tab "Simulation Moyen Terme"
+
+currentTab = "Simulation Moyen Terme"
+
+
+
+SimulationStandard.constraints = constraints
+
+show linechart "Simulation Qtés Dispatchées prochain mois" a5g8 {tileTab: #(currentTab)}  with
+  round(sum(SimulationStandard.OrderedQty)) as "Qté dispatchée" {seriesFan: 1 ; seriesType: bar ; seriesLegendRank: "2" ; color: #(GP.blue)}
+  round(sum(SimulationStandard.StockDelivered)) as "Réceptions" {seriesFan: 2 ; seriesType: bar ; seriesLegendRank: "3" ; color: #(GP.colorSkyBlue)}
+  same(SimulationStandard.constraints) as "Contrainte de capacité"{color: "red"}
+  0 as "" {seriesFan: 4 ; seriesType: bar ; seriesLegendRank: "4" ; color: "white" ; seriesDisplay: "false"}
+  group by SimulationStandard.DispatchDate
+
+SimulationStandard.Margin = SimulationStandard.OrderedQty * (Skus.M)
+SimulationStandard.CumQtyByDayByMargin = cumsum(SimulationStandard.OrderedQty) by (SimulationStandard.DispatchDate) scan -SimulationStandard.Margin
+
+where SimulationStandard.OrderedQty > 0
+  show table "Dispatch quotidien anticipé" a9g9 {tileTab: #(currentTab)}  with
+    Skus.Ref
+    SimulationStandard.Sku
+    SimulationStandard.DispatchDate as "Date"
+    SimulationStandard.OrderedQty as "Quantité"
+    SimulationStandard.Margin as "Marge"
+
+SimulationStandard.TotalOrderedQtyPerDay = sum(SimulationStandard.OrderedQty) by SimulationStandard.DispatchDate
+
+Day.QteSimuStandard = sum(SimulationStandard.OrderedQty) by SimulationStandard.DispatchDate at Day.Date
+Day.OverDispatch = max(0,Day.QteSimuStandard-constraints)
+Day.LeftCapacity = max(0,constraints-Day.QteSimuStandard)
+Day.MarginAtRisk = sum(abs(SimulationStandard.Margin)) when (SimulationStandard.CumQtyByDayByMargin > constraints)  by SimulationStandard.DispatchDate at Day.Date
+totaloverdispatch = sum(Day.OverDispatch) when (month(Day.Date) == GP.monthdispatchflux)
+totaloverleftcapacity= sum(Day.LeftCapacity) when (month(Day.Date) == GP.monthdispatchflux)
+totalmarginatRisk= sum(Day.MarginAtRisk) when (month(Day.Date) == GP.monthdispatchflux)
+
+emojicapacity = if totaloverleftcapacity > totaloverdispatch then "https://go.lokad.com/DEMO/gateway/BigFiles/Browse/Download?hash=4D3CDB0DCF11F315C19E04CB64DEABB0&path=%2FImages&name=GreenBox.png"
+    else "https://go.lokad.com/DEMO/gateway/BigFiles/Browse/Download?hash=9570B3A9793601A152A88FBFF93FEACA&path=%2FImages&name=RedBox-24.png"
+
+textlabellissagecolor = if totaloverleftcapacity > totaloverdispatch then "#06990b" else "red"
+show label "Rééquilibrage possible" f4g4  {labelBorder: "none" ; tileTab: #(currentTab) ; tileColor: #(textlabellissagecolor)}
+show label emojicapacity e4 {tileTab: #(currentTab)}
+
+totaloverdispatchcolor = if totaloverdispatch > 0 then "red" else ""
+
+show summary "" a4d4 {tileTab: #(currentTab) ; backgroundColor: #(GP.colorSkyBlue)} with ""
+show label "Principaux KPIs" a3g3 {tileTab: #(currentTab)}
+show scalar "# Jours > contraintes" a4 {unit: " jours" ; tileTab: #(currentTab)} with
+  distinct(SimulationStandard.DispatchDate) when (SimulationStandard.TotalOrderedQtyPerDay > constraints) as ""
+show scalar "Qté sup. contraintes" b4 {numbers: simple ; tileTab: #(currentTab) ; unit: #(GP.pcsUnit) ; textColor: #(totaloverdispatchcolor)} with
+  totaloverdispatch as ""
+show scalar "Capacité restante" c4 {numbers: simple ; tileTab: #(currentTab) ; unit: #(GP.pcsUnit)} with
+  totaloverleftcapacity as ""
+show scalar "Marge en danger" d4 {numbers: simple ; tileTab: #(currentTab) ; unit: #(GP.DcUnit)}with
+  totalmarginatRisk as ""
+
+show label "Rééquilibrage du dispatch" a10g10 {tileColor: #(GP.blue) ; tileTab: #(currentTab)}
+
+where month(Day.Date) == month(2023,04)
+  SimulationStandard.IsOverdispatch = SimulationStandard.CumQtyByDayByMargin > constraints
+  totaloverdispatch = sum(SimulationStandard.OrderedQty) when (SimulationStandard.IsOverdispatch)
+
+  Day.NewConstraints = ceiling(min(constraints,Day.QteSimuStandard + totaloverdispatch*Day.LeftCapacity/totaloverleftcapacity))
+  Day.NewLeftCapacity = Day.NewConstraints - Day.QteSimuStandard
+  SimulationStandard.Produit = Skus.Ref
+
+
+  where SimulationStandard.OrderedQty > 0
+  where Day.NewLeftCapacity > 0
+    Day.Rank = rank() scan -Day.Date
+    SimulationStandard.CountDay = count(Day.*) by Day.1 at SimulationStandard.1
+
+
+
+    where SimulationStandard.IsOverdispatch
+
+
+
+      table T = extend.range(SimulationStandard.CountDay)
+      T.SaleIdentifier = concat(SimulationStandard.Produit,"-",SimulationStandard.DispatchDate,"-",SimulationStandard.Sku)
+      T.SoldSku = SimulationStandard.Sku
+      T.SoldQty = SimulationStandard.OrderedQty
+      T.SaleDate = SimulationStandard.DispatchDate
+      T.Margin = SimulationStandard.Margin
+
+      T.PurchaseIdentifier = same(concat(Day.Date,"-",Day.LeftCapacity)) by Day.Rank at T.N
+      T.PurchaseQty = same(Day.NewLeftCapacity) by Day.Rank at T.N
+      T.PurchaseDate = same(Day.Date) by Day.Rank at T.N
+
+      T.AssociatedQuantity = assoc.quantity(T.SaleIdentifier,T.SoldQty,T.PurchaseIdentifier,T.PurchaseQty) sort [T.SaleDate,T.PurchaseDate,-T.Margin]
+
+  startSimulationDate = min(SimulationStandard.DispatchDate)
+  SimulationStandard.AddedNewLissedQty = sum(T.AssociatedQuantity) when (T.AssociatedQuantity > 0) by [T.SoldSku,T.PurchaseDate] at [SimulationStandard.Sku,SimulationStandard.DispatchDate]
+  SimulationStandard.RetrievedNewLissedQty = sum(T.AssociatedQuantity) when (T.AssociatedQuantity > 0) by [T.SoldSku,T.SaleDate] at [SimulationStandard.Sku,SimulationStandard.DispatchDate]
+
+  SimulationStandard.NewDailyDispatchedQty = SimulationStandard.OrderedQty + SimulationStandard.AddedNewLissedQty - SimulationStandard.RetrievedNewLissedQty
+
+  SimulationStandard.NewStockDeliveredAfterLissage = if SimulationStandard.DispatchDate < startSimulationDate + 5 then SimulationStandard.StockDelivered \
+      else same(SimulationStandard.NewDailyDispatchedQty) by [SimulationStandard.Sku,SimulationStandard.DispatchDate + 5] at [SimulationStandard.Sku,SimulationStandard.DispatchDate]
+
+  SimulationStandard.TotalNewDailyDispatchedQty = sum(SimulationStandard.NewDailyDispatchedQty) by SimulationStandard.DispatchDate
+
+  totaloverdispatchafterlissage = sum(max(0,SimulationStandard.TotalNewDailyDispatchedQty - constraints)) when (argwhichever() by SimulationStandard.DispatchDate)
+
+
+
+  textlabellissagecolor = if totaloverdispatchafterlissage == 0 then "#06990b" else "red"
+  emojicapacity = if totaloverdispatchafterlissage == 0 then "https://go.lokad.com/DEMO/gateway/BigFiles/Browse/Download?hash=4D3CDB0DCF11F315C19E04CB64DEABB0&path=%2FImages&name=GreenBox.png"
+      else "https://go.lokad.com/DEMO/gateway/BigFiles/Browse/Download?hash=9570B3A9793601A152A88FBFF93FEACA&path=%2FImages&name=RedBox-24.png"
+
+  show label "Rééquilibrage effectué" f11g11  {labelBorder: "none" ; tileTab: #(currentTab) ; tileColor: #(textlabellissagecolor)}
+  show label emojicapacity e11 {tileTab: #(currentTab)}
+
+  show linechart "Quantité Dispatchée après rééquilibrage" a12g15 {tileTab: #(currentTab)}  with
+    round(sum(SimulationStandard.OrderedQty + SimulationStandard.AddedNewLissedQty - SimulationStandard.RetrievedNewLissedQty)) as "Qté dispatchée" {seriesFan: 1 ; seriesType: bar ; seriesLegendRank: "2" ; color: #(GP.blue)}
+    round(sum(SimulationStandard.NewStockDeliveredAfterLissage)) as "Receptions" {seriesFan: 2 ; seriesType: bar ; seriesLegendRank: "3" ; color: #(GP.colorSkyBlue)}
+    same(SimulationStandard.constraints) as "Contrainte de capacité"{color: "red"}
+    0 as "" {seriesFan: 4 ; seriesType: bar ; seriesLegendRank: "4" ; color: "white" ; seriesDisplay: "false"}
+    group by SimulationStandard.DispatchDate
+
+  SimulationStandard.NewOrderedQtyAfterLissage = SimulationStandard.OrderedQty + SimulationStandard.AddedNewLissedQty -  SimulationStandard.RetrievedNewLissedQty
+  SimulationStandard.NewLissedCumQtyByDayByMargin = cumsum(SimulationStandard.NewOrderedQtyAfterLissage) by (SimulationStandard.DispatchDate) scan -SimulationStandard.Margin
+
+  where SimulationStandard.NewOrderedQtyAfterLissage> 0
+    show table "Dispatch Quotidien anticipé après rééquilibrage" a16g16 {tileTab: #(currentTab)}  with
+      SimulationStandard.Produit
+      SimulationStandard.Sku
+      SimulationStandard.DispatchDate as "Date"
+      SimulationStandard.OrderedQty as "Quantité"
+
+  show summary "KPIs" a11d11 {textAlign: center ; tileTab: #(currentTab) ; backgroundColor: #(GP.colorSkyBlue)} with
+    distinct(SimulationStandard.DispatchDate) when (SimulationStandard.TotalNewDailyDispatchedQty > constraints) as "# Jours > contraintes" {unit: " jours"}
+    totaloverdispatchafterlissage as "Qté sup. contraintes" {numbers: simple ; unit: #(GP.pcsUnit)}
+    sum(SimulationStandard.Margin) when (SimulationStandard.NewLissedCumQtyByDayByMargin > constraints) as "Marge en danger" {numbers: simple ; unit: #(GP.DcUnit)}

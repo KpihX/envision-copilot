@@ -1,0 +1,879 @@
+/// Input: Behavior Strategy Output: Raw Catalog and Orders Table
+
+const projectFolder = "" // remove before flight!!!
+const myPath = "\{projectFolder}Background/ItemSim/"
+const inputPath = "/Clean/"
+
+const itemName = "ItemToProgram_"
+const categoryName = "CategoryToProgram"
+
+read "\{myPath}\{itemName}*" unsafe as Catalog with
+  ItemCode : text
+  ImageName : text
+  ItemLoc : text
+  ItemName : text
+  Category : text
+  SubCategory : text
+  Brand : text
+  Supplier : text
+  BuyPrice : number
+  SellPrice : number
+  LotMultiplier : number
+  Moq : number
+  Volume : number
+  Currency : text
+  StartDate : date
+  EndDate : date
+  BaseDemand : number
+  InternalStockAggressiveness : number
+
+read "\{myPath}\{categoryName}*" unsafe as Categories with
+  SubCategory : text
+  ProdStartPeriod : number
+  ProdMidPeriod : number
+  ProdEndPeriod : number
+  BucketSize : number
+  Dispersion : number
+  LinearGrowth : number
+  SeasonalityPattern : text
+
+read "/Manual/TopSubCategoriesParameters.xlsx" unsafe as TopSubCategories with
+  Category : text
+  SubCategory : text
+  IsSeasonal : boolean
+  SeasonalAgressiveness : number
+  SeasonMonthnum : number
+
+read "/Manual/TopItemsParameters.xlsx" unsafe as TopItemsParameters with
+  CategoryDisplayRank : number
+  Category : text
+  ItemDisplayRank : number
+  Ref : text
+  Sku : text
+  BuyPrice : number
+  MarginRatio : number
+  BucketSize : number
+  BaseDemand : number
+  IsSeasonal : boolean
+  SeasonalAgressiveness : number
+  SeasonMonthnum : number
+
+read "/Manual/Suppliers_Dashboard.ion" as Supplier with
+  Supplier : text
+  LeadTime : number
+  "Order Frequency" as ReorderCycle : number
+
+read form with
+  startDate : date
+  endDate : date
+  testFocusItem : text
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///---------------------------------------------CATALOG---------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+today = date(2023,11,21)/// [Swann 21/11/2023] just created some articles with no sales. So I added a filter on the actionrwd part.
+show label "Catalog" a1h1
+
+Catalog.Sku = concat(Catalog.ItemCode,"-",Catalog.ItemLoc)
+
+///Top items----------------------------------------------------------------------------------------
+Catalog.IsTopItem = Catalog.Sku in TopItemsParameters.Sku
+Catalog.CategoryDisplayRank = same(TopItemsParameters.CategoryDisplayRank)
+                              by TopItemsParameters.Category
+                              at Catalog.Category
+
+Catalog.ItemDisplayRank = same(TopItemsParameters.ItemDisplayRank)
+                          by [TopItemsParameters.Category, TopItemsParameters.Sku]
+                          at [Catalog.Category, Catalog.Sku]
+
+///Economic parameters------------------------------------------------------------------------------
+maxBuyPrice = max(TopItemsParameters.BuyPrice)
+Catalog.DefaultBuyPrice = maxBuyPrice * (1.3 +  0.5 * random.uniform(Catalog.0,Catalog.1))
+Catalog.BuyPrice = same(TopItemsParameters.BuyPrice)
+                    by TopItemsParameters.Sku
+                    at Catalog.Sku
+                    default Catalog.DefaultBuyPrice
+
+minMarginRatio = min(TopItemsParameters.MarginRatio) when(TopItemsParameters.MarginRatio > 0)
+Catalog.DefaultMargin = minMarginRatio * (0.4 +  0.1 * random.uniform(Catalog.0,Catalog.1))
+Catalog.MarginRatio = same(TopItemsParameters.MarginRatio)
+                      by TopItemsParameters.Sku
+                      at Catalog.Sku
+                      default Catalog.DefaultMargin
+
+Catalog.SellPrice = Catalog.BuyPrice * (1 + Catalog.MarginRatio)
+
+show table "Catalog test" with
+  Catalog.Sku
+  Catalog.IsTopItem
+  Catalog.BuyPrice
+  maxBuyPrice
+  Catalog.DefaultBuyPrice
+  minMarginRatio
+  Catalog.DefaultMargin
+  Catalog.MarginRatio
+
+///Base demand--------------------------------------------------------------------------------------
+defaultBaseDemand = 10
+Catalog.CategoryMinBaseDemand = min(TopItemsParameters.BaseDemand)
+                                when(TopItemsParameters.BaseDemand > 0)
+                                by TopItemsParameters.Category
+                                at Catalog.Category
+Catalog.RndCategoryMinBaseDemand = (0.5 + 0.3 * random.uniform(Catalog.0,Catalog.1)) * Catalog.CategoryMinBaseDemand
+
+
+Catalog.RndCategoryMinBaseDemand = if Catalog.RndCategoryMinBaseDemand <= 0 then defaultBaseDemand else Catalog.RndCategoryMinBaseDemand
+
+Catalog.BaseDemand = same(TopItemsParameters.BaseDemand)
+                      by TopItemsParameters.Sku
+                      at Catalog.Sku
+                      default Catalog.RndCategoryMinBaseDemand
+
+///Bimodal mode-------------------------------------------------------------------------------------
+Catalog.IsBimodalDemand = Catalog.ItemCode == "CT-109"
+Catalog.IsRightSkewedDemand = Catalog.ItemCode == "CT-110"
+
+///Slice--------------------------------------------------------------------------------------------
+table Slices [slice] = slice by [not Catalog.IsTopItem, Catalog.Sku] title: Catalog.Sku subtitle: "ItemName \{Catalog.ItemName}"
+
+show table "Catalog" a2e3 with
+  Catalog.IsTopItem
+  Catalog.CategoryDisplayRank
+  Catalog.ItemDisplayRank
+  Catalog.Sku
+  Catalog.ItemCode
+  Catalog.ImageName
+  Catalog.ItemLoc
+  Catalog.ItemName
+  Catalog.Category
+  Catalog.SubCategory
+  Catalog.Brand
+  Catalog.Supplier
+  Catalog.BuyPrice
+  Catalog.SellPrice
+  Catalog.LotMultiplier
+  Catalog.Moq
+  Catalog.Volume
+  Catalog.Currency
+  Catalog.StartDate
+  Catalog.EndDate
+  Catalog.BaseDemand
+  order by not Catalog.IsTopItem, Catalog.CategoryDisplayRank, Catalog.ItemDisplayRank
+
+///Reorder cycles-----------------------------------------------------------------------------------
+
+Catalog.ReorderCycle = same(Supplier.ReorderCycle) by Supplier.Supplier at Catalog.Supplier
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///----------------------------------ORDERS ON USER DEFINED TIME HORIZON----------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+defaultNumber = 1
+
+///Time buckets creation----------------------------------------------------------------------------
+//A bucket with a size of 7 indicates that the demand baseline corresponds to 7 days of consumption
+defaultBucketSize = 7
+Catalog.CategoryMaxBucketSize = max(TopItemsParameters.BucketSize)
+                                by TopItemsParameters.Category
+                                at Catalog.Category
+                                default defaultBucketSize
+Catalog.BucketSize = same(TopItemsParameters.BucketSize)
+                      by TopItemsParameters.Sku
+                      at Catalog.Sku
+                      default Catalog.CategoryMaxBucketSize
+
+Catalog.ProdStartPeriod = mode(Categories.ProdStartPeriod) by Categories.SubCategory at Catalog.SubCategory default (defaultNumber)
+// Catalog.ProdMidPeriod = mode(Categories.ProdMidPeriod) by Categories.SubCategory at Catalog.SubCategory default (defaultNumber)
+Catalog.ProdEndPeriod = mode(Categories.ProdEndPeriod) by Categories.SubCategory at Catalog.SubCategory default (defaultNumber)
+
+Catalog.FullHistory = max(Catalog.EndDate - Catalog.StartDate + 1, 1)
+Catalog.PeriodGroupSize = max(Catalog.BucketSize, 1)
+
+Catalog.StartPeriodBucket = ceiling(Catalog.FullHistory * Catalog.ProdStartPeriod / Catalog.PeriodGroupSize)
+// Catalog.MidPeriodBucket = ceiling(Catalog.FullHistory * Catalog.ProdMidPeriod  / Catalog.PeriodGroupSize)
+Catalog.EndPeriodBucket = ceiling(Catalog.FullHistory * Catalog.ProdEndPeriod / Catalog.PeriodGroupSize)
+
+Catalog.BucketsNb = ceiling(Catalog.FullHistory / Catalog.PeriodGroupSize)
+
+show table "Catalog"  with
+  Catalog.ItemCode as "ItemCode"
+  Catalog.ImageName as "ImageName"
+  Catalog.ItemLoc as "ItemLoc"
+  Catalog.ItemName as "ItemName"
+  Catalog.Category as "Category"
+  Catalog.SubCategory as "SubCategory"
+  Catalog.Brand as "Brand"
+  Catalog.Supplier as "Supplier"
+  Catalog.BuyPrice as "BuyPrice"
+  Catalog.SellPrice as "SellPrice"
+  Catalog.LotMultiplier as "LotMultiplier"
+  Catalog.Moq as "Moq"
+  Catalog.Volume as "Volume"
+  Catalog.Currency as "Currency"
+  Catalog.StartDate as "StartDate"
+  Catalog.EndDate as "EndDate"
+  Catalog.BaseDemand as "BaseDemand"
+  Catalog.InternalStockAggressiveness as "InternalStockAggressiveness"
+  Catalog.Sku as "Sku"
+  Catalog.IsTopItem as "IsTopItem"
+  Catalog.CategoryDisplayRank as "CategoryDisplayRank"
+  Catalog.ItemDisplayRank as "ItemDisplayRank"
+  Catalog.DefaultBuyPrice as "DefaultBuyPrice"
+  Catalog.DefaultMargin as "DefaultMargin"
+  Catalog.MarginRatio as "MarginRatio"
+  Catalog.CategoryMinBaseDemand as "CategoryMinBaseDemand"
+  Catalog.RndCategoryMinBaseDemand as "RndCategoryMinBaseDemand"
+  Catalog.IsBimodalDemand as "IsBimodalDemand"
+  Catalog.IsRightSkewedDemand as "IsRightSkewedDemand"
+  Catalog.ReorderCycle as "ReorderCycle"
+  Catalog.CategoryMaxBucketSize as "CategoryMaxBucketSize"
+  Catalog.BucketSize as "BucketSize"
+  Catalog.ProdStartPeriod as "ProdStartPeriod"
+  Catalog.ProdEndPeriod as "ProdEndPeriod"
+  Catalog.FullHistory as "FullHistory"
+  Catalog.PeriodGroupSize as "PeriodGroupSize"
+  Catalog.StartPeriodBucket as "StartPeriodBucket"
+  Catalog.EndPeriodBucket as "EndPeriodBucket"
+  Catalog.BucketsNb as "BucketsNb"
+
+table UserDefinedTimeOrders = extend.range(Catalog.BucketsNb)
+UserDefinedTimeOrders.BucketIndex = UserDefinedTimeOrders.N
+
+///Scope--------------------------------------------------------------------------------------------
+keep where UserDefinedTimeOrders.BucketIndex <= 500 ///Basile : don't understand that specific line. Seemed to create unwanted end of products when I updated the horizon from 2020 to 2023...
+                                                    ///Used to be 360, increased it to 500
+
+///Life cycle---------------------------------------------------------------------------------------
+//Generate orders between start date and end date
+//Controlling the ramp up and ramp down of a reference trend
+
+///Natural wave creation
+midwave = 50
+table NaturalWave = extend.range(midwave * 2)
+
+NaturalWave.Progress = - 1 * (NaturalWave.N - midwave) ^ 2 + midwave ^ 2
+progrssSum = sum(NaturalWave.Progress)
+NaturalWave.ProgressPercent = sum(NaturalWave.Progress) scan NaturalWave.1 / progrssSum
+
+show table "Natural wave" c5d5 with
+  NaturalWave.N
+  NaturalWave.Progress
+  NaturalWave.ProgressPercent {numbers: percent}
+
+show scatter "Natural wave" c6d7 with
+  NaturalWave.N
+  NaturalWave.ProgressPercent
+
+UserDefinedTimeOrders.Rampup = min(UserDefinedTimeOrders.BucketIndex / Catalog.StartPeriodBucket , 1)
+UserDefinedTimeOrders.RampupWave = same(NaturalWave.ProgressPercent) by NaturalWave.N at ceiling(UserDefinedTimeOrders.Rampup * 100)
+
+UserDefinedTimeOrders.Rampdown = min((Catalog.BucketsNb - UserDefinedTimeOrders.BucketIndex) / Catalog.EndPeriodBucket , 1)
+UserDefinedTimeOrders.RampdownWave = same(NaturalWave.ProgressPercent) by NaturalWave.N at ceiling(UserDefinedTimeOrders.Rampdown * 100)
+
+UserDefinedTimeOrders.PhaseWave = if UserDefinedTimeOrders.BucketIndex <= Catalog.StartPeriodBucket then UserDefinedTimeOrders.RampupWave else UserDefinedTimeOrders.RampdownWave
+
+///Base demand--------------------------------------------------------------------------------------
+UserDefinedTimeOrders.BaseDemand = UserDefinedTimeOrders.PhaseWave * Catalog.BaseDemand
+
+///Growth-------------------------------------------------------------------------------------------
+// Catalog.LinearGrowth = mode(Categories.LinearGrowth) by Categories.SubCategory at Catalog.SubCategory default (0)
+// Catalog.Growth = Catalog.LinearGrowth
+
+Catalog.AnnualGrowth = if Catalog.IsTopItem then 0.05 else 0.025
+Catalog.BucketGrowth = Catalog.AnnualGrowth * (Catalog.BucketSize / 365)
+
+UserDefinedTimeOrders.BaseDemandPlusGrowth = UserDefinedTimeOrders.BaseDemand * (1 + Catalog.BucketGrowth * UserDefinedTimeOrders.BucketIndex)
+
+///Orders creation----------------------------------------------------------------------------------
+
+///Table creation
+UserDefinedTimeOrders.DayCount = Catalog.PeriodGroupSize
+table Orders = extend.range(UserDefinedTimeOrders.DayCount)
+
+Orders.SubCategory = Catalog.SubCategory
+Orders.Ref = Catalog.ItemCode
+Orders.Sku = Catalog.Sku
+Orders.Loc = Catalog.ItemLoc
+
+Orders.AllDays = count(Orders.*) by Orders.Sku
+Orders.DayIndex = Orders.AllDays - rankrev () by Catalog.Sku scan -Orders.1
+Orders.Day = Catalog.StartDate + Orders.DayIndex
+Orders.Weeknum = weekNum(Orders.Day)
+
+///Scope
+show form "Define Start and End" a5b7        {formButton: "[OK]"} with
+  startDate as "Start Date (Incl.)"
+  endDate as "End Date (Incl.)"
+formstartDate = if startDate == date(2001,01,01) then today() - 365 * 15 else startDate
+formendDate = if endDate == date(2001,01,01) then today() else endDate
+
+keep where Orders.Day >= formstartDate and Orders.Day <= (formendDate + 365)
+
+Orders.OrderId = concat("O-",padLeft(text(Orders.Day - date(2001,01,01)),"0",6))
+
+Orders.BucketNew = ceiling(Orders.DayIndex / Catalog.PeriodGroupSize)
+
+Orders.IsPast = Orders.Day <= formendDate
+UserDefinedTimeOrders.IsPast = any(Orders.IsPast)
+
+///Seasonality--------------------------------------------------------------------------------------
+
+///Weekly catalog
+Catalog.CountWeeks = 54
+table Seasons = extend.range(Catalog.CountWeeks)
+Seasons.WeekNum = Seasons.N
+
+Seasons.SubCategory = Catalog.SubCategory
+
+///Seasons parameters
+Seasons.IsSeasonalSubCategory = same(TopSubCategories.IsSeasonal) by TopSubCategories.SubCategory at Catalog.SubCategory
+Seasons.SubCategorySeasonalAgressiveness = same(TopSubCategories.SeasonalAgressiveness) by TopSubCategories.SubCategory at Catalog.SubCategory
+Seasons.SubCategorySeasonMonthnum = same(TopSubCategories.SeasonMonthnum) by TopSubCategories.SubCategory at Catalog.SubCategory
+
+Seasons.IsSeasonal = same(TopItemsParameters.IsSeasonal) by TopItemsParameters.Sku at Catalog.Sku
+Seasons.SeasonalAgressiveness = same(TopItemsParameters.SeasonalAgressiveness) by TopItemsParameters.Sku at Catalog.Sku
+Seasons.SeasonMonthnum = same(TopItemsParameters.SeasonMonthnum) by TopItemsParameters.Sku at Catalog.Sku
+
+Seasons.SelectedMonthnum = if Seasons.IsSeasonal then Seasons.SeasonMonthnum else
+      if Seasons.IsSeasonalSubCategory then Seasons.SubCategorySeasonMonthnum else 1
+
+///Seasons models
+pi = 3.14
+maxWeekNum = max(Seasons.WeekNum)
+maxSeasonalImpact = 2.5
+// minSeasonalImpact = 0.5
+
+Seasons.SeasonIndex = ((Seasons.SelectedMonthnum * 4 + 4) - Seasons.WeekNum) * (2 * pi) / maxWeekNum + pi / 2
+
+//Low impact (Bhaskara approximation for sinus function)
+sinusParam1 = 16
+sinusParam2 = 4
+Seasons.ClassicSinus = sinusParam1 * Seasons.SeasonIndex * (pi - Seasons.SeasonIndex) / (5 * pi^2 - sinusParam2 * Seasons.SeasonIndex * (pi - Seasons.SeasonIndex))
+Seasons.MinClassicSinus = abs(min(Seasons.ClassicSinus) by Catalog.Sku)
+Seasons.PositiveClassicSinus = Seasons.ClassicSinus + Seasons.MinClassicSinus
+Seasons.MaxPositiveClassicSinus = max(Seasons.PositiveClassicSinus) by Catalog.Sku
+
+Seasons.LowImpact = max(Seasons.PositiveClassicSinus, Seasons.MaxPositiveClassicSinus * 0.5) * (maxSeasonalImpact / Seasons.MaxPositiveClassicSinus)
+
+show plot "Seasonal low impact" d14e14 with
+  Seasons.WeekNum
+  Seasons.LowImpact
+
+//Medium impact
+sinusParam1 = 7
+sinusParam2 = 10
+Seasons.MediumSinus = sinusParam1 * Seasons.SeasonIndex * (pi - Seasons.SeasonIndex) / (5 * pi^2 - sinusParam2 * Seasons.SeasonIndex * (pi - Seasons.SeasonIndex))
+Seasons.MinMediumSinus = abs(min(Seasons.MediumSinus) by Catalog.Sku)
+Seasons.PositiveMediumSinus = Seasons.MediumSinus + Seasons.MinMediumSinus
+Seasons.MaxPositiveMediumSinus = max(Seasons.PositiveMediumSinus) by Catalog.Sku
+
+Seasons.MediumImpact = max(Seasons.PositiveMediumSinus, Seasons.MaxPositiveMediumSinus * 0.5) * (maxSeasonalImpact / Seasons.MaxPositiveMediumSinus)
+
+show plot "Seasonal medium impact" d15e15 with
+  Seasons.WeekNum
+  Seasons.MediumImpact
+
+//Steep impact
+sinusParam1 = 3
+sinusParam2 = 15
+Seasons.SteepSinus = sinusParam1 * Seasons.SeasonIndex * (pi - Seasons.SeasonIndex) / (5 * pi^2 - sinusParam2 * Seasons.SeasonIndex * (pi - Seasons.SeasonIndex))
+Seasons.MinSteepSinus = abs(min(Seasons.SteepSinus) by Catalog.Sku)
+Seasons.PositiveSteepSinus = Seasons.SteepSinus + Seasons.MinSteepSinus
+Seasons.MaxPositiveSteepSinus = max(Seasons.PositiveSteepSinus) by Catalog.Sku
+
+Seasons.SteepImpact = max(Seasons.PositiveSteepSinus, Seasons.MaxPositiveSteepSinus * 0.5) * (maxSeasonalImpact / Seasons.MaxPositiveSteepSinus)
+
+show plot "Seasonal steep impact" d16e16 with
+  Seasons.WeekNum
+  Seasons.SteepImpact
+
+///Season impact calculation
+
+Seasons.Impact = 1
+
+where Seasons.IsSeasonalSubCategory
+  Seasons.Impact = match Seasons.SubCategorySeasonalAgressiveness with //match does not work with negative values !!!
+    1  -> Seasons.LowImpact
+    2  -> Seasons.MediumImpact
+    3  -> Seasons.SteepImpact
+
+where Seasons.IsSeasonal
+  Seasons.Impact = match Seasons.SeasonalAgressiveness with //match does not work with negative values !!!
+    1  -> Seasons.LowImpact
+    2  -> Seasons.MediumImpact
+    3  -> Seasons.SteepImpact
+
+Seasons.Impact = if Catalog.IsTopItem then Seasons.Impact ^ 2 else 1.05
+
+Orders.SeasonImpact = same(Seasons.Impact)
+                      by [Seasons.WeekNum, Catalog.Sku]
+                      at [Orders.Weeknum, Orders.Sku]
+UserDefinedTimeOrders.SeasonImpact = avg(Orders.SeasonImpact)
+
+///Bucket base
+UserDefinedTimeOrders.BucketBase = UserDefinedTimeOrders.BaseDemandPlusGrowth * UserDefinedTimeOrders.SeasonImpact
+
+///Final demand-----------------------------------------------------------------------------
+Catalog.Dispersion = mode(Categories.Dispersion) by Categories.SubCategory at Catalog.SubCategory default (1)
+Catalog.Alpha = 0
+UserDefinedTimeOrders.DemandSegment = dirac(0)
+
+where Catalog.StartDate < today
+  where UserDefinedTimeOrders.IsPast
+    UserDefinedTimeOrders.DemandSegment = actionrwd.segment(
+      TimeIndex: UserDefinedTimeOrders.BucketIndex,
+      BaseLine: UserDefinedTimeOrders.BucketBase,
+      Dispersion: Catalog.Dispersion,
+      Alpha: Catalog.Alpha,
+      FixedStart : UserDefinedTimeOrders.BucketIndex  - 1,
+      Start: dirac(0),
+      Duration: dirac(1))
+
+
+  where Catalog.Sku == "DS-141-DC"
+    show scalar "DemandSegment Feb 2, 2023" with same(UserDefinedTimeOrders.DemandSegment) when(UserDefinedTimeOrders.BucketIndex == 264)
+    show scalar "DemandSegment Jan 14, 2023" with same(UserDefinedTimeOrders.DemandSegment) when(UserDefinedTimeOrders.BucketIndex == 261)
+
+    show table "UserDefinedTimeOrders DS-141-DC"  with
+      Catalog.Sku
+      UserDefinedTimeOrders.BucketIndex as "BucketIndex"
+      UserDefinedTimeOrders.BucketIndex  - 1
+      UserDefinedTimeOrders.N as "N"
+      UserDefinedTimeOrders.Rampup as "Rampup"
+      UserDefinedTimeOrders.RampupWave as "RampupWave"
+      UserDefinedTimeOrders.Rampdown as "Rampdown"
+      UserDefinedTimeOrders.RampdownWave as "RampdownWave"
+      UserDefinedTimeOrders.PhaseWave as "PhaseWave"
+      UserDefinedTimeOrders.BaseDemand as "BaseDemand"
+      UserDefinedTimeOrders.BaseDemandPlusGrowth as "BaseDemandPlusGrowth"
+      UserDefinedTimeOrders.DayCount as "DayCount"
+      UserDefinedTimeOrders.IsPast as "IsPast"
+      UserDefinedTimeOrders.SeasonImpact as "SeasonImpact"
+      UserDefinedTimeOrders.BucketBase as "BucketBase"
+      UserDefinedTimeOrders.DemandSegment as "DemandSegment"
+
+UserDefinedTimeOrders.DemandSegment = truncate(UserDefinedTimeOrders.DemandSegment,
+                                                0,
+                                                min(quantile(UserDefinedTimeOrders.DemandSegment, 0.95), UserDefinedTimeOrders.BucketBase * 2))
+
+UserDefinedTimeOrders.ProbaZero = int(UserDefinedTimeOrders.DemandSegment,0,0)
+UserDefinedTimeOrders.MeanDemandSegment = mean(truncate(UserDefinedTimeOrders.DemandSegment,1,max(1, quantile (UserDefinedTimeOrders.DemandSegment, 1))))
+where UserDefinedTimeOrders.ProbaZero > 0.15 and UserDefinedTimeOrders.MeanDemandSegment >= 5 //removing bucket 0 to see if it fixes bug ar segment
+  UserDefinedTimeOrders.DemandSegment = truncate(UserDefinedTimeOrders.DemandSegment,1, quantile (UserDefinedTimeOrders.DemandSegment, 1))
+
+where Catalog.Sku == "DS-141-DC"
+  show scalar "DemandSegment trunc Feb 2, 2023" with same(UserDefinedTimeOrders.DemandSegment) when(UserDefinedTimeOrders.BucketIndex == 264)
+  show scalar "DemandSegment trunc Jan 14, 2023" with same(UserDefinedTimeOrders.DemandSegment) when(UserDefinedTimeOrders.BucketIndex == 261)
+
+///Bimodal demand
+importanceSeed = date(2023,04,06) - date(2020,10,10) //today() - date(2020,10,10)
+randomBaseDemandSeed = importanceSeed + 1
+
+//Block to manipulate seed
+a = 0
+loop 3
+  a = random.normal(1, 100) + a
+show scalar "a" with a
+
+
+UserDefinedTimeOrders.RndBucket = random.uniform(UserDefinedTimeOrders.0,UserDefinedTimeOrders.1)
+UserDefinedTimeOrders.RndQuantile = max(round(UserDefinedTimeOrders.RndBucket * 99,2)/100, 0.0001)
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///-------------------------------------------ORDERS------------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+show label "Orders" a4h4
+
+///Orders quantity----------------------------------------------------------------------------------
+
+Orders.Bucket = UserDefinedTimeOrders.BucketIndex
+
+///Daily order weight in bucket demand
+// Orders.RndOrder = random.uniform(Orders.0,Orders.1) * 100
+Orders.RndOrder = random.uniform(Orders.0,Orders.100)
+Orders.OrderRndWeight = max(floor(Orders.RndOrder * 6) - 1,0) + 0.000001
+Orders.OrderWeightInBucket = Orders.OrderRndWeight / sum(Orders.OrderRndWeight) by [Orders.Sku, Orders.Bucket]
+
+where Orders.Sku == "DS-119-DC"
+  show table "Orders DS-119-DC"  with
+    Orders.N as "N"
+    Orders.SubCategory as "SubCategory"
+    Orders.Ref as "Ref"
+    Orders.Sku as "Sku"
+    Orders.Loc as "Loc"
+    Orders.AllDays as "AllDays"
+    Orders.DayIndex as "DayIndex"
+    Orders.Day as "Day"
+    Orders.Weeknum as "Weeknum"
+    Orders.OrderId as "OrderId"
+    Orders.BucketNew as "BucketNew"
+    Orders.IsPast as "IsPast"
+    Orders.SeasonImpact as "SeasonImpact"
+    Orders.Bucket as "Bucket"
+    Orders.RndOrder as "RndOrder"
+    Orders.OrderRndWeight as "OrderRndWeight"
+    Orders.OrderWeightInBucket as "OrderWeightInBucket"
+
+///Daily order demand
+Orders.AvgBucketDemand = mean(UserDefinedTimeOrders.DemandSegment)
+Orders.RndAvgBucketDemand = Orders.AvgBucketDemand * (0.90 + 0.1 * random.uniform(Orders.0,Orders.1))
+
+Orders.RndBucketDemand = quantile(UserDefinedTimeOrders.DemandSegment, UserDefinedTimeOrders.RndQuantile)
+Orders.RndDemand = Orders.RndBucketDemand * Orders.OrderWeightInBucket
+
+///Final daily order demand
+Orders.RawRndBaseDemand = max(round(Orders.RndDemand), 0)
+
+Orders.SumRndBaseDemandByBucket = sum(Orders.RawRndBaseDemand) by [Catalog.Sku , Orders.BucketNew]
+
+Orders.IsPickRandomBucket = argfirst() by [Catalog.Sku, Orders.BucketNew] scan Orders.RndDemand
+where Orders.IsPickRandomBucket
+  Orders.RawRndBaseDemand = max(Orders.RndBucketDemand - Orders.SumRndBaseDemandByBucket, 0)
+
+///Safeguards
+Catalog.SalesRanvar = ranvar(Orders.RawRndBaseDemand) by Catalog.Sku at Catalog.Sku
+Catalog.SalesRanvarMean = mean(Catalog.SalesRanvar)
+Catalog.SalesRanvarStd = sqrt(variance(Catalog.SalesRanvar))
+
+Catalog.SalesRanvarQ99 = quantile(Catalog.SalesRanvar, 0.99)
+
+Orders.RawRndBaseDemand = min(Orders.RawRndBaseDemand, min(Catalog.SalesRanvarMean + 4 * Catalog.SalesRanvarStd, Catalog.SalesRanvarQ99))
+
+///Extreme bimodal demand
+Catalog.ExtremeBimodalDemandFrequence = if Catalog.IsBimodalDemand then 0.2 else 0
+Catalog.ExtremeBimodalDemandFactor = 2
+
+Orders.IsExtremeBimodalDemand = Catalog.IsBimodalDemand and
+                                Orders.DayIndex mod ((1 /. Catalog.ExtremeBimodalDemandFrequence) * Catalog.ReorderCycle / 2) == 0
+                                //Division per 2 to fake twice the frequence in the orders generation while we want to display only the frequence in the distribution itself
+
+Orders.ExtremeBimodalDemandFactor = if Orders.IsExtremeBimodalDemand then Catalog.ExtremeBimodalDemandFactor else 1
+
+///Extreme right skewed demand
+Catalog.ExtremeRightSkewedDemandFrequence = if Catalog.IsRightSkewedDemand then 0.1 else 0
+Catalog.ExtremeRightSkewedDemandFactor = 5
+
+Orders.IsExtremeRightSkewedDemand = Catalog.IsRightSkewedDemand and
+                                    Orders.DayIndex mod ((1 /. Catalog.ExtremeRightSkewedDemandFrequence) * 7) == 0
+
+Orders.ExtremeRightSkewedDemandFactor = if Orders.IsExtremeRightSkewedDemand then
+                                              Catalog.ExtremeRightSkewedDemandFactor * (0.2 + 0.8 * random.uniform(Orders.0,Orders.1))
+    else
+                                              1
+
+///Final Rnd Base demand
+Orders.RndBaseDemand = if Orders.IsExtremeBimodalDemand or Orders.IsExtremeRightSkewedDemand then Orders.RndAvgBucketDemand * Orders.ExtremeBimodalDemandFactor * Orders.ExtremeRightSkewedDemandFactor else Orders.RawRndBaseDemand
+
+show table "Test" a30 with
+  Catalog.Sku
+  Catalog.IsRightSkewedDemand
+  1 /. Catalog.ExtremeRightSkewedDemandFrequence
+  Orders.DayIndex
+  Orders.Day
+  Orders.IsExtremeRightSkewedDemand
+  Orders.RndAvgBucketDemand
+  Orders.ExtremeBimodalDemandFactor
+  Orders.ExtremeRightSkewedDemandFactor
+  Orders.RndBaseDemand
+
+Orders.WeekBaseDemand = (UserDefinedTimeOrders.BucketBase / Catalog.PeriodGroupSize) * 7
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///--------------------------------------REPORTING------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///Overall overview
+
+Orders.IsFirstOrderOfWeek = argwhichever() by [Orders.Sku , monday(Orders.Day)]
+keep where Orders.RndBaseDemand > 0 or Orders.IsFirstOrderOfWeek
+
+iteration = 1
+itText = padLeft(text(iteration),"0",2)
+checkDashboard = 51914
+Catalog.hRefUrl = sliceSearchUrl(checkDashboard, Catalog.Sku)
+Catalog.SumByItems = sum(Orders.RndBaseDemand * Catalog.SellPrice) when (Orders.IsPast)
+
+show summary "Items Output" a23c23               {backgroundColor: #F8F8F8} with
+  distinct(Catalog.ItemName) as "# Item"
+  distinct(Catalog.SubCategory) as "# Category"
+  distinct(Catalog.Brand) as "# Brand"
+  max(Catalog.BuyPrice) as "Max BuyPrice"
+  max(Catalog.SellPrice) as "Max SellPrice"
+  max(Catalog.LotMultiplier) as "Max LotMultiplier"
+  max(Catalog.Moq) as "Max Moq"
+
+show summary "Items Output" a22c22                {backgroundColor: #F8F8F8} with
+  distinct(Catalog.ItemName) as "# Item" //
+  sum(Orders.RndBaseDemand * Catalog.SellPrice) as "Total NetAmount"
+  sum(Orders.RndBaseDemand * (Catalog.SellPrice - Catalog.BuyPrice)) as "Total Gross Margin"
+  min(Orders.Day) as "MinDay"
+  max(Orders.Day) as "MaxDay"
+  distinct(Catalog.Currency) as "# Currency"
+
+Catalog.ItemRank = rankrev () scan Catalog.1
+
+item1 = same(Catalog.ItemCode) when (Catalog.ItemRank == 1)
+item2 = same(Catalog.ItemCode) when (Catalog.ItemRank == 2)
+item3 = same(Catalog.ItemCode) when (Catalog.ItemRank == 3)
+item4 = same(Catalog.ItemCode) when (Catalog.ItemRank == 4)
+item5 = same(Catalog.ItemCode) when (Catalog.ItemRank == 5)
+item6 = same(Catalog.ItemCode) when (Catalog.ItemRank == 6)
+item7 = same(Catalog.ItemCode) when (Catalog.ItemRank == 7)
+item8 = same(Catalog.ItemCode) when (Catalog.ItemRank == 8)
+item9 = same(Catalog.ItemCode) when (Catalog.ItemRank == 9)
+
+show linechart "Orders generation (net amount)" g5h7 with
+  sum(Orders.RndBaseDemand * Catalog.SellPrice) when (Catalog.ItemRank == 1 ) as item1 {color: #A30D0D}
+  sum(Orders.RndBaseDemand * Catalog.SellPrice) when (Catalog.ItemRank == 2 ) as item2 {color: #CA7300}
+  sum(Orders.RndBaseDemand * Catalog.SellPrice) when (Catalog.ItemRank == 3 ) as item3 {color: #E4D71F}
+  sum(Orders.RndBaseDemand * Catalog.SellPrice) when (Catalog.ItemRank == 4 ) as item4 {color: #40CA00}
+  sum(Orders.RndBaseDemand * Catalog.SellPrice) when (Catalog.ItemRank == 5 ) as item5 {color: #1FD3D3}
+  sum(Orders.RndBaseDemand * Catalog.SellPrice) when (Catalog.ItemRank == 6 ) as item6 {color: #0637D8}
+  sum(Orders.RndBaseDemand * Catalog.SellPrice) when (Catalog.ItemRank == 7 ) as item7 {color: #910FCE}
+  sum(Orders.RndBaseDemand * Catalog.SellPrice) when (Catalog.ItemRank == 8 ) as item8 {color: #6D2504}
+  sum(Orders.RndBaseDemand * Catalog.SellPrice) when (Catalog.ItemRank == 9 ) as item9 {color: #4D4D4D}
+  group by monday(Orders.Day)
+
+show linechart "Orders generation (qty)" e5f7 with
+  sum(Orders.RndBaseDemand) when (Catalog.ItemRank == 1 ) as item1 {color: #A30D0D}
+  sum(Orders.RndBaseDemand) when (Catalog.ItemRank == 1 ) as item1 {color: #A30D0D}
+  sum(Orders.RndBaseDemand) when (Catalog.ItemRank == 2 ) as item2 {color: #CA7300}
+  sum(Orders.RndBaseDemand) when (Catalog.ItemRank == 3 ) as item3 {color: #E4D71F}
+  sum(Orders.RndBaseDemand) when (Catalog.ItemRank == 4 ) as item4 {color: #40CA00}
+  sum(Orders.RndBaseDemand) when (Catalog.ItemRank == 5 ) as item5 {color: #1FD3D3}
+  sum(Orders.RndBaseDemand) when (Catalog.ItemRank == 6 ) as item6 {color: #0637D8}
+  sum(Orders.RndBaseDemand) when (Catalog.ItemRank == 7 ) as item7 {color: #910FCE}
+  sum(Orders.RndBaseDemand) when (Catalog.ItemRank == 8 ) as item8 {color: #6D2504}
+  sum(Orders.RndBaseDemand) when (Catalog.ItemRank == 9 ) as item9 {color: #4D4D4D}
+  group by monday(Orders.Day)
+
+maxDate = max(Orders.Day)
+Catalog.Sales365 = sum(Orders.RndBaseDemand) when(Orders.Day >= maxDate - 365)
+Catalog.BestSellerRank = rankrev () scan Catalog.Sales365
+show table "Best seller rank 365 d" f2h3 with
+  Catalog.IsTopItem
+  Catalog.Sku as "Sku"
+  Catalog.Category
+  Catalog.SubCategory
+  Catalog.BestSellerRank
+  Catalog.Sales365
+  order by Catalog.BestSellerRank
+
+///Focus on a specific reference
+show label same("\{Catalog.ItemCode} focus") by slice a8h8
+
+show summary "Overview" a9a12 slices:slice with
+  same(Catalog.Sku) as "Sku"
+  same(Catalog.ItemCode) as "Ref"
+  same(Catalog.ItemLoc) as "Loc"
+  same(Catalog.Category) as "Category"
+  same(Catalog.SubCategory) as "SubCat"
+  same(Catalog.StartDate) as "Start Date"
+  same(Catalog.EndDate) as "End Date"
+
+show summary "Demand Overview" b9b12 slices:slice with
+  same(Catalog.BucketsNb) as "Bucket Nb"
+  same(Catalog.BucketSize) as "Bucket Size"
+  same(Catalog.BaseDemand) as "Base Demand"
+  same(Catalog.BucketGrowth) as "Bucket Growth"
+  if same(Seasons.IsSeasonal) default same(Seasons.IsSeasonalSubCategory) then "Yes" else "No" as "Seasonal?"
+  same(Seasons.SeasonalAgressiveness) default same(Seasons.SubCategorySeasonalAgressiveness) as "Season agressiveness"
+  same(Seasons.SeasonMonthnum) default same(Seasons.SubCategorySeasonMonthnum) as "Season Monthnum"
+
+show scalar "" a13b13 with "Buckets configuration"
+
+show scatter same("\{Catalog.ItemCode} - Bucket Phase Wave") by slice a14b14 slices:slice with
+  UserDefinedTimeOrders.BucketIndex
+  UserDefinedTimeOrders.PhaseWave
+
+show scatter same("\{Catalog.ItemCode} - Bucket Base Demand") by slice a15b16 slices:slice with
+  UserDefinedTimeOrders.BucketIndex
+  UserDefinedTimeOrders.BaseDemand
+
+show scatter same("\{Catalog.ItemCode} - Bucket Base Demand + Growth") by slice a17b18 slices:slice with
+  UserDefinedTimeOrders.BucketIndex
+  UserDefinedTimeOrders.BaseDemandPlusGrowth
+
+show scatter same("\{Catalog.ItemCode} - Bucket Base (Base Demand + Growth + Seasonality)") by slice f14h16 slices:slice with
+  UserDefinedTimeOrders.BucketIndex
+  UserDefinedTimeOrders.BucketBase
+
+show scatter same("\{Catalog.ItemCode} - Bucket Random quantile") by slice f18h19 slices:slice with
+  UserDefinedTimeOrders.BucketIndex
+  UserDefinedTimeOrders.RndQuantile
+
+show linechart same("\{Catalog.ItemCode} - Orders generation") by slice c9h12 slices:slice with
+  sum(Orders.RndBucketDemand) as "RndBucketDemand"
+  sum(Orders.RawRndBaseDemand) as "RawRndBaseDemand"
+  sum(Orders.RndBaseDemand) as "RndBaseDemand" {color: #FF7300}
+  if any(Orders.IsExtremeBimodalDemand) then 1 else 0 as "Bimodal extreme point" {backgroundColor: "red" ; seriesType: background ; color: #F3E4E4}
+  if any(Orders.IsExtremeRightSkewedDemand) then 1 else 0 as "Right Skewed extreme point" {backgroundColor: "red" ; seriesType: background ; color: #F3E4E4}
+  sum(Orders.OrderWeightInBucket) as "OrderWeightInBucket"
+  group by monday(Orders.Day)
+
+show linechart same("\{Catalog.ItemCode} - Orders generation") by slice c30 slices:slice with
+  sum(Orders.RndOrder) as "Rnd Order"
+  sum(quantile(ranvar(Orders.RndOrder) by Catalog.Sku, max(1 - Catalog.ExtremeBimodalDemandFrequence, 0)))
+  group by monday(Orders.Day)
+
+show table "Sliced Buckets" a20d20 0F0774 slices:slice  with
+  UserDefinedTimeOrders.BucketIndex
+  Catalog.Sku
+  UserDefinedTimeOrders.RndQuantile
+  UserDefinedTimeOrders.BaseDemand
+  UserDefinedTimeOrders.BaseDemandPlusGrowth
+  UserDefinedTimeOrders.RndQuantile
+  UserDefinedTimeOrders.DemandSegment
+  UserDefinedTimeOrders.BucketBase
+  UserDefinedTimeOrders.DayCount
+
+show table "Sliced Orders" e20h20 0F0774 slices:slice  with
+  Catalog.Sku as "Sku"
+  Orders.Ref
+  Orders.Loc
+  Orders.Day as "OrderDate"
+  Orders.RndBaseDemand as "Quantity"
+  Orders.RndBaseDemand * Catalog.SellPrice as "NetAmount"
+  Catalog.SellPrice
+  Orders.WeekBaseDemand
+  Catalog.Currency as "Currency"
+  Orders.OrderId
+  UserDefinedTimeOrders.RndQuantile
+  Orders.OrderRndWeight
+  Orders.OrderWeightInBucket
+  UserDefinedTimeOrders.BaseDemand
+  UserDefinedTimeOrders.BaseDemandPlusGrowth
+  UserDefinedTimeOrders.RndBucket
+  UserDefinedTimeOrders.DemandSegment
+  // Orders.SumRndBaseDemandByBucket
+  UserDefinedTimeOrders.BucketIndex
+  UserDefinedTimeOrders.BucketBase
+  Catalog.Dispersion
+  Catalog.Alpha
+  order by Orders.Day
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///---------------------------------------EXPORT--------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+show label "Export" a21h21
+
+where Orders.IsPast
+  show table "Orders Output" d26h27 write: "\{projectFolder}Input/Orders/Orders_\{itText}.ion" with
+    Catalog.Sku as "Sku"
+    Orders.Ref
+    Orders.Loc
+    Orders.Day as "OrderDate"
+    Orders.RawRndBaseDemand as "RawQuantity"
+    Orders.RndBaseDemand as "Quantity"
+    Orders.RndBaseDemand * Catalog.SellPrice as "NetAmount"
+    Orders.WeekBaseDemand
+    Catalog.Currency as "Currency"
+    Orders.OrderId
+
+  ///Spot mistakes
+  show linechart "Orders evolution" with
+    sum(Orders.RndBaseDemand)
+    group by monday(Orders.Day)
+
+  debut = date(2022,10,31)
+  issue = date(2023,01,16)
+  fin = date(2023,02,06)
+  Orders.IsIssuePeriod = Orders.Day >= issue and Orders.Day < fin
+  Catalog.WeeklyAverageBeforeDecrease = sum(Orders.RndBaseDemand) when(Orders.Day >= debut and Orders.Day < issue) / (issue - debut) * 7
+  Catalog.WeeklyAverageAfterDecrease = sum(Orders.RndBaseDemand) when(Orders.Day >= issue and Orders.Day < fin) / (fin - issue) * 7
+  UserDefinedTimeOrders.Day = max(Orders.Day) //just for debug
+  Catalog.RndQuantileBeforeDecrease = avg(UserDefinedTimeOrders.RndQuantile) when(UserDefinedTimeOrders.Day >= debut and UserDefinedTimeOrders.Day < issue) / (issue - debut) * 7
+  Catalog.RndQuantileAfterDecrease = avg(UserDefinedTimeOrders.RndQuantile) when(UserDefinedTimeOrders.Day >= issue and UserDefinedTimeOrders.Day < fin) / (fin - issue) * 7
+  where Catalog.WeeklyAverageBeforeDecrease * 0.7 > Catalog.WeeklyAverageAfterDecrease
+    Catalog.Rank = rankrev () scan -Catalog.WeeklyAverageBeforeDecrease
+    show table "Check Cat" with
+      Catalog.Rank
+      Catalog.Sku
+      Catalog.BucketsNb
+      Catalog.BucketSize
+      Catalog.PeriodGroupSize
+      Catalog.WeeklyAverageBeforeDecrease
+      Catalog.WeeklyAverageAfterDecrease
+      Catalog.WeeklyAverageBeforeDecrease/.Catalog.WeeklyAverageAfterDecrease as "Ratio"
+      Catalog.RndQuantileBeforeDecrease
+      Catalog.RndQuantileAfterDecrease
+      Catalog.StartDate
+      Catalog.EndDate
+      order by Catalog.WeeklyAverageBeforeDecrease/.Catalog.WeeklyAverageAfterDecrease desc
+
+    show linechart "Orders evolution decreasing refs" with
+      sum(Orders.RndBaseDemand) as "All"
+      sum(Orders.RndBaseDemand) when(Catalog.Rank==1) as "1" {color : orange}
+      sum(Orders.RndBaseDemand) when(Catalog.Rank==2) as "2"
+      sum(Orders.RndBaseDemand) when(Catalog.Rank==3) as "3"
+      sum(Orders.RndBaseDemand) when(Catalog.Rank==4) as "4"
+      group by monday(Orders.Day)
+
+    show linechart "Orders evolution decreasing refs - slice" slices:slice with
+      sum(Orders.RndBaseDemand)
+      group by monday(Orders.Day)
+
+    show table "Check Orders" with
+      Catalog.Sku as "Sku"
+      Orders.Ref
+      Orders.Loc
+      Orders.Day as "OrderDate"
+      Orders.RawRndBaseDemand as "RawQuantity"
+      Orders.RndBaseDemand as "Quantity"
+      Orders.OrderRndWeight
+      Orders.OrderWeightInBucket
+      Orders.RndBaseDemand * Catalog.SellPrice as "NetAmount"
+      Orders.WeekBaseDemand
+      Catalog.Currency as "Currency"
+      Orders.OrderId
+      Orders.IsPast
+      Orders.IsIssuePeriod
+      UserDefinedTimeOrders.RndBucket
+      UserDefinedTimeOrders.RndQuantile
+      UserDefinedTimeOrders.DemandSegment
+      UserDefinedTimeOrders.BucketIndex
+      formendDate
+
+// show table "FcBase Output" d24h25 write: "\{projectFolder}Input/FcBase/FcBase_\{itText}.ion" with
+//   Catalog.Sku as "Sku"
+//   Orders.Ref
+//   Orders.Loc
+//   Orders.Day as "OrderDate"
+//   Orders.RawRndBaseDemand as "RawQuantity"
+//   Orders.RndBaseDemand as "Quantity"
+//   Orders.RndBaseDemand * Catalog.SellPrice as "NetAmount"
+//   Orders.WeekBaseDemand
+//   Catalog.Currency as "Currency"
+//   Orders.OrderId
+
+show table "Items Output"  d22h23 write: "\{projectFolder}Input/Catalog/Catalog_\{itText}.ion" with
+  Catalog.IsTopItem
+  Catalog.CategoryDisplayRank
+  Catalog.ItemDisplayRank
+  Catalog.ItemCode as "Ref" {href: #[Catalog.hRefUrl]}
+  Catalog.ItemLoc as "Loc"
+  Catalog.Sku as "Sku"
+  Catalog.ItemName as "Name"
+  Catalog.Category
+  Catalog.SubCategory as "SubCategory"
+  Catalog.ImageName
+  Catalog.Supplier
+  Catalog.StartDate
+  Catalog.EndDate
+  Catalog.Brand as "Brand"
+  Catalog.BuyPrice as "BuyPrice"
+  Catalog.SellPrice as "SellPrice"
+  Catalog.LotMultiplier as "LotMultiplier"
+  Catalog.Moq as "Moq"
+  Catalog.Volume as "Volume"
+  Catalog.InternalStockAggressiveness
+  Catalog.IsBimodalDemand
+  Catalog.ExtremeBimodalDemandFrequence
+  Catalog.ExtremeBimodalDemandFactor
+  Catalog.IsRightSkewedDemand
+  Catalog.ExtremeRightSkewedDemandFrequence
+  Catalog.ExtremeRightSkewedDemandFactor
+  order by Catalog.SumByItems desc

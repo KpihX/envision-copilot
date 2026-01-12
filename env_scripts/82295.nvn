@@ -1,0 +1,128 @@
+
+
+///# Colors for Long Term Planning
+
+export const ColorLokadLight = rgb(0.993, 0.867, 0.835)
+
+/// Set 1 - Bleu
+export const color1 = rgb(0.498, 0.647, 0.686)
+export const color1a = rgb(0.545, 0.706, 0.737)
+export const color1b = rgb(0.576, 0.761, 0.784)
+export const color1c = rgb(0.612, 0.8, 0.824)
+export const color1d = rgb(0.659, 0.859, 0.882)
+export const color1e = rgb(0.698, 0.914, 0.937)
+export const color1f = rgb(0.639, 0.773, 0.945)
+
+/// Set 2 - Jaune
+export const color2 = rgb(0.957, 0.949, 0.227)
+export const color2a = rgb(0.969, 0.961, 0.337)
+export const color2b = rgb(0.988, 0.984, 0.451)
+export const color2c = rgb(1, 0.992, 0.561)
+export const color2d = rgb(1, 1, 0.671)
+export const color2e = rgb(1, 1, 0.784)
+
+/// Set 3 - Violet
+export const color3 = rgb(0.635, 0.439, 0.792)
+export const color3a = rgb(0.694, 0.514, 0.816)
+export const color3b = rgb(0.753, 0.588, 0.839)
+export const color3c = rgb(0.812, 0.663, 0.863)
+export const color3d = rgb(0.871, 0.737, 0.886)
+export const color3e = rgb(0.929, 0.812, 0.91)
+
+/// Set 4 - Rose
+export const color4 = rgb(0.824, 0.416, 0.416)
+export const color4a = rgb(0.859, 0.502, 0.502)
+export const color4b = rgb(0.894, 0.588, 0.588)
+export const color4c = rgb(0.929, 0.675, 0.675)
+export const color4d = rgb(0.965, 0.761, 0.761)
+export const color4e = rgb(1, 0.847, 0.847)
+
+/// Set 5 - Bleu Clair
+export const color5 = rgb(0.486, 0.678, 0.765)
+export const color5a = rgb(0.553, 0.725, 0.812)
+export const color5b = rgb(0.62, 0.769, 0.859)
+export const color5c = rgb(0.686, 0.816, 0.906)
+export const color5d = rgb(0.753, 0.863, 0.953)
+export const color5e = rgb(0.82, 0.906, 1)
+
+/// Set 6 - Mauve
+export const color6 = rgb(0.847, 0.627, 0.843)
+export const color6a = rgb(0.875, 0.675, 0.867)
+export const color6b = rgb(0.902, 0.725, 0.89)
+export const color6c = rgb(0.929, 0.776, 0.914)
+export const color6d = rgb(0.957, 0.827, 0.937)
+export const color6e = rgb(0.984, 0.878, 0.961)
+
+/// Set Valid - Vert
+export const colorValid = rgb(0.467, 0.867, 0.467)
+export const colorValid1 = rgb(0.51, 0.894, 0.51)
+export const colorValid2 = rgb(0.424, 0.827, 0.424)
+export const colorValid3 = rgb(0.545, 0.918, 0.545)
+export const colorValid4 = rgb(0.373, 0.784, 0.373)
+export const colorValid5 = rgb(0.588, 0.945, 0.588)
+export const colorValid6 = rgb(0.498, 0.78, 0.475)
+
+/// Set Warning - Orange
+export const colorWarning = rgb(1, 0.702, 0.278)
+export const colorWarning1 = rgb(1, 0.733, 0.349)
+export const colorWarning2 = rgb(1, 0.639, 0.227)
+export const colorWarning3 = rgb(1, 0.745, 0.392)
+export const colorWarning4 = rgb(1, 0.573, 0.2)
+export const colorWarning5 = rgb(1, 0.761, 0.439)
+export const colorWarning6 = rgb(0.941, 0.478, 0.169)
+
+/// Set Red - Rouge
+export const colorRed = rgb(1, 0.412, 0.38)
+export const colorRed1 = rgb(1, 0.471, 0.451)
+export const colorRed2 = rgb(1, 0.345, 0.314)
+export const colorRed3 = rgb(1, 0.498, 0.518)
+export const colorRed4 = rgb(1, 0.286, 0.259)
+export const colorRed5 = rgb(1, 0.545, 0.549)
+
+
+/// Functions for SubCat
+export def pure SubCatColor(Category: number, SubCategory: number) with
+  Color = "black"
+  if Category == 1
+    Color = match SubCategory with
+      1 -> color1
+      2 -> color1a
+      3 -> color1b
+      4 -> color1c
+      .. -> color1d
+  if Category == 2
+    Color = match SubCategory with
+      1 -> color2
+      2 -> color2a
+      3 -> color2b
+      4 -> color2c
+      .. -> color2d
+  if Category == 3
+    Color = match SubCategory with
+      1 -> color3
+      2 -> color3a
+      3 -> color3b
+      4 -> color3c
+      .. -> color3d
+  if Category == 4
+    Color = match SubCategory with
+      1 -> color4
+      2 -> color4a
+      3 -> color4b
+      4 -> color4c
+      .. -> color4d
+  if Category == 5
+    Color = match SubCategory with
+      1 -> color5
+      2 -> color5a
+      3 -> color5b
+      4 -> color5c
+      .. -> color5d
+  if Category == 6
+    Color = match SubCategory with
+      1 -> color6
+      2 -> color6a
+      3 -> color6b
+      4 -> color6c
+      .. -> color6d
+  return(Color)

@@ -1,0 +1,40 @@
+// Cloned from '/4. Optimization workflow/10 Audit Tools' on 2025-02-07
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// ------------------------------------------SETUP-------------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+import "/1. utilities/Modules/Global Parameters" as GP with
+  LinkHomeDashboard
+
+///Editable body------------------------------------------------------------------------------------
+
+show logo "" a1
+show markdown "" b1d2 {tileZoom: "false"} with """
+  ### **Forecast overview & Collaborative long term Planning**
+"""
+
+
+
+show label "To Home" e1f1                {hrefAspect: white ; textAlign: center ; href: #(dashUrl(LinkHomeDashboard))}
+show label (downloadUrl("90F439C08030848A1DFA0CD2B55662FA", "LogoLokadVertical.jpg")) c4d6 {textVerticalAlign: center}
+
+
+graphic_TargetURL = downloadUrl("/Background/Graphics/Forms/Target.png")
+
+show label graphic_TargetURL e3e4 {href: #(dashUrl(82319))}
+show markdown "" f3f4 {tileZoom: "false"} with
+  """
+  #### **Long Term Planning**
+  Collaborative Forecast and
+  purchase planning
+  """
+
+graphic_TimeSeriesGreyedURL = downloadUrl("/Background/Graphics/Forms/TimeSeriesGreyed.jpg")
+
+show label graphic_TimeSeriesGreyedURL b3b4 {href: #(dashUrl(68019))}
+show markdown "" a3a4 {tileZoom: "false"} with
+  """
+  #### **Forecasts**
+  Overview of forecasts
+  and future patterns
+  """

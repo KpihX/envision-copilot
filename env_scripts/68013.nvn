@@ -1,0 +1,489 @@
+// 2020-02-13: Created by Lokad
+/// THIS IS A GENERIC SALES ANALYSIS INSPECTOR TOOL. TO CONFIGURE IT, YOU NEED TO SETUP YOUR FOCUS
+/// GROUP AS ITEM.ID. THE REAL ITEM WILL BE IDENTIFIED AS 'SKU' or 'REF'.
+/// DEFINE YOUR FOCUS GROUP
+
+import "/1. utilities/Modules/Global Parameters" as GP with
+  DcUnit
+  ColorA
+  ColorB
+  LinkLocationItemInspector
+  LinkHomeDashboard
+
+// 'read form' introduced automatically 2020-09-14 10:41:28
+
+const focusGroup = "Supplier" /// THIS HAS TO MATCH WITH THE ID!
+const thisDashboard = 68013
+
+read "/Clean/Items.ion" as Items [Id unsafe] with
+  IsTopItem : boolean
+  CategoryDisplayRank : number
+  ItemDisplayRank : number
+  "Sku" as Id : text
+  Loc : text
+  Ref : text
+  Name : text
+  Category : text
+  Brand : text
+  Supplier : text
+  StartDate : date
+  EndDate : date
+  StockOnHand : number
+  StockOnOrder : number
+  BackOrder : number
+  BuyPrice : number
+  SellPrice : number
+  MOQ : number
+  LotMultiplier : number
+  Volume : number
+  IsActive : boolean
+  LeadTime : number
+  ReorderCycle : number
+  ImageUrl : text
+  LokadMOQ : number
+  LokadLotMultiplier : number
+  LokadSellPrice : number
+  SupplierMOV : number
+  SupplierContainerM3 : number
+  IsDC : boolean
+  HealthLog : text
+  IsClean : boolean
+  IsLokadBuyable : boolean
+  IsContainerReady : boolean
+  SnapshotDate : date
+
+read "/Clean/PO.ion" as PO expect[Id, date] with
+  "Sku" as Id : text
+  "OrderDate" as date: date
+  Loc : text
+  Ref : text
+  DeliveryDate : date
+  Quantity : number
+  Supplier : text
+  PONumber : text
+  IsInCatalog : boolean
+  IsClean : boolean
+  InputDate : date
+  InputPath : text
+
+read "/Clean/Orders.ion" as Orders expect[Id, date] with
+  "Sku" as Id : text
+  "OrderDate" as date: date
+  Ref : text
+  Loc : text
+  Quantity : number
+  LokadNetAmount : number
+  OrderId : text
+  IsFirstOrder : boolean
+  HealthLog : text
+  IsClean : boolean
+
+read "/Clean/Forecast/Periodic/WeeklyFc.ion" as WeeklyFc expect[Id, date] with
+  "Sku" as Id : text
+  "Monday" as date: date
+  DemandQty : number
+  Cache : number
+  IsPast : boolean
+  IsSLT : boolean
+  IsWOO : boolean
+  FutureWeekRank : number
+  Alpha : number
+  Dispersion : number
+  Baseline : number
+  Demand : ranvar
+  LowerBarTotal2 : number
+  LowerBarTotal1 : number
+  HighBarTotal2 : number
+  HighBarTotal1 : number
+  CumDemand : ranvar
+
+Items.Focus = Items.Supplier
+path = "/Clean/Reporting/"
+
+///------------------------------------- [ SETUP COLORS ] ---------------------------------------
+
+mainColor = ColorA
+highlightColor = ColorB
+
+show markdown "Documentation" a13h28 with
+  """
+  ### Documentation
+
+  __Supplier List__: list of all current suppliers
+
+  Supplier: supplier name
+
+  PO-Amount365: amount bought to supplier over the last 365 days
+
+  PO-Volume365: quantities bought to supplier over the last 365 days
+
+  Ranking: lateness rank. 3 stars = less than 10% POs late ; 2 stars = less than 20% POs late ;
+  1 start = less than 30% POs late ; red cross = more than 30% POs late
+
+  __Fraction of nb. POs late__: shows the fraction of POs being late by supplier
+
+  __Supplier summary__:
+
+  First Order: first order to the selected supplier
+
+  NetAmount 365: amount bought to supplier over the last 365 days
+
+  Order Qty 365: quantities bought to supplier over the last 365 days
+
+  "# Refs": distinct references bought to supplier
+
+  Lateness Tendency: selected supplier lateness tendency last 6 months compared to the previous 6 months
+
+  Ranking: selected supplier lateness rank. 3 stars = less than 10% POs late ; 2 stars = less than 20% POs late ;
+  1 start = less than 30% POs late ; red cross = more than 30% POs late
+
+  __All Purchase Order Lines__: all selected supplier purchase orders
+
+  PONumber: unique identifier of a purchase order
+
+  Sku: reference code
+
+  Supplier: supplier name
+
+  OrderDate: purchase date
+
+  DeliveryDate: delivery date
+
+  Leadtime: time between the order date and the delivery date
+
+  Agreed LeadTime: leadtime target based on previous purchase orders
+
+  Lateness: sun = PO not late ; cloud = PO less than 15% late ; umbrella = PO less than 30% late ; lightning = PO more than 30% late
+
+  Quantity: purchased quantity
+
+  NetAmount: amount of the purchase order
+
+  __Purchase Orders (x% late)__: shows all POs late for the selected supplier
+
+  Same columns as in the "All Purchase Order Lines" table
+
+  __Supplier LeadTimes (Days)__: shows selected supplier purchase orders leadtimes distribution
+
+  __Weekly lateness of POs by order date__: for the selected supplier, proportion of purchase orders in every lateness status for every order date
+
+  """
+
+/// ------------------------------------- [ PRE-CALCULATION ] -----------------------------------
+
+oend = max(Orders.date)
+missingDate = date(2001,01,01)
+
+table Focus[Code] = by Items.Focus
+keep where PO.Code = same(Focus.Code) by Items.Focus
+
+PO.NetAmount = PO.Quantity * Items.BuyPrice
+
+Items.BuyValue365 = sum(PO.NetAmount) when (PO.date > oend - 365 )
+Items.Quantity365 = sum(PO.Quantity) when (PO.date > oend - 365)
+Focus.FocusBuyValue365 = sum(Items.BuyValue365)
+Focus.FocusQuantity365 = sum(Items.Quantity365)
+
+Focus.FocusBuyValue365label = concat("Purchased 365 d: ", text(Focus.FocusBuyValue365), DcUnit )
+
+where PO.PONumber ~~ "PO-oonLab_201426" or PO.PONumber ~~ "PO-ergyLab_201929"
+  PO.DeliveryDate = PO.DeliveryDate + 62
+PO.Leadtime = PO.DeliveryDate - PO.date + 1
+
+///Demo outliers
+Items.PoLtRv = ranvar(PO.Leadtime) by Items.Supplier at Items.Supplier
+Items.PoQ = quantile(Items.PoLtRv , 0.05)
+Items.PoQmax = quantile(Items.PoLtRv , 0.95)
+
+PO.RandomNumber = 0
+where argwhichever() by PO.PONumber
+  PO.RandomNumber = random.uniform(PO.0,PO.1)
+PO.RandomNumber = same(PO.RandomNumber) when(PO.RandomNumber != 0) by PO.PONumber
+
+PO.InitialDeliveryDate = PO.DeliveryDate
+where PO.Leadtime < Items.PoQ
+  PO.DeliveryDate = PO.date + Items.PoQmax + round(PO.RandomNumber * (Items.PoQmax/2))
+
+PO.DeliveryDate = if PO.DeliveryDate > oend then missingDate else PO.DeliveryDate
+
+PO.Leadtime = if PO.DeliveryDate != missingDate then PO.DeliveryDate - PO.date + 1 else 0
+///End demo outliers
+
+PO.LeadTimeTarget = ceiling(avg(PO.Leadtime) by PO.Supplier) + 2
+PO.LeadTimeTarget = if PO.Supplier ~~ "MedicalExpert" then 31 else PO.LeadTimeTarget
+PO.LeadTimeTarget = if PO.Supplier ~~ "AllergyLab" then 14 else PO.LeadTimeTarget
+
+// keep where PO.Leadtime > 0
+
+PO.Overtime =  max(PO.Leadtime - PO.LeadTimeTarget,0)
+PO.IsLate = PO.Overtime >= 0.05
+
+PO.Icon = if not PO.IsLate then "☀"
+          else if PO.Overtime / PO.Leadtime < 0.15 then "☁"
+          else if PO.Overtime / PO.Leadtime < 0.30 then "☂"
+          else "ϟ"
+PO.IconText = concat(PO.Icon, if PO.Overtime == 0 then " On time"
+              else if PO.Overtime == 1 then "1 day late"
+              else " \{PO.Overtime} days late")
+
+PO.MonthStart = monthStart(PO.date)
+
+Focus.Lateness = round(ratio(PO.IsLate)*100)
+Focus.Ranking = if Focus.Lateness < 10 then "⭐⭐⭐"
+                else if Focus.Lateness < 20 then "⭐⭐"
+                else if Focus.Lateness < 30 then "⭐"
+                else "❌"
+
+Focus.maxDate = max(PO.date)
+where PO.date >= Focus.maxDate - 6*30
+  Focus.Latenessold = ratio(PO.IsLate)
+where PO.date >= Focus.maxDate -12* 30  and PO.date < Focus.maxDate - 6*30
+  Focus.Latenessnew = ratio(PO.IsLate)
+
+Focus.Tendency = if Focus.Latenessnew == 0 then 0 else (Focus.Latenessold - Focus.Latenessnew) /. Focus.Latenessnew
+Focus.TendencyLabel = if Focus.Tendency > 0.1 then "↗ Increasing"
+                      else if Focus.Tendency < -0.1 then "↘ Decreasing"
+                      else "→ Stable"
+
+table Slices [slice] = slice by [-Focus.FocusBuyValue365 , Focus.Code] title: Focus.Code subtitle: Focus.FocusBuyValue365label
+
+table FocusMonth = cross(Focus, Month)
+FocusMonth.FirstDay = date(month,1)
+FocusMonth.Volume  = sum(PO.NetAmount)
+FocusMonth.Slice = Focus.slice
+Slices.Selected = same(Focus.Code)
+PO.slice = Focus.slice
+Items.slice = Focus.slice
+FocusMonth.slice = Focus.slice
+// Generic parameters:
+pcsText = " Pcs"
+
+Focus.FocusUrl = sliceSearchUrl(thisDashboard, Focus.Code)
+
+inspectorId = LinkLocationItemInspector
+selectedTab = concat("&t=", "Info")
+Items.hRefUrlRaw = sliceSearchUrl(inspectorId, Items.Id)
+Items.hRefUrl = concat(Items.hRefUrlRaw, selectedTab)
+
+Items.Url = replace(Items.hRefUrl , "~" , "https://go.lokad.com" )
+
+///Export-------------------------------------------------------------------------------------------
+
+show table "Export" a12b12 write:"\{path}SupplierInspectorKPIs.ion" with
+  Items.Supplier
+  Focus.Lateness
+  Focus.Ranking
+  Focus.Tendency
+  Focus.TendencyLabel
+
+show table "POs" a11b11 write:"\{path}SupplierInspectorPOs.ion" with
+  PO.date as "date"
+  PO.Id as "Sku"
+  PO.Loc as "Loc"
+  PO.Ref as "Ref"
+  PO.DeliveryDate as "DeliveryDate"
+  PO.Quantity as "Quantity"
+  PO.Supplier as "Supplier"
+  PO.PONumber as "PONumber"
+  PO.IsInCatalog as "IsInCatalog"
+  PO.IsClean as "IsClean"
+  PO.InputDate as "InputDate"
+  PO.InputPath as "InputPath"
+  PO.Code as "Code"
+  PO.NetAmount as "NetAmount"
+  PO.Leadtime as "Leadtime"
+  PO.LeadTimeTarget as "LeadTimeTarget"
+  PO.Overtime as "Overtime"
+  PO.Icon as "Icon"
+  PO.IconText as "IconText"
+  PO.MonthStart as "MonthStart"
+
+where PO.Leadtime > 0
+
+  /// ---------------------------------------- [ HEADLINE ] ---------------------------------------
+
+  show logo "" a1
+
+  show markdown "Supplier Inspector" b1c1 with """
+    ### **Supplier Inspector**
+  """
+
+  show label "To home" h1                           {hrefAspect: white ; textAlign: center ; href: #("https://go.lokad.com/d/\{LinkHomeDashboard}/")}
+
+  show markdown "" a2d2 with """
+  __This dashboard provides information about historic purchase orders and supplier performance.__
+  """
+
+  show label "" a2h2 9b9b9b
+
+  show label "Total" a3b3    {textAlign: left ; textBold: "true" ; textColor: #(mainColor)}
+  show label same(concat("Selected Supplier: ", Focus.Code)) by slice  c3h3    {textAlign: left ; labelIcon: "truck" ; textBold: "true" ; textColor: #(mainColor) ; tileColor: #(mainColor)}
+
+  show table "\{focusGroup} List" a8b10               with
+    Focus.Code as focusGroup {href: #[Focus.FocusUrl]}
+    Focus.FocusBuyValue365 as "PO-Amount365" {unit: #(DcUnit)}
+    Focus.FocusQuantity365 as "PO-Volume365"
+    Focus.Ranking
+    order by Focus.FocusBuyValue365 desc
+
+  show barchart "Fraction of nb. POs late" e11h12       {numbers: percent ; tileColor: #(mainColor)} with
+    count(PO.IsLate) / count(PO.*) as "Lateness" {numbers: percent}
+    group by Items.Supplier into PO
+
+  ////// -------------------------------------- [ SLICE FOCUS 1 ] ------------------------------------
+
+  show summary Slices.Selected c4e4 slices: Focus.slice {tileColor: #(highlightColor)} with
+    min(PO.date) as "First Order" {dateFormat: "dd/MM/yyyy" ; textBold: "true"}
+    sum(Items.BuyValue365) as "NetAmount 365" {textBold: "true" ; unit: #(DcUnit)}
+    sum(Items.Quantity365) as "Order Qty 365" {textBold: "true" ; unit: #(pcsText)}
+    distinct(PO.Ref) as "# Refs" {textBold: "true"}
+
+  // show scalar "Ranking" h4 slices: Focus.Slice             {textAlign: center} with same(Focus.Ranking)
+
+  show table "All Purchase Order Lines" c5d7 slices: Focus.slice {tileColor: #(highlightColor)} with
+    PO.PONumber
+    Id as "Sku"  {href: #[Items.Url]}
+    PO.Supplier
+    date as "OrderDate"
+    PO.DeliveryDate
+    PO.Leadtime
+    PO.LeadTimeTarget as "Agreed LeadTime"
+    PO.IconText  as "Lateness" {textAlign: right ; cellBackground: #FDAD31}
+    PO.Quantity
+    PO.NetAmount {unit: "$"}
+    order by date desc
+
+  show scalar concat(Slices.Selected , " - LeadTimes (Days)") e5h7 slices: Focus.slice {tileColor: #(highlightColor)}  with  ranvar(PO.Leadtime)
+
+  show scalar "Lateness Tendency" f4g4 slices:slice         {textAlign: center}  with
+    same(Focus.TendencyLabel) {value { textBold: "true" }}
+
+  where PO.IsLate
+    show table same(concat("Purchase Orders (",Focus.Lateness,"% late)")) by slice c8d12 slices:slice with
+      PO.PONumber
+      Id as "Sku"  {href: #[Items.Url]}
+      PO.Supplier
+      date as "OrderDate"
+      PO.DeliveryDate
+      PO.Leadtime
+      PO.LeadTimeTarget as "Agreed LeadTime"
+      PO.IconText  as "Lateness" {textAlign: right ; cellBackground: #FDAD31}
+      PO.Quantity
+      PO.NetAmount {unit: "$"}
+      order by PO.date desc
+
+  where not PO.IsLate
+    FocusMonth.NotlateVolume = sum(PO.NetAmount)
+  where PO.IsLate and PO.Overtime / PO.Leadtime < 0.15
+    FocusMonth.SlightlyLateVolume = sum(PO.NetAmount)
+  where PO.IsLate and PO.Overtime / PO.Leadtime >= 0.15 and PO.Overtime / PO.Leadtime < 0.3
+    FocusMonth.MediumLateVolume = sum(PO.NetAmount)
+  where PO.Overtime / PO.Leadtime >= 0.3
+    FocusMonth.VeryLateVolume = sum(PO.NetAmount)
+
+  show linechart "Weekly lateness of POs by order date" e8h10 slices:FocusMonth.slice with
+    sum(FocusMonth.VeryLateVolume ) /. sum(FocusMonth.Volume)   as "ϟ >=30% delay" {seriesType: bar ; seriesStack: bar ; color: #8b0000 ; numbers: percent}
+    sum(FocusMonth.MediumLateVolume ) /. sum(FocusMonth.Volume) as "☂ <30% delay"{seriesType: bar ; seriesStack: bar ; color: #FF4C41 ; numbers: percent}
+    sum(FocusMonth.SlightlyLateVolume ) /. sum(FocusMonth.Volume) as "☁ <15% delay" {seriesType: bar ; seriesStack: bar ; color: #fdad31 ; numbers: percent}
+    sum(FocusMonth.NotlateVolume ) /. sum(FocusMonth.Volume) as "☀ <5% delay" {seriesType: bar ; seriesStack: bar ; numbers: percent ; color: #FCF0B8}
+    group by FocusMonth.FirstDay
+
+
+
+
+/// ---------------------------------------------------------------------------------------------------------------------------
+/// --------------------------------------- Push option -----------------------------------------------------------------------
+/// ---------------------------------------------------------------------------------------------------------------------------
+
+
+lastPastWeek = max(WeeklyFc.date) when(WeeklyFc.FutureWeekRank == 0)
+Items.SupplierLTWeeks = ceiling(Items.LeadTime / 7)
+
+
+
+PO.ArrivalTime = max(ceiling((PO.InitialDeliveryDate - lastPastWeek)) / 7, 0)
+
+where PO.InitialDeliveryDate > oend
+  show table "POTest" a31  with
+    PO.date as "date"
+    PO.Id as "Id"
+    PO.Loc as "Loc"
+    PO.Ref as "Ref"
+    PO.InitialDeliveryDate as "InitialDeliveryDate"
+    PO.Quantity as "Quantity"
+    PO.Supplier as "Supplier"
+    PO.PONumber as "PONumber"
+    PO.ArrivalTime as "ArrivalTime"
+
+Items.Dispersion = same(WeeklyFc.Dispersion) default 1
+Items.Alpha = same(WeeklyFc.Alpha)
+trajectoryCount = 500
+
+where WeeklyFc.FutureWeekRank > 0
+  ///Satisfiable demand and Holding time
+  Items.SatisfiableDemand, Items.HoldingTime = actionrwd.reward(
+    TimeIndex: WeeklyFc.FutureWeekRank,
+    Baseline: WeeklyFc.Baseline,
+    Dispersion: Items.Dispersion,
+    Alpha: Items.Alpha,
+    StockOnHand: Items.StockOnHand,
+    StockOnOrder : PO.Quantity,
+    ArrivalTime : dirac(ceiling(PO.ArrivalTime+2)), //dirac(0) --> considered as stock on hand, error if < 0
+    LeadTime: dirac(0),
+    StepOfReorder: Items.SupplierLTWeeks,
+    Samples: trajectoryCount,
+    Seed: 1)
+
+  ///Satisfied demand
+  Items.AvgDemandOnSLT = sum(WeeklyFc.Baseline) when(WeeklyFc.IsSLT)
+  Items.SatisfiedDemand = round(Items.AvgDemandOnSLT - mean(Items.SatisfiableDemand))
+
+  ///New all RLT demand rebuilt
+  Items.TotalDemandSLT = Items.SatisfiableDemand + dirac(Items.SatisfiedDemand)
+
+  Items.SatisfiableDemand2, Items.HoldingTime2 = actionrwd.reward(
+    TimeIndex: WeeklyFc.FutureWeekRank,
+    Baseline: WeeklyFc.Baseline,
+    Dispersion: Items.Dispersion,
+    Alpha: Items.Alpha,
+    StockOnHand: Items.StockOnHand,
+    StockOnOrder : PO.Quantity,
+    ArrivalTime : dirac(max(ceiling(PO.ArrivalTime - 1),0)), //What if PO arrive faster
+    LeadTime: dirac(0), //To calculate over SLT
+    StepOfReorder: Items.SupplierLTWeeks, //To calculate over SLT
+    Samples: trajectoryCount,
+    Seed: 1)
+
+  Items.OOSExpected = mean(max(Items.SatisfiableDemand, 0))
+  Items.OOSExpectedPush = mean(max(Items.SatisfiableDemand2, 0))
+  Items.OOSAvoided = Items.OOSExpected - Items.OOSExpectedPush
+  show table "ItemsTest" b31  with
+    Items.Id as "id"
+    Items.Loc as "Loc"
+    Items.Ref as "Ref"
+    Items.Name as "Name"
+    Items.Category as "Category"
+    Items.Brand as "Brand"
+    Items.Supplier as "Supplier"
+    Items.OOSExpected
+    Items.OOSExpectedPush
+    Items.OOSAvoided
+    Items.StockOnHand
+    Items.StockOnOrder
+    min(PO.ArrivalTime) by Id as "NextArrival"
+    mean(Items.TotalDemandSLT) as "AvgDemand"
+    Items.SatisfiedDemand
+  show scalar "Test" c31 with sum(Items.OOSAvoided * Items.SellPrice)
+  show scalar "Test2" d31 with sum(Items.OOSAvoided / Items.OOSExpected)
+
+show markdown "" a5b6 with
+  """
+Dental Expert ⭐⭐⭐⭐
+
+Medical Expert ⭐⭐⭐
+
+LagoonLab ⭐⭐
+
+AllergyLab ⭐
+
+"""

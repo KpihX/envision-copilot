@@ -1,0 +1,1002 @@
+/// Defining Analysis support table. Input: /clean/ , Output: /clean/forecast/
+
+//// MEMO FOR FUTURE TIM: ALSO ADD A MARKDOWN-COMMENT TEXT TO DESCRIBE WHAT IS CALCULATED
+
+/// ----------------------------------------- [ READ TABLES ] --------------------------------------
+
+const testStorage = ""
+const inputPath = "\{testStorage}/Clean/"
+
+read "\{testStorage}Clean/Items.ion" as Items[Id unsafe] with
+  "Sku" as Id : text
+  Supplier : text
+  Category : text
+  SubCategory : text
+  SellPrice : number
+  StockOnHand : number
+  IsActive : boolean
+  ReorderCycle : number
+  LeadTime : number
+  ReDispatchCycle : number
+  DispatchLT : number
+  IsBimodalDemand : boolean
+  ExtremeBimodalDemandFrequence : number
+  ExtremeBimodalDemandFactor : number
+  IsRightSkewedDemand : boolean
+  ExtremeRightSkewedDemandFrequence : number
+  ExtremeRightSkewedDemandFactor : number
+  IsTopItem : boolean
+  EndDate : date
+
+read "\{testStorage}Clean/Orders.ion" as Orders expect [Id, date] with
+  "Sku" as Id : text
+  "OrderDate" as date: date
+  Ref : text
+  Loc : text
+  RawQuantity : number
+  Quantity : number
+  LokadNetAmount : number
+  OrderId : text
+  IsFirstOrder : boolean
+  HealthLog : text
+  IsClean : boolean
+
+read "\{testStorage}Clean/Parameters/max_date_placeholder.csv" unsafe as max_date_placeholder expect[date] with
+  date: date
+
+read "/Manual/TopSubCategoriesParameters.xlsx" unsafe as TopSubCategories with
+  Category : text
+  SubCategory : text
+  IsSeasonal : boolean
+  SeasonalAgressiveness : number
+  SeasonMonthnum : number
+
+read "/Manual/TopItemsParameters.xlsx" unsafe as TopItemsParameters with
+  CategoryDisplayRank : number
+  Category : text
+  ItemDisplayRank : number
+  Ref : text
+  Sku : text
+  IsSeasonal : boolean
+
+table ItemsWeek = cross(Items, Week)
+
+show label "Setup Optimization Parameters" a1h1
+show logo "" i1
+show markdown "" a2h3 with """
+💡 This script prepares additional items parameters that can be used for different Optimization
+& Reporting scripts. Especially dashboards with large calculation can benefit from pre-prepared KPIs
+as it would not be required anymore to read order or purchase orders tables.
+
+"""
+
+// Fix Colors:
+colorMed =  "#fb8f62"
+colorCold =  "#fbc367"
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///-------------------------------------------SCOPE-------------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+oend = max(Orders.date)
+show scalar "oend" with oend
+
+keep where date >= oend - 4 * 365 and date <= oend + 2*365 //2y for long term sim: way too much for relevant results for a production account
+
+// // Exclude first order and assume it is the start date of an item
+Items.FirstOrderDate = min(Orders.date)
+Items.LaunchDate = Items.FirstOrderDate + 2 * 30.5 //safeguard: in practice, supposed to be the true launchdate
+
+table Slices [slice] = slice by Items.Category title: Items.Category
+ItemsWeek.Slice = Items.slice
+
+Week.monday = monday(min(date))
+ItemsWeek.Monday = monday(ItemsWeek.week)
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///---------------------------------------DATA PREPARATION------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+isLastWeekPartial = oend != monday(oend) + 6
+lastDate = if isLastWeekPartial then monday(oend) - 7 else monday(oend) // Monday of last FULL week of orders
+
+forecastedHorizon = 4 * 52
+firstDate = lastDate - forecastedHorizon * 7
+
+show scalar "lastDate" with lastDate
+show scalar "firstDate" with firstDate
+
+///Demand Qty
+
+//Raw Demand Qty
+ItemsWeek.DemandQty = sum(Orders.Quantity)
+
+//Smoothed Demand Qty
+ItemsWeek.DemandQtyShiftMinus1 = ItemsWeek.DemandQty[-1]
+ItemsWeek.DemandQtyShiftPlus1 = ItemsWeek.DemandQty[+1]
+ItemsWeek.DemandQtyShiftMinus2 = ItemsWeek.DemandQty[-2]
+ItemsWeek.DemandQtyShiftPlus2 = ItemsWeek.DemandQty[+2]
+ItemsWeek.DemandQtyShiftMinus3 = ItemsWeek.DemandQty[-3]
+ItemsWeek.DemandQtyShiftPlus3 = ItemsWeek.DemandQty[+3]
+ItemsWeek.SmoothedDemandQty = if ItemsWeek.Monday == lastDate then
+                                    0.7 * ItemsWeek.DemandQty +
+                                0.2 * ItemsWeek.DemandQtyShiftMinus1 +
+                                0.1 * ItemsWeek.DemandQtyShiftMinus2
+    else if ItemsWeek.Monday == lastDate - 7 then
+                                    0.4 * ItemsWeek.DemandQty +
+                                0.2 * ItemsWeek.DemandQtyShiftMinus1 +
+                                0.3 * ItemsWeek.DemandQtyShiftPlus1 +
+                                0.1 * ItemsWeek.DemandQtyShiftMinus2
+    else
+                                    0.4 * ItemsWeek.DemandQty +
+                                0.15 * ItemsWeek.DemandQtyShiftMinus1 +
+                                0.15 * ItemsWeek.DemandQtyShiftPlus1 +
+                                0.1 * ItemsWeek.DemandQtyShiftMinus2 +
+                                0.1 * ItemsWeek.DemandQtyShiftPlus2 +
+                                0.05 * ItemsWeek.DemandQtyShiftMinus3 +
+                                0.05 * ItemsWeek.DemandQtyShiftPlus3
+
+ItemsWeek.SmoothedDemandQty = if ItemsWeek.Monday <= Items.LaunchDate then 0 else ItemsWeek.SmoothedDemandQty
+
+///Life weight
+Items.LifeCycleIndex = if monday(Items.LaunchDate) > lastDate - 180 then 1 else
+      if// Very new Sku (less than 6 month)
+                          monday(Items.LaunchDate) > lastDate - 52 * 7 then 2 else// Less than a year
+                          3
+backtrack = 30.5 * 1.5
+ItemsWeek.ItemLifeWeight = if (ItemsWeek.Monday >= lastDate - 180 - backtrack) and
+                            (ItemsWeek.Monday < lastDate - backtrack) and
+                             Items.LifeCycleIndex > 1 then 10 else 1 // No weight beginning of life
+
+///Item life
+
+//Raw Item Life
+ItemsWeek.IsItemLife = (ItemsWeek.Monday >= Items.LaunchDate) and
+                        (ItemsWeek.Monday <= min(Items.EndDate, lastDate))
+ItemsWeek.ItemLife = if ItemsWeek.IsItemLife then 1 else 0
+
+//Covid mask
+ItemsWeek.IsCensoredPeriod = Items.Id == "CT-110-DC" and (Week.monday >= date(2020,06,01) and Week.monday < date(2020,08,31))
+
+//Final Cache (all censored periods)
+ItemsWeek.IsCache = ItemsWeek.IsItemLife and
+                    not ItemsWeek.IsCensoredPeriod
+ItemsWeek.Cache = if ItemsWeek.IsCache then 1 else 0
+
+///Level shift
+levelShiftMax = 1.5
+levelShiftMin = 1.5
+
+Items.LevelShiftMax = match Items.LifeCycleIndex with
+  1 -> 0.05
+  2 -> 0.5
+  3 -> levelShiftMax
+
+Items.LevelShiftMin = match Items.LifeCycleIndex with
+  1 -> 0.05
+  2 -> 0.2
+  3 -> levelShiftMin
+
+ItemsWeek.CumSumMinusOneExt = 0
+ItemsWeek.CumSumMinusOneExt = (sum(if ItemsWeek.Monday >= firstDate then ItemsWeek.ItemLife else 0) by ItemsWeek.Id scan ItemsWeek.week) - 1
+
+ItemsWeek.CumSumMinusOneExtMonth = ceiling(ItemsWeek.CumSumMinusOneExt / 8)
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///-----------------------------------------AUTODIFF------------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///Tables preparation-------------------------------------------------------------------------------
+
+expect table Items max 300000
+expect table ItemsWeek max 100000000
+
+table YearWeek[YearWeek] = by ((Week.week - week(firstDate)) mod 52)
+
+Items.IsSeasonalSubCategory = same(TopSubCategories.IsSeasonal) by TopSubCategories.SubCategory at Items.SubCategory
+Items.IsSeasonalSku = same(TopItemsParameters.IsSeasonal) by TopItemsParameters.Sku at Items.Id
+Items.IsSeasonal = Items.IsTopItem and (Items.IsSeasonalSku or Items.IsSeasonalSubCategory)
+
+Items.SeasonalRank = rankrev () scan Items.1
+Items.SelectedGroup = concat("Seasonal SG-", Items.SeasonalRank)
+
+where not Items.IsSeasonal
+  Items.Rank = rankrev () scan Items.1
+  selectedGroupItemNb = 30
+  Items.SelectedGroup = concat("SG-", ceiling(Items.Rank / selectedGroupItemNb))
+
+Items.SelectedGroupItemsNb = count(Items.*) by Items.SelectedGroup
+
+table Groups[SelectedGroup] = by Items.SelectedGroup
+table SeasonYW max 1m = cross(Groups, YearWeek)
+
+///Parameters definition----------------------------------------------------------------------------
+
+maxEpochs = 1000
+autodiff Items epochs:maxEpochs learningRate:0.01 with
+
+  params Items.Affinity1 in [0..] auto(0.5, 0.166)
+  params Items.Affinity2 in [0..] auto(0.5, 0.166)
+  params Items.Affinity3 in [0..] auto(0.5, 0.166)
+  params Items.Affinity4 in [0..] auto(0.5, 0.166)
+  params Items.Affinity5 in [0..] auto(0.5, 0.166)
+  params Items.Affinity6 in [0..] auto(0.5, 0.166)
+  params Items.Affinity7 in [0..] auto(0.5, 0.166)
+  params Items.Affinity8 in [0..] auto(0.5, 0.166)
+  params Items.Affinity9 in [0..] auto(0.5, 0.166)
+  params Items.Affinity10 in [0..] auto(0.5, 0.166)
+
+  params Items.Level in [0..20]  auto
+
+  params Items.LevelShift in [-levelShiftMin..levelShiftMax] auto(0, 0) /// EL 2021/04/01: Bound Init from negative values as these as this is the main trend
+
+  params SeasonYW.Profile1  in [0..1] auto(0.5, 0.1)
+  params SeasonYW.Profile2  in [0..1] auto(0.5, 0.1)
+  params SeasonYW.Profile3  in [0..1] auto(0.5, 0.1)
+  params SeasonYW.Profile4  in [0..1] auto(0.5, 0.1)
+  params SeasonYW.Profile5  in [0..1] auto(0.5, 0.1)
+  params SeasonYW.Profile6  in [0..1] auto(0.5, 0.1)
+  params SeasonYW.Profile7  in [0..1] auto(0.5, 0.1)
+  params SeasonYW.Profile8  in [0..1] auto(0.5, 0.1)
+  params SeasonYW.Profile9  in [0..1] auto(0.5, 0.1)
+  params SeasonYW.Profile10  in [0..1] auto(0.5, 0.1)
+
+///Model construction-------------------------------------------------------------------------------
+
+  SumAffinity =
+    Items.Affinity1 +
+    Items.Affinity2 +
+    Items.Affinity3 +
+    Items.Affinity4 +
+    Items.Affinity5 +
+    Items.Affinity6 +
+    Items.Affinity7 +
+    Items.Affinity8 +
+    Items.Affinity9 +
+    Items.Affinity10
+
+  YearWeek.SeasonalityModel = SeasonYW.Profile1  * Items.Affinity1 +
+                              SeasonYW.Profile2  * Items.Affinity2 +
+                              SeasonYW.Profile3  * Items.Affinity3 +
+                              SeasonYW.Profile4  * Items.Affinity4 +
+                              SeasonYW.Profile5  * Items.Affinity5 +
+                              SeasonYW.Profile6  * Items.Affinity6 +
+                              SeasonYW.Profile7  * Items.Affinity7 +
+                              SeasonYW.Profile8  * Items.Affinity8 +
+                              SeasonYW.Profile9  * Items.Affinity9 +
+                              SeasonYW.Profile10 * Items.Affinity10
+
+  Week.LinearTrend = ItemsWeek.Cache + (ItemsWeek.CumSumMinusOneExtMonth * ItemsWeek.Cache * Items.LevelShift / 10)
+
+  Week.Baseline = exp(Items.Level) * YearWeek.SeasonalityModel * ItemsWeek.Cache * Week.LinearTrend
+
+///Loss definition----------------------------------------------------------------------------------
+
+  Week.Coeff = ItemsWeek.ItemLifeWeight * ItemsWeek.Cache
+  Week.DeltaSquare = (Week.Baseline - ItemsWeek.SmoothedDemandQty) ^ 2
+
+  Sum = sum(Week.Coeff * Week.DeltaSquare) / 10000
+  SumPowAffinity = (Items.Affinity1 ^2 +
+                    Items.Affinity2 ^2 +
+                    Items.Affinity3 ^2 +
+                    Items.Affinity4 ^2 +
+                    Items.Affinity5 ^2 +
+                    Items.Affinity6 ^2 +
+                    Items.Affinity7 ^2 +
+                    Items.Affinity8 ^2 +
+                    Items.Affinity9 ^2 +
+                    Items.Affinity10 ^2) /
+                    (SumAffinity ^2)
+
+  return (
+          // Core Loss Function
+          (1 + Sum) / (SumPowAffinity)
+          //Limit Trend for less recent skus: to be > -0.1 for New Hidden Skus
+          + 1000 * (if Items.LifeCycleIndex <= 2 then 1 else 0 ) * abs(max(0, Items.LevelShift - Items.LevelShiftMax))
+          + 1000 * (if Items.LifeCycleIndex <= 2 then 1 else 0 ) * abs(min(0, Items.LevelShift - Items.LevelShiftMin))
+          // Additional metrics
+          ; Sum: Sum, SumPowAffinity: SumPowAffinity)
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///--------------------------------------FORECAST REBUILD-------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+table ItemsYW = cross(Items, YearWeek)
+ItemsYW.SelectedGroup = Items.SelectedGroup
+ItemsWeek.YearWeek = Week.YearWeek
+
+ItemsYW.Profile1 = SeasonYW.Profile1
+ItemsYW.Profile2 = SeasonYW.Profile2
+ItemsYW.Profile3 = SeasonYW.Profile3
+ItemsYW.Profile4 = SeasonYW.Profile4
+ItemsYW.Profile5 = SeasonYW.Profile5
+ItemsYW.Profile6 = SeasonYW.Profile6
+ItemsYW.Profile7 = SeasonYW.Profile7
+ItemsYW.Profile8 = SeasonYW.Profile8
+ItemsYW.Profile9 = SeasonYW.Profile9
+ItemsYW.Profile10 = SeasonYW.Profile10
+
+ItemsYW.SeasonalityModel = ItemsYW.Profile1  * Items.Affinity1 +
+                            ItemsYW.Profile2  * Items.Affinity2 +
+                            ItemsYW.Profile3  * Items.Affinity3 +
+                            ItemsYW.Profile4  * Items.Affinity4 +
+                            ItemsYW.Profile5  * Items.Affinity5 +
+                            ItemsYW.Profile6  * Items.Affinity6 +
+                            ItemsYW.Profile7  * Items.Affinity7 +
+                            ItemsYW.Profile8  * Items.Affinity8 +
+                            ItemsYW.Profile9  * Items.Affinity9 +
+                            ItemsYW.Profile10 * Items.Affinity10
+
+ItemsWeek.LinearTrend =  max(0, 1 + (ItemsWeek.CumSumMinusOneExtMonth * Items.LevelShift / 10))
+
+ItemsWeek.RebuildCache = if ItemsWeek.Monday >= Items.LaunchDate then 1 else ItemsWeek.Cache
+ItemsWeek.Baseline = exp(Items.Level) * ItemsYW.SeasonalityModel * ItemsWeek.LinearTrend * ItemsWeek.RebuildCache
+//ItemsWeek.Baseline = exp(Items.Level) * ItemsYW..SeasonalityModel * ItemsWeek.RebuildCache * ItemsWeek.LinearTrend * (1 + ItemsWeek.IsPromotion * Groups.PriceEffect)
+show linechart "Forecast vs Baseline" with
+  sum(ItemsWeek.Baseline) as "Baseline"
+  sum(ItemsWeek.SmoothedDemandQty) as "SmoothedDemand"
+  sum(ItemsWeek.DemandQty) as "RawDemand"
+  group by week
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///------------------------------------------POST PROCESS-------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+///Weekly past and future forecast build------------------------------------------------------------
+ItemsWeek.IsPast = ItemsWeek.Monday <= monday(oend)
+
+ItemsWeek.FutureWeekRank = if not ItemsWeek.IsPast then 0 else rank() by Items.Id scan ItemsWeek.Monday
+ItemsWeek.ForecastWeekRank = if ItemsWeek.Monday >= Items.LaunchDate and ItemsWeek.IsPast then 0 else cumsum(if ItemsWeek.Monday >= Items.LaunchDate and ItemsWeek.IsPast then 1 else 0) by Items.Id scan ItemsWeek.Monday
+
+///Forecast and backtest
+ItemsWeek.Baseline = if ItemsWeek.Monday > Items.EndDate then 0 else ItemsWeek.Baseline
+
+where Items.IsBimodalDemand
+  Items.Baseline = avg(ItemsWeek.Baseline) when (ItemsWeek.Monday > oend - 3 * 30.5 and ItemsWeek.Monday <= oend)
+  ItemsWeek.Baseline = Items.Baseline * (0.6 + 0.4 * random.uniform(ItemsWeek.0,ItemsWeek.1))
+
+///Dispersion calculation-------------------------------------------------------------------------
+ItemsWeek.One = dirac(1)
+Items.Baseline = avg(ItemsWeek.Baseline) when (ItemsWeek.FutureWeekRank > 0)
+Items.Alpha = if Items.Baseline < 10 then 0 else
+      if Items.IsBimodalDemand or Items.IsRightSkewedDemand then 0.05 else 0.15
+
+ItemsWeek.RatioOfError = if ItemsWeek.Baseline != 0 then (ItemsWeek.Baseline - ItemsWeek.DemandQty) ^ 2 /. ItemsWeek.Baseline else 0
+Items.AvgErrorRatio = avg(ItemsWeek.RatioOfError) when (ItemsWeek.IsPast)
+Items.Dispersion = max(Items.AvgErrorRatio, 1)
+where Items.IsRightSkewedDemand
+  Items.Dispersion = Items.Dispersion * 3
+where Items.IsBimodalDemand
+  Items.Dispersion = Items.Dispersion * 1.5
+
+///Weekly demand distribution----------------------------------------------------------------------
+ItemsWeek.Demand = dirac(0)
+where ItemsWeek.FutureWeekRank > 0
+  ItemsWeek.Demand = actionrwd.segment(
+    TimeIndex: ItemsWeek.FutureWeekRank,
+    BaseLine: ItemsWeek.Baseline,
+    Dispersion: Items.Dispersion,
+    Alpha: Items.Alpha,
+    Start: dirac(ItemsWeek.FutureWeekRank - 1),
+    Duration: ItemsWeek.One)
+
+where Items.IsRightSkewedDemand
+  ItemsWeek.DemandSeparator = quantile(ItemsWeek.Demand, 0.35)
+  ItemsWeek.LeftDemand = truncate(ItemsWeek.Demand, 0, ItemsWeek.DemandSeparator)
+  ItemsWeek.RightDemand = truncate(ItemsWeek.Demand, ItemsWeek.DemandSeparator, quantile(ItemsWeek.Demand, 1))
+  ItemsWeek.Demand = mixture(ItemsWeek.LeftDemand, 0.02, ItemsWeek.RightDemand)
+
+where Items.EndDate < ItemsWeek.Monday
+  ItemsWeek.Demand = dirac(0)
+
+///Weekly cumulative demand distribution------------------------------------------------------------
+ItemsWeek.CumDemand = dirac(0)
+where ItemsWeek.FutureWeekRank > 0
+  ItemsWeek.CumDemand = actionrwd.demand(
+    TimeIndex: ItemsWeek.FutureWeekRank,
+    BaseLine: ItemsWeek.Baseline,
+    Dispersion: Items.Dispersion,
+    Alpha: Items.Alpha)
+
+where Items.IsRightSkewedDemand
+  ItemsWeek.CumDemandSeparator = quantile(ItemsWeek.CumDemand, 0.35)
+  ItemsWeek.LeftCumDemand = truncate(ItemsWeek.CumDemand, 0, ItemsWeek.CumDemandSeparator)
+  ItemsWeek.RightCumDemand = truncate(ItemsWeek.CumDemand, ItemsWeek.CumDemandSeparator, quantile(ItemsWeek.CumDemand, 1))
+  ItemsWeek.CumDemand = mixture(ItemsWeek.LeftCumDemand, 0.02, ItemsWeek.RightCumDemand)
+
+where Items.EndDate < ItemsWeek.Monday
+  ItemsWeek.CumDemand = dirac(0)
+
+///SLT demand distribution--------------------------------------------------------------------------
+Items.SupplierLTWeeks = ceiling(Items.Leadtime / 7)
+
+ItemsWeek.IsSLT = ItemsWeek.FutureWeekRank > 0 and ItemsWeek.FutureWeekRank < Items.SupplierLTWeeks
+
+where ItemsWeek.FutureWeekRank > 0
+  Items.SLTDemand = actionrwd.segment(
+    TimeIndex: ItemsWeek.FutureWeekRank,
+    BaseLine: ItemsWeek.Baseline,
+    Dispersion: Items.Dispersion,
+    Alpha: Items.Alpha,
+    Start: dirac(1),
+    Duration: dirac(Items.SupplierLTWeeks))
+
+  Items.SLTExtremeBimodalDemand = dirac(0)
+  where Items.IsBimodalDemand
+    Items.SLTExtremeBimodalDemand = actionrwd.segment(
+      TimeIndex: ItemsWeek.FutureWeekRank,
+      BaseLine: ItemsWeek.Baseline * Items.ExtremeBimodalDemandFactor,
+      Dispersion: 1,
+      Alpha: Items.Alpha,
+      Start: dirac(1),
+      Duration: dirac(Items.SupplierLTWeeks))
+
+where Items.IsRightSkewedDemand
+  Items.SLTDemandSeparator = quantile(Items.SLTDemand, 0.35)
+  Items.LeftSLTDemand = truncate(Items.SLTDemand, 0, Items.SLTDemandSeparator)
+  Items.RightSLTDemand = truncate(Items.SLTDemand, Items.SLTDemandSeparator, quantile(Items.SLTDemand, 1))
+  Items.SLTDemand = mixture(Items.LeftSLTDemand, 0.02, Items.RightSLTDemand)
+Items.SLTDemand = smooth(mixture(Items.SLTExtremeBimodalDemand, Items.ExtremeBimodalDemandFrequence, Items.SLTDemand))
+
+where Items.EndDate < oend
+  Items.SLTDemand = dirac(0)
+
+///Window of opportunity demand distribution--------------------------------------------------------
+Items.ReorderCycleWeeks = ceiling(Items.ReorderCycle / 7)
+Items.ReDispatchCycleWeeks = ceiling(Items.ReDispatchCycle / 7)
+Items.DispatchLTWeeks = round(Items.DispatchLT/7)
+
+ItemsWeek.IsWOO = ItemsWeek.FutureWeekRank > 0 and //edge case if LT  0 weeks
+                  ItemsWeek.FutureWeekRank >= Items.SupplierLTWeeks and
+                  ItemsWeek.FutureWeekRank < Items.SupplierLTWeeks + Items.ReorderCycleWeeks
+
+ItemsWeek.IsWOODispatch = ItemsWeek.FutureWeekRank > 0 and //edge case if LT  0 weeks
+                  ItemsWeek.FutureWeekRank >= Items.DispatchLT and
+                  ItemsWeek.FutureWeekRank < Items.DispatchLT + Items.ReDispatchCycleWeeks
+where ItemsWeek.FutureWeekRank > 0
+  Items.WOODemand = actionrwd.segment(
+    TimeIndex: ItemsWeek.FutureWeekRank,
+    BaseLine: ItemsWeek.Baseline,
+    Dispersion: Items.Dispersion,
+    Alpha: Items.Alpha,
+    Start: dirac(Items.SupplierLTWeeks),
+    Duration: dirac(Items.ReorderCycleWeeks))
+
+  Items.WOODemandDispatch = actionrwd.segment(
+    TimeIndex: ItemsWeek.FutureWeekRank,
+    BaseLine: ItemsWeek.Baseline,
+    Dispersion: Items.Dispersion,
+    Alpha: Items.Alpha,
+    Start: dirac(Items.DispatchLTWeeks),
+    Duration: dirac(Items.ReDispatchCycleWeeks))
+
+  Items.WOOExtremeBimodalDemand = dirac(0)
+  where Items.IsBimodalDemand
+    Items.WOOExtremeBimodalDemand = actionrwd.segment(
+      TimeIndex: ItemsWeek.FutureWeekRank,
+      BaseLine: ItemsWeek.Baseline * Items.ExtremeBimodalDemandFactor,
+      Dispersion: 1,
+      Alpha: Items.Alpha,
+      Start: dirac(Items.SupplierLTWeeks),
+      Duration: dirac(Items.ReorderCycleWeeks))
+
+where Items.IsRightSkewedDemand
+  Items.WOODemandSeparator = quantile(Items.WOODemand, 0.35)
+  Items.LeftWOODemand = truncate(Items.WOODemand, 0, Items.WOODemandSeparator)
+  Items.RightWOODemand = truncate(Items.WOODemand, Items.WOODemandSeparator, quantile(Items.WOODemand, 1))
+  Items.WOODemand = mixture(Items.LeftWOODemand, 0.02, Items.RightWOODemand)
+Items.WOODemand = smooth(mixture(Items.WOOExtremeBimodalDemand, Items.ExtremeBimodalDemandFrequence, Items.WOODemand))
+
+where Items.EndDate < oend
+  Items.WOODemand = dirac(0)
+
+///Total demand distribution------------------------------------------------------------------------
+
+where ItemsWeek.FutureWeekRank > 0
+  Items.TotalDemand = actionrwd.segment(
+    TimeIndex: ItemsWeek.FutureWeekRank,
+    BaseLine: ItemsWeek.Baseline,
+    Dispersion: Items.Dispersion,
+    Alpha: Items.Alpha,
+    Start: dirac(1),
+    Duration: dirac(Items.SupplierLTWeeks + Items.ReorderCycleWeeks))
+
+  Items.TotalExtremeBimodalDemand = dirac(0)
+  where Items.IsBimodalDemand
+    Items.TotalExtremeBimodalDemand = actionrwd.segment(
+      TimeIndex: ItemsWeek.FutureWeekRank,
+      BaseLine: ItemsWeek.Baseline * Items.ExtremeBimodalDemandFactor,
+      Dispersion: 1,
+      Alpha: Items.Alpha,
+      Start: dirac(1),
+      Duration: dirac(Items.SupplierLTWeeks + Items.ReorderCycleWeeks))
+
+where Items.IsRightSkewedDemand
+  Items.TotalDemandSeparator = quantile(Items.TotalDemand, 0.35)
+  Items.LeftTotalDemand = truncate(Items.TotalDemand, 0, Items.TotalDemandSeparator)
+  Items.RightTotalDemand = truncate(Items.TotalDemand, Items.TotalDemandSeparator, quantile(Items.TotalDemand, 1))
+  Items.TotalDemand = mixture(Items.LeftTotalDemand, 0.02, Items.RightTotalDemand)
+Items.TotalDemand = smooth(mixture(Items.TotalExtremeBimodalDemand, Items.ExtremeBimodalDemandFrequence, Items.TotalDemand))
+
+where Items.EndDate < oend
+  Items.TotalDemand = dirac(0)
+
+///Forecast sanity indicators-----------------------------------------------------------------------
+Items.SalesLast52 = sum(Orders.Quantity) when(Orders.date > oend - 365 and Orders.date <= oend)
+
+maxItemDisplayRank = max(TopItemsParameters.ItemDisplayRank)
+Items.ItemDisplayRank = same(TopItemsParameters.ItemDisplayRank)
+                        by [concat(TopItemsParameters.Ref,"-DC")]
+                        at Items.Id
+                        default (maxItemDisplayRank + 1)
+
+Items.DisplayRank = rankrev () by Items.Category scan [-Items.ItemDisplayRank, Items.SalesLast52]
+
+ItemsWeek.BacktestDemand = dirac(0)
+ItemsWeek.SanityQTarget = 0
+where ItemsWeek.ForecastWeekRank > 0
+  ItemsWeek.BacktestDemand = actionrwd.segment(
+    TimeIndex: ItemsWeek.ForecastWeekRank,
+    BaseLine: ItemsWeek.Baseline,
+    Dispersion: Items.Dispersion,
+    Alpha: Items.Alpha,
+    Start: dirac(ItemsWeek.ForecastWeekRank - 1),
+    Duration: ItemsWeek.One)
+
+  sanityQTarget = 0.95
+  sanityQTargetDisplay = sanityQTarget * 100
+  ItemsWeek.SanityQTarget = quantile(ItemsWeek.BacktestDemand, sanityQTarget)
+
+  ///Item level
+  Items.SalesAboveQuantileTarget = count(ItemsWeek.DemandQty > ItemsWeek.SanityQTarget) / count(ItemsWeek.*)
+  Items.SalesEqualQuantileTarget = count(ItemsWeek.DemandQty == ItemsWeek.SanityQTarget) / count(ItemsWeek.*)
+  Items.SalesBelowQuantileTarget = count(ItemsWeek.DemandQty < ItemsWeek.SanityQTarget) / count(ItemsWeek.*)
+
+  Items.SalesAboveQuantileTargetDisplay = round(Items.SalesAboveQuantileTarget * 100, 2)
+  Items.SalesEqualQuantileTargetDisplay = round(Items.SalesEqualQuantileTarget * 100, 2)
+  Items.SalesBelowQuantileTargetDisplay = round(Items.SalesBelowQuantileTarget * 100, 2)
+
+  Items.GapToTarget = sanityQTarget - Items.SalesBelowQuantileTarget
+  Items.GapToTargetDisplay = round(Items.GapToTarget * 100, 2)
+  Items.ForecastSanityLabel = if Items.GapToTarget > 0 then concat("Undershoot: -", (Items.GapToTargetDisplay), "%") else
+        if Items.GapToTarget < 0 then concat("Overshoot: +", abs(Items.GapToTargetDisplay), "%") else "No over/undershoot"
+
+  ///Category level
+  Items.ContribToCategoryTurnover = percent(Items.SalesLast52 * Items.SellPrice) by Items.Category
+
+  Items.CategoryGapToTarget = sum(Items.ContribToCategoryTurnover * Items.GapToTarget) by Items.Category
+  Items.CategoryGapToTargetDisplay = round(Items.CategoryGapToTarget * 100, 2)
+  Items.CategoryForecastSanityLabel = if Items.CategoryGapToTarget > 0 then concat("Undershoot: -", (Items.CategoryGapToTargetDisplay), "%") else
+        if Items.CategoryGapToTarget < 0 then concat("Overshoot: +", abs(Items.CategoryGapToTargetDisplay), "%") else "No over/undershoot"
+
+  show scalar "Category Forecast Sanity Label" a7b7 slices:slice {textAlign: center} with same(Items.CategoryForecastSanityLabel)
+
+  ///Overall level
+  Items.ContribToOverallTurnover = percent(Items.SalesLast52 * Items.SellPrice)
+
+  overallGapToTarget = sum(Items.ContribToOverallTurnover * Items.GapToTarget)
+  overallGapToTargetDisplay = round(overallGapToTarget * 100, 2)
+  overallForecastSanityLabel = if overallGapToTarget > 0 then concat("Undershoot: -", (overallGapToTargetDisplay), "%") else
+    if overallGapToTarget < 0 then concat("Overshoot: +", abs(overallGapToTargetDisplay), "%") else "No over/undershoot"
+
+  show scalar "Overall Forecast Sanity Label" a6b6 {textAlign: center} with overallForecastSanityLabel
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///------------------------------------REPORTING AT CATEGORY LEVEL----------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+show label "Focus at category level" a5i5
+
+show table "Forecast sanity" c6i8 with
+  Items.Id as "Sku"
+  Items.Category
+  Items.SalesLast52 * Items.SellPrice as "Turnover L365" {unit: " $"}
+  Items.SalesAboveQuantileTarget {numbers: percent}
+  Items.SalesEqualQuantileTarget {numbers: percent}
+  Items.SalesBelowQuantileTarget {numbers: percent}
+  Items.GapToTarget {numbers: percent}
+  Items.ForecastSanityLabel as "Item sanity"
+  Items.ContribToCategoryTurnover as "% Category turnover" {numbers: percent}
+  Items.CategoryForecastSanityLabel as "Category sanity"
+  Items.ContribToOverallTurnover as "% Overall turnover" {numbers: percent}
+  overallForecastSanityLabel as "Overall sanity"
+  order by Items.SalesLast52 * Items.SellPrice desc
+
+myDiffTotal1 = 0.20
+myDiffTotal2 = 0.45
+quantileLow1 = 0.5 - myDiffTotal1
+quantileLow2 = 0.5 - myDiffTotal2
+quantileHigh1 = 0.5 + myDiffTotal1
+quantileHigh2 = 0.5 + myDiffTotal2
+
+ItemsWeek.LowerBarTotal2 = max(quantile(ItemsWeek.Demand, quantileLow2), 0 )
+ItemsWeek.HighBarTotal2 = max(quantile(ItemsWeek.Demand, quantileHigh2), 0 )
+ItemsWeek.LowerBarTotal1 = max(quantile(ItemsWeek.Demand, quantileLow1), 0 )
+ItemsWeek.HighBarTotal1 = max(quantile(ItemsWeek.Demand, quantileHigh1), 0 )
+
+rk = 1
+show label "" a11i11 9b9b9b
+where Items.DisplayRank == rk
+where date >= min(Items.LaunchDate) by 1
+
+  show linechart same("\{Items.id} - Seasonality group \{Items.SelectedGroup} (\{Items.SelectedGroupItemsNb} items)") by slice a9c9 slices:ItemsWeek.slice with
+    sum(ItemsWeek.DemandQty) as "Sales" {color: "red"}
+    sum(ItemsWeek.SmoothedDemandQty) as "Smoothed Sales" {color:"green"}
+    sum(ItemsWeek.LowerBarTotal2) as "Possible Low" {color: #(colorCold)}
+    sum(ItemsWeek.LowerBarTotal1) as "Certain Low" {color: #(colorMed)}
+    sum(ItemsWeek.HighBarTotal2) as "Possible High" {color: #(colorMed)}
+    sum(ItemsWeek.HighBarTotal1) as "Certain High" {color: #(colorCold)}
+    same(ItemsWeek.Cache) as "Life" {seriesType: background ; color: #d1ffff}
+    sum(ItemsWeek.Baseline) as "Model" {color: #3C63CE}
+    group by ItemsWeek.Monday
+
+  where ItemsWeek.Cache > 0
+    show linechart same("\{Items.id} - Above: \{Items.SalesAboveQuantileTargetDisplay}% - At: \{Items.SalesEqualQuantileTargetDisplay}% - Below: \{Items.SalesBelowQuantileTargetDisplay}%")
+                    by slice a10c10 slices:ItemsWeek.slice with
+      sum(ItemsWeek.DemandQty) as "Sales" {color: "red"}
+      sum(ItemsWeek.SanityQTarget) as "Model \{sanityQTargetDisplay}% target"
+      if all(ItemsWeek.DemandQty > ItemsWeek.SanityQTarget) default false then 1 else 0 as "Above target" {seriesType: background ; color: #b4c8dd}
+      if all(ItemsWeek.DemandQty == ItemsWeek.SanityQTarget) default false then 1 else 0 as "At target" {seriesType: background ; color: #b9e78c}
+      if all(ItemsWeek.DemandQty < ItemsWeek.SanityQTarget) default false then 1 else 0 as "Below target" {seriesType: background ; color: #ffe7bf}
+      group by ItemsWeek.Monday
+
+  show scalar same("\{Items.id} - SLT Demand") by slice d9e10 slices:slice with same(Items.SLTDemand)
+  show scalar same("\{Items.id} - WOO Demand") by slice f9g10 slices:slice with same(Items.WOODemand)
+  show scalar same("\{Items.id} - Total Demand") by slice h9i10 slices:slice with same(Items.TotalDemand)
+
+rk = rk + 1
+show label "" a14i14 9b9b9b
+where Items.DisplayRank == rk
+where date >= min(Items.LaunchDate) by 1
+  show linechart same("\{Items.id} - Seasonality group \{Items.SelectedGroup} (\{Items.SelectedGroupItemsNb} items)") by slice a12c12 slices:ItemsWeek.slice with
+    sum(ItemsWeek.DemandQty) as "Sales" {color: "red"}
+    sum(ItemsWeek.SmoothedDemandQty) as "Smoothed Sales" {color:"green"}
+    sum(ItemsWeek.LowerBarTotal2) as "Possible Low" {color: #(colorCold)}
+    sum(ItemsWeek.LowerBarTotal1) as "Certain Low" {color: #(colorMed)}
+    sum(ItemsWeek.HighBarTotal2) as "Possible High" {color: #(colorMed)}
+    sum(ItemsWeek.HighBarTotal1) as "Certain High" {color: #(colorCold)}
+
+    same(ItemsWeek.Cache) as "Life" {seriesType: background ; color: #d1ffff}
+    sum(ItemsWeek.Baseline) as "Model" {color: #3C63CE}
+    group by ItemsWeek.Monday
+
+  where ItemsWeek.Cache > 0
+    show linechart same("\{Items.id} - Above: \{Items.SalesAboveQuantileTargetDisplay}% - At: \{Items.SalesEqualQuantileTargetDisplay}% - Below: \{Items.SalesBelowQuantileTargetDisplay}%")
+                    by slice a13c13 slices:ItemsWeek.slice with
+      sum(ItemsWeek.DemandQty) as "Sales" {color: "red"}
+      sum(ItemsWeek.SanityQTarget) as "Model \{sanityQTargetDisplay}% target"
+      if all(ItemsWeek.DemandQty > ItemsWeek.SanityQTarget) default false then 1 else 0 as "Above target" {seriesType: background ; color: #b4c8dd}
+      if all(ItemsWeek.DemandQty == ItemsWeek.SanityQTarget) default false then 1 else 0 as "At target" {seriesType: background ; color: #b9e78c}
+      if all(ItemsWeek.DemandQty < ItemsWeek.SanityQTarget) default false then 1 else 0 as "Below target" {seriesType: background ; color: #ffe7bf}
+      group by ItemsWeek.Monday
+
+  show scalar same("\{Items.id} - SLT Demand") by slice d12e13 slices:slice with same(Items.SLTDemand)
+  show scalar same("\{Items.id} - WOO Demand") by slice f12g13 slices:slice with same(Items.WOODemand)
+  show scalar same("\{Items.id} - Total Demand") by slice h12i13 slices:slice with same(Items.TotalDemand)
+
+rk = rk + 1
+show label "" a17i17 9b9b9b
+where Items.DisplayRank == rk
+where date >= min(Items.LaunchDate) by 1
+  show linechart same("\{Items.id} - Seasonality group \{Items.SelectedGroup} (\{Items.SelectedGroupItemsNb} items)") by slice a15c15 slices:ItemsWeek.slice with
+    sum(ItemsWeek.DemandQty) as "Sales" {color: "red"}
+    sum(ItemsWeek.SmoothedDemandQty) as "Smoothed Sales" {color:"green"}
+    sum(ItemsWeek.LowerBarTotal2) as "Possible Low" {color: #(colorCold)}
+    sum(ItemsWeek.LowerBarTotal1) as "Certain Low" {color: #(colorMed)}
+    sum(ItemsWeek.HighBarTotal2) as "Possible High" {color: #(colorMed)}
+    sum(ItemsWeek.HighBarTotal1) as "Certain High" {color: #(colorCold)}
+
+    same(ItemsWeek.Cache) as "Life" {seriesType: background ; color: #d1ffff}
+    sum(ItemsWeek.Baseline) as "Model" {color: #3C63CE}
+    group by ItemsWeek.Monday
+
+  where ItemsWeek.Cache > 0
+    show linechart same("\{Items.id} - Above: \{Items.SalesAboveQuantileTargetDisplay}% - At: \{Items.SalesEqualQuantileTargetDisplay}% - Below: \{Items.SalesBelowQuantileTargetDisplay}%")
+                    by slice a16c16 slices:ItemsWeek.slice with
+      sum(ItemsWeek.DemandQty) as "Sales" {color: "red"}
+      sum(ItemsWeek.SanityQTarget) as "Model \{sanityQTargetDisplay}% target"
+      if all(ItemsWeek.DemandQty > ItemsWeek.SanityQTarget) default false then 1 else 0 as "Above target" {seriesType: background ; color: #b4c8dd}
+      if all(ItemsWeek.DemandQty == ItemsWeek.SanityQTarget) default false then 1 else 0 as "At target" {seriesType: background ; color: #b9e78c}
+      if all(ItemsWeek.DemandQty < ItemsWeek.SanityQTarget) default false then 1 else 0 as "Below target" {seriesType: background ; color: #ffe7bf}
+      group by ItemsWeek.Monday
+
+  show scalar same("\{Items.id} - SLT Demand") by slice d15e16 slices:slice with same(Items.SLTDemand)
+  show scalar same("\{Items.id} - WOO Demand") by slice f15g16 slices:slice with same(Items.WOODemand)
+  show scalar same("\{Items.id} - Total Demand") by slice h15i16 slices:slice with same(Items.TotalDemand)
+
+rk = rk + 1
+show label "" a20i20 9b9b9b
+where Items.DisplayRank == rk
+where date >= min(Items.LaunchDate) by 1
+  show linechart same("\{Items.id} - Seasonality group \{Items.SelectedGroup} (\{Items.SelectedGroupItemsNb} items)") by slice a24c24 slices:ItemsWeek.slice with
+    sum(ItemsWeek.DemandQty) as "Sales" {color: "red"}
+    sum(ItemsWeek.SmoothedDemandQty) as "Smoothed Sales" {color:"green"}
+    sum(ItemsWeek.LowerBarTotal2) as "Possible Low" {color: #(colorCold)}
+    sum(ItemsWeek.LowerBarTotal1) as "Certain Low" {color: #(colorMed)}
+    sum(ItemsWeek.HighBarTotal2) as "Possible High" {color: #(colorMed)}
+    sum(ItemsWeek.HighBarTotal1) as "Certain High" {color: #(colorCold)}
+
+    same(ItemsWeek.Cache) as "Life" {seriesType: background ; color: #d1ffff}
+    sum(ItemsWeek.Baseline) as "Model" {color: #3C63CE}
+    group by ItemsWeek.Monday
+
+  where ItemsWeek.Cache > 0
+    show linechart same("\{Items.id} - Above: \{Items.SalesAboveQuantileTargetDisplay}% - At: \{Items.SalesEqualQuantileTargetDisplay}% - Below: \{Items.SalesBelowQuantileTargetDisplay}%")
+                    by slice a25c25 slices:ItemsWeek.slice with
+      sum(ItemsWeek.DemandQty) as "Sales" {color: "red"}
+      sum(ItemsWeek.SanityQTarget) as "Model \{sanityQTargetDisplay}% target"
+      if all(ItemsWeek.DemandQty > ItemsWeek.SanityQTarget) default false then 1 else 0 as "Above target" {seriesType: background ; color: #b4c8dd}
+      if all(ItemsWeek.DemandQty == ItemsWeek.SanityQTarget) default false then 1 else 0 as "At target" {seriesType: background ; color: #b9e78c}
+      if all(ItemsWeek.DemandQty < ItemsWeek.SanityQTarget) default false then 1 else 0 as "Below target" {seriesType: background ; color: #ffe7bf}
+      group by ItemsWeek.Monday
+
+  show scalar same("\{Items.id} - SLT Demand") by slice d24e25 slices:slice with same(Items.SLTDemand)
+  show scalar same("\{Items.id} - WOO Demand") by slice f24g25 slices:slice with same(Items.WOODemand)
+  show scalar same("\{Items.id} - Total Demand") by slice h24i25 slices:slice with same(Items.TotalDemand)
+
+rk = rk + 1
+show label "" a23i23 9b9b9b
+where Items.DisplayRank == rk
+where date >= min(Items.LaunchDate) by 1
+  show linechart same("\{Items.id} - Seasonality group \{Items.SelectedGroup} (\{Items.SelectedGroupItemsNb} items)") by slice a21c21 slices:ItemsWeek.slice with
+    sum(ItemsWeek.DemandQty) as "Sales" {color: "red"}
+    sum(ItemsWeek.SmoothedDemandQty) as "Smoothed Sales" {color:"green"}
+    sum(ItemsWeek.LowerBarTotal2) as "Possible Low" {color: #(colorCold)}
+    sum(ItemsWeek.LowerBarTotal1) as "Certain Low" {color: #(colorMed)}
+    sum(ItemsWeek.HighBarTotal2) as "Possible High" {color: #(colorMed)}
+    sum(ItemsWeek.HighBarTotal1) as "Certain High" {color: #(colorCold)}
+
+    same(ItemsWeek.Cache) as "Life" {seriesType: background ; color: #d1ffff}
+    sum(ItemsWeek.Baseline) as "Model" {color: #3C63CE}
+    group by ItemsWeek.Monday
+
+  where ItemsWeek.Cache > 0
+    show linechart same("\{Items.id} - Above: \{Items.SalesAboveQuantileTargetDisplay}% - At: \{Items.SalesEqualQuantileTargetDisplay}% - Below: \{Items.SalesBelowQuantileTargetDisplay}%")
+                    by slice a22c22 slices:ItemsWeek.slice with
+      sum(ItemsWeek.DemandQty) as "Sales" {color: "red"}
+      sum(ItemsWeek.SanityQTarget) as "Model \{sanityQTargetDisplay}% target"
+      if all(ItemsWeek.DemandQty > ItemsWeek.SanityQTarget) default false then 1 else 0 as "Above target" {seriesType: background ; color: #b4c8dd}
+      if all(ItemsWeek.DemandQty == ItemsWeek.SanityQTarget) default false then 1 else 0 as "At target" {seriesType: background ; color: #b9e78c}
+      if all(ItemsWeek.DemandQty < ItemsWeek.SanityQTarget) default false then 1 else 0 as "Below target" {seriesType: background ; color: #ffe7bf}
+      group by ItemsWeek.Monday
+
+  show scalar same("\{Items.id} - SLT Demand") by slice d21e22 slices:slice with same(Items.SLTDemand)
+  show scalar same("\{Items.id} - WOO Demand") by slice f21g22 slices:slice with same(Items.WOODemand)
+  show scalar same("\{Items.id} - Total Demand") by slice h21i22 slices:slice with same(Items.TotalDemand)
+
+rk = rk + 1
+show label "" a26i26 9b9b9b
+where Items.DisplayRank == rk
+where date >= min(Items.LaunchDate) by 1
+  show linechart same("\{Items.id} - Seasonality group \{Items.SelectedGroup} (\{Items.SelectedGroupItemsNb} items)") by slice a18c18 slices:ItemsWeek.slice with
+    sum(ItemsWeek.DemandQty) as "Sales" {color: "red"}
+    sum(ItemsWeek.SmoothedDemandQty) as "Smoothed Sales" {color:"green"}
+    sum(ItemsWeek.LowerBarTotal2) as "Possible Low" {color: #(colorCold)}
+    sum(ItemsWeek.LowerBarTotal1) as "Certain Low" {color: #(colorMed)}
+    sum(ItemsWeek.HighBarTotal2) as "Possible High" {color: #(colorMed)}
+    sum(ItemsWeek.HighBarTotal1) as "Certain High" {color: #(colorCold)}
+
+    same(ItemsWeek.Cache) as "Life" {seriesType: background ; color: #d1ffff}
+    sum(ItemsWeek.Baseline) as "Model" {color: #3C63CE}
+    group by ItemsWeek.Monday
+
+  where ItemsWeek.Cache > 0
+    show linechart same("\{Items.id} - Above: \{Items.SalesAboveQuantileTargetDisplay}% - At: \{Items.SalesEqualQuantileTargetDisplay}% - Below: \{Items.SalesBelowQuantileTargetDisplay}%")
+                    by slice a19c19 slices:ItemsWeek.slice with
+      sum(ItemsWeek.DemandQty) as "Sales" {color: "red"}
+      sum(ItemsWeek.SanityQTarget) as "Model \{sanityQTargetDisplay}% target"
+      if all(ItemsWeek.DemandQty > ItemsWeek.SanityQTarget) default false then 1 else 0 as "Above target" {seriesType: background ; color: #b4c8dd}
+      if all(ItemsWeek.DemandQty == ItemsWeek.SanityQTarget) default false then 1 else 0 as "At target" {seriesType: background ; color: #b9e78c}
+      if all(ItemsWeek.DemandQty < ItemsWeek.SanityQTarget) default false then 1 else 0 as "Below target" {seriesType: background ; color: #ffe7bf}
+      group by ItemsWeek.Monday
+
+  show scalar same("\{Items.id} - SLT Demand") by slice d18e19 slices:slice with same(Items.SLTDemand)
+  show scalar same("\{Items.id} - WOO Demand") by slice f18g19 slices:slice with same(Items.WOODemand)
+  show scalar same("\{Items.id} - Total Demand") by slice h18i19 slices:slice with same(Items.TotalDemand)
+
+rk = rk + 1
+show label "" a29i29 9b9b9b
+where Items.DisplayRank == rk
+where date >= min(Items.LaunchDate) by 1
+  show linechart same("\{Items.id} - Seasonality group \{Items.SelectedGroup} (\{Items.SelectedGroupItemsNb} items)") by slice a27c27 slices:ItemsWeek.slice with
+    sum(ItemsWeek.DemandQty) as "Sales" {color: "red"}
+    sum(ItemsWeek.SmoothedDemandQty) as "Smoothed Sales" {color:"green"}
+    sum(ItemsWeek.LowerBarTotal2) as "Possible Low" {color: #(colorCold)}
+    sum(ItemsWeek.LowerBarTotal1) as "Certain Low" {color: #(colorMed)}
+    sum(ItemsWeek.HighBarTotal2) as "Possible High" {color: #(colorMed)}
+    sum(ItemsWeek.HighBarTotal1) as "Certain High" {color: #(colorCold)}
+
+    same(ItemsWeek.Cache) as "Life" {seriesType: background ; color: #d1ffff}
+    sum(ItemsWeek.Baseline) as "Model" {color: #3C63CE}
+    group by ItemsWeek.Monday
+
+  where ItemsWeek.Cache > 0
+    show linechart same("\{Items.id} - Above: \{Items.SalesAboveQuantileTargetDisplay}% - At: \{Items.SalesEqualQuantileTargetDisplay}% - Below: \{Items.SalesBelowQuantileTargetDisplay}%")
+                    by slice a28c28 slices:ItemsWeek.slice with
+      sum(ItemsWeek.DemandQty) as "Sales" {color: "red"}
+      sum(ItemsWeek.SanityQTarget) as "Model \{sanityQTargetDisplay}% target"
+      if all(ItemsWeek.DemandQty > ItemsWeek.SanityQTarget) default false then 1 else 0 as "Above target" {seriesType: background ; color: #b4c8dd}
+      if all(ItemsWeek.DemandQty == ItemsWeek.SanityQTarget) default false then 1 else 0 as "At target" {seriesType: background ; color: #b9e78c}
+      if all(ItemsWeek.DemandQty < ItemsWeek.SanityQTarget) default false then 1 else 0 as "Below target" {seriesType: background ; color: #ffe7bf}
+      group by ItemsWeek.Monday
+
+  show scalar same("\{Items.id} - SLT Demand") by slice d27e28 slices:slice with same(Items.SLTDemand)
+  show scalar same("\{Items.id} - WOO Demand") by slice f27g28 slices:slice with same(Items.WOODemand)
+  show scalar same("\{Items.id} - Total Demand") by slice h27i28 slices:slice with same(Items.TotalDemand)
+
+rk = rk + 1
+show label "" a32i32 9b9b9b
+where Items.DisplayRank == rk
+where date >= min(Items.LaunchDate) by 1
+  show linechart same("\{Items.id} - Seasonality group \{Items.SelectedGroup} (\{Items.SelectedGroupItemsNb} items)") by slice a30c30 slices:ItemsWeek.slice with
+    sum(ItemsWeek.DemandQty) as "Sales" {color: "red"}
+    sum(ItemsWeek.SmoothedDemandQty) as "Smoothed Sales" {color:"green"}
+    sum(ItemsWeek.LowerBarTotal2) as "Possible Low" {color: #(colorCold)}
+    sum(ItemsWeek.LowerBarTotal1) as "Certain Low" {color: #(colorMed)}
+    sum(ItemsWeek.HighBarTotal2) as "Possible High" {color: #(colorMed)}
+    sum(ItemsWeek.HighBarTotal1) as "Certain High" {color: #(colorCold)}
+
+    same(ItemsWeek.Cache) as "Life" {seriesType: background ; color: #d1ffff}
+    sum(ItemsWeek.Baseline) as "Model" {color: #3C63CE}
+    group by ItemsWeek.Monday
+
+  where ItemsWeek.Cache > 0
+    show linechart same("\{Items.id} - Above: \{Items.SalesAboveQuantileTargetDisplay}% - At: \{Items.SalesEqualQuantileTargetDisplay}% - Below: \{Items.SalesBelowQuantileTargetDisplay}%")
+                    by slice a31c31 slices:ItemsWeek.slice with
+      sum(ItemsWeek.DemandQty) as "Sales" {color: "red"}
+      sum(ItemsWeek.Baseline) as "Model"
+      sum(ItemsWeek.SanityQTarget) as "Model \{sanityQTargetDisplay}% target"
+      if all(ItemsWeek.DemandQty > ItemsWeek.SanityQTarget) default false then 1 else 0 as "Above target" {seriesType: background ; color: #b4c8dd}
+      if all(ItemsWeek.DemandQty == ItemsWeek.SanityQTarget) default false then 1 else 0 as "At target" {seriesType: background ; color: #b9e78c}
+      if all(ItemsWeek.DemandQty < ItemsWeek.SanityQTarget) default false then 1 else 0 as "Below target" {seriesType: background ; color: #ffe7bf}
+      group by ItemsWeek.Monday
+
+  show scalar same("\{Items.id} - SLT Demand") by slice d30e31 slices:slice with same(Items.SLTDemand)
+  show scalar same("\{Items.id} - WOO Demand") by slice f30g31 slices:slice with same(Items.WOODemand)
+  show scalar same("\{Items.id} - Total Demand") by slice h30i31 slices:slice with same(Items.TotalDemand)
+
+rk = rk + 1
+show label "" a35i35 9b9b9b
+where Items.DisplayRank == rk
+where date >= min(Items.LaunchDate) by 1
+  show linechart same("\{Items.id} - Seasonality group \{Items.SelectedGroup} (\{Items.SelectedGroupItemsNb} items)") by slice a33c33 slices:ItemsWeek.slice with
+    sum(ItemsWeek.DemandQty) as "Sales" {color: "red"}
+    sum(ItemsWeek.SmoothedDemandQty) as "Smoothed Sales" {color:"green"}
+    sum(ItemsWeek.LowerBarTotal2) as "Possible Low" {color: #(colorCold)}
+    sum(ItemsWeek.LowerBarTotal1) as "Certain Low" {color: #(colorMed)}
+    sum(ItemsWeek.HighBarTotal2) as "Possible High" {color: #(colorMed)}
+    sum(ItemsWeek.HighBarTotal1) as "Certain High" {color: #(colorCold)}
+
+    same(ItemsWeek.Cache) as "Life" {seriesType: background ; color: #d1ffff}
+    sum(ItemsWeek.Baseline) as "Model" {color: #3C63CE}
+    group by ItemsWeek.Monday
+
+  where ItemsWeek.Cache > 0
+    show linechart same("\{Items.id} - Above: \{Items.SalesAboveQuantileTargetDisplay}% - At: \{Items.SalesEqualQuantileTargetDisplay}% - Below: \{Items.SalesBelowQuantileTargetDisplay}%")
+                    by slice a34c34 slices:ItemsWeek.slice with
+      sum(ItemsWeek.DemandQty) as "Sales" {color: "red"}
+      sum(ItemsWeek.SanityQTarget) as "Model \{sanityQTargetDisplay}% target"
+      if all(ItemsWeek.DemandQty > ItemsWeek.SanityQTarget) default false then 1 else 0 as "Above target" {seriesType: background ; color: #b4c8dd}
+      if all(ItemsWeek.DemandQty == ItemsWeek.SanityQTarget) default false then 1 else 0 as "At target" {seriesType: background ; color: #b9e78c}
+      if all(ItemsWeek.DemandQty < ItemsWeek.SanityQTarget) default false then 1 else 0 as "Below target" {seriesType: background ; color: #ffe7bf}
+      group by ItemsWeek.Monday
+
+  show scalar same("\{Items.id} - SLT Demand") by slice d33e34 slices:slice with same(Items.SLTDemand)
+  show scalar same("\{Items.id} - WOO Demand") by slice f33g34 slices:slice with same(Items.WOODemand)
+  show scalar same("\{Items.id} - Total Demand") by slice h33i34 slices:slice with same(Items.TotalDemand)
+
+rk = rk + 1
+show label "" a38i38 9b9b9b
+where Items.DisplayRank == rk
+where date >= min(Items.LaunchDate) by 1
+  show linechart same("\{Items.id} - Seasonality group \{Items.SelectedGroup} (\{Items.SelectedGroupItemsNb} items)") by slice a36c36 slices:ItemsWeek.slice with
+    sum(ItemsWeek.DemandQty) as "Sales" {color: "red"}
+    sum(ItemsWeek.SmoothedDemandQty) as "Smoothed Sales" {color:"green"}
+    sum(ItemsWeek.LowerBarTotal2) as "Possible Low" {color: #(colorCold)}
+    sum(ItemsWeek.LowerBarTotal1) as "Certain Low" {color: #(colorMed)}
+    sum(ItemsWeek.HighBarTotal2) as "Possible High" {color: #(colorMed)}
+    sum(ItemsWeek.HighBarTotal1) as "Certain High" {color: #(colorCold)}
+
+    same(ItemsWeek.Cache) as "Life" {seriesType: background ; color: #d1ffff}
+    sum(ItemsWeek.Baseline) as "Model" {color: #3C63CE}
+    group by ItemsWeek.Monday
+
+  where ItemsWeek.Cache > 0
+    show linechart same("\{Items.id} - Above: \{Items.SalesAboveQuantileTargetDisplay}% - At: \{Items.SalesEqualQuantileTargetDisplay}% - Below: \{Items.SalesBelowQuantileTargetDisplay}%")
+                    by slice a37c37 slices:ItemsWeek.slice with
+      sum(ItemsWeek.DemandQty) as "Sales" {color: "red"}
+      sum(ItemsWeek.SanityQTarget) as "Model \{sanityQTargetDisplay}% target"
+      if all(ItemsWeek.DemandQty > ItemsWeek.SanityQTarget) default false then 1 else 0 as "Above target" {seriesType: background ; color: #b4c8dd}
+      if all(ItemsWeek.DemandQty == ItemsWeek.SanityQTarget) default false then 1 else 0 as "At target" {seriesType: background ; color: #b9e78c}
+      if all(ItemsWeek.DemandQty < ItemsWeek.SanityQTarget) default false then 1 else 0 as "Below target" {seriesType: background ; color: #ffe7bf}
+      group by ItemsWeek.Monday
+
+  show scalar same("\{Items.id} - SLT Demand") by slice d36e37 slices:slice with same(Items.SLTDemand)
+  show scalar same("\{Items.id} - WOO Demand") by slice f36g37 slices:slice with same(Items.WOODemand)
+  show scalar same("\{Items.id} - Total Demand") by slice h36i37 slices:slice with same(Items.TotalDemand)
+
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///-----------------------------------------EXPORT--------------------------------------------------
+///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+show linechart "ItemsWeek" with
+  sum(mean(ItemsWeek.Demand)) as "Forecast"
+  sum(ItemsWeek.DemandQty) as "Demand"
+  group by ItemsWeek.week
+
+where ItemsWeek.Monday >= oend - 2 * 365
+  show table "Forecast" f4i4 write: "\{testStorage}Clean/Forecast/Periodic/WeeklyFc.ion" with
+    Items.Id as "Sku"
+    Items.SelectedGroup
+    ItemsWeek.Monday
+
+    ItemsWeek.DemandQty
+    ItemsWeek.SmoothedDemandQty
+
+    ItemsWeek.Cache
+    ItemsWeek.IsPast
+    ItemsWeek.FutureWeekRank
+    ItemsWeek.IsSLT
+    ItemsWeek.IsWOO
+    ItemsWeek.IsWOODispatch
+
+    Items.Alpha
+    Items.Dispersion
+
+    ItemsWeek.Baseline
+    ItemsWeek.Demand
+
+    ItemsWeek.LowerBarTotal2
+    ItemsWeek.LowerBarTotal1
+    ItemsWeek.HighBarTotal2
+    ItemsWeek.HighBarTotal1
+
+    ItemsWeek.CumDemand
+    Items.WOODemand
+    Items.WOODemandDispatch
+    Items.SLTDemand
+    Items.TotalDemand
+
+// Seasonality not learned by group anymore
+show table "Export Output Parameters" a4e4 write:"\{testStorage}Clean/Forecast/Periodic/FcItems.ion" with
+  Items.Id
+  Items.SelectedGroup
+  Items.Affinity1
+  Items.Affinity2
+  Items.Affinity3
+  Items.Affinity4
+  Items.Affinity5
+  Items.Affinity6
+  Items.Affinity7
+  Items.Affinity8
+  Items.Affinity9
+  Items.Affinity10
+  ItemsYW.Profile1
+  ItemsYW.Profile2
+  ItemsYW.Profile3
+  ItemsYW.Profile4
+  ItemsYW.Profile5
+  ItemsYW.Profile6
+  ItemsYW.Profile7
+  ItemsYW.Profile8
+  ItemsYW.Profile9
+  ItemsYW.Profile10
+  Items.Level
+  ItemsYW.SeasonalityModel as "TSeason"
+  Items.Levelshift
+  ItemsWeek.LinearTrend
+  ItemsWeek.Baseline
+  lastDate
+  firstDate
+  maxEpochs
+  Items.GapToTarget
+  Items.CategoryGapToTarget
+  overallGapToTarget
+  Items.ForecastSanityLabel
+  Items.CategoryForecastSanityLabel
+  overallForecastSanityLabel
+  sanityQTarget
+  quantileLow1
+  quantileLow2
+  quantileHigh1
+  quantileHigh2
