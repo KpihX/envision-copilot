@@ -33,6 +33,10 @@ envision-rag = "envision_rag.main:main"
 envision-benchmark = "envision_rag.cli.benchmark:main"
 # Log Viewer - Replay saved sessions
 envision-logs = "envision_rag.cli.logs:main"
+# Index Builder - Build FAISS vector index
+envision-index = "envision_rag.cli.build_index:main"
+# Test Graph Tools
+envision-test-graph = "tests.envision_rag.test_graph:main"
 
 [build-system]
 requires = ["uv_build>=0.9.21,<0.10.0"]

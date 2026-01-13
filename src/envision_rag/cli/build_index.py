@@ -1,15 +1,22 @@
+"""
+Build Vector Index for Envision RAG.
+Chunks .nvn files and creates FAISS index with embeddings.
+"""
 import sys
 from pathlib import Path
 import json
 import pickle
 import numpy as np
 
-# Fix imports (add project root to path)
-sys.path.append(str(Path(__file__).parent))
-
 from envision_rag.index.chunker import EnvisionChunker
 from sentence_transformers import SentenceTransformer
 import faiss
+
+
+def main():
+    """CLI entry point."""
+    build_index("env_scripts", "data/vector_store")
+
 
 def build_index(scripts_dir: str, output_dir: str):
     print(f"🏗️ Building Vector Index from {scripts_dir}...")
