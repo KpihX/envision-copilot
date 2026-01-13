@@ -32,12 +32,13 @@ class AgentState(TypedDict):
     plan: List[str]      # Explicit plan of action (checklist)
 
 class AgentWorkflow:
-    def __init__(self, config: Dict[str, Any], graph_tools: GraphTools, verbose: bool = False):
+    def __init__(self, config: Dict[str, Any], graph_tools: GraphTools, verbose: bool = False, logger = None):
         self.config = config
         self.tools = graph_tools
         self.search_tools = SearchTools() # Initialize SearchTools
         self.verbose = verbose
         self.console = Console()
+        self.logger = logger  # Optional SessionLogger for persistence
         # Lazy load vector tools (might require index to exist)
         try:
             self.vector_tools = VectorTools()
@@ -47,7 +48,6 @@ class AgentWorkflow:
 
         self.llm = prepare_agent(config.get('agent', {}).get('main_model', 'mistral'))
         
-        # Tool Registry
         # Tool Registry
         self.tool_map = {
             "scan_references": self.tools.scan_references,
@@ -63,8 +63,8 @@ class AgentWorkflow:
 
         workflow.add_node("reason", self.reason_node)
         workflow.add_node("act", self.execution_node)
-        # workflow.add_node("reflect", self.reflection_node) # Merged into 'reason' for simplicity? 
-        # Actually user wants explicit Reflect. Let's keep it simple first: Reason -> Act -> Reason...
+        # Note: A "reflect" node was considered for explicit self-critique after observations,
+        # but currently the reflection logic is merged into reason_node for simplicity.
 
         workflow.add_edge(START, "reason")
         
@@ -88,8 +88,12 @@ class AgentWorkflow:
 
     def _log(self, title: str, content: str, style: str = "info"):
         """
-        Unified Live Logging using Rich.
+        Unified Live Logging using Rich + Session Logger.
         """
+        # Always log to session logger if available (for replay)
+        if self.logger:
+            self.logger.log_event(style, title, content, style)
+        
         if not self.verbose: return
         
         if style == "thought":
@@ -184,22 +188,33 @@ INSTRUCTIONS:
    - The Appendix is automatically generated, so you don't need to repeat the raw list, but you MUST contextually point to it.
 3. If you need more facts, use a Tool. Format: 'Action: tool_name("arg")'
 4. ALWAYS explain your reasoning with 'Thought: ...' before acting.
-5. **REFORMULATION STRATEGY**:
+
+5. **PRECISION-FIRST QUERY STRATEGY** (CRITICAL):
+   - **START PRECISE**: When the question mentions a specific path (e.g. `/Clean/Items.ion`), your FIRST query MUST use the EXACT path.
+     - GOOD: `scan_references("read /Clean/Items.ion")`
+     - BAD: `scan_references("read Items.ion")` ← This is too broad and will match OTHER files like `/Override/Items.ion`!
+   - **EVALUATE NOISE**: If your results contain entries that don't match the exact path asked, they are NOISE.
+     - Example: Asked about `/Clean/Items.ion` but results show `/Clean/Forecast/Periodic/FcItems.ion` → That's a different file!
+   - **REFINE IF NOISY**: If results are noisy, refine with a more specific query or filter mentally.
+   - **BROADEN ONLY IF EMPTY**: Only use partial paths if the exact path returns 0 results.
+   - **COUNT CAREFULLY**: When counting, only count results that EXACTLY match the requested path.
+
+6. **REFORMULATION STRATEGY**:
    - If `search_code` returns references (graphs, usage) but NO DEFINITION:
      - **DO NOT give up**.
      - **DO NOT hallucinate**.
      - **REFORMULATE** your query (e.g., try English keywords like "function", "def", "logic", or synonyms).
      - Example: If "calculer stock" fails, try "stock calculation logic" or "stockEvol".
      - **USE `read_code`**: If `grep_code` finds a `def` or function signature, ALWAYS use `read_code` to verify the logic inside before answering.
-6. **PLANNING**:
+7. **PLANNING**:
    - At the beginning, propose a Plan: `Plan: ["Step 1", "Step 2"]`
    - If a step fails or is insufficient, UPDATE the plan.
    - Mention the plan status in your thought process.
-7. **STOPPING CRITERIA**:
+8. **STOPPING CRITERIA**:
    - DO NOT simulate the "Observation" part. 
    - After outputting "Action: ...", **STOP generating**. The system will provide the observation.
 
-8. **VERIFICATION & EXHAUSTIVENESS** (Phase 6):
+9. **VERIFICATION & EXHAUSTIVENESS**:
    - **BREADTH-FIRST**: When `search_code` returns multiple relevant candidates (e.g. A, B, C), you MUST acknowledge ALL of them in your Plan.
      - BAD: "I found A, so I will check A."
      - GOOD: "I found A (Rank 1) and B (Rank 3). Both seem relevant. I will check A *and* B."
@@ -211,7 +226,7 @@ INSTRUCTIONS:
    - **REPORTING**: Your Final Answer MUST explicity mention the alternatives you explored.
      - "I found `StockEndWeek` and `StockEvol`. I selected `StockEndWeek` because X, but `StockEvol` is also valid for Y."
 
-9. **SELF-CORRECTION**:
+10. **SELF-CORRECTION**:
    - If `grep_code` finds a definition, asking "Where is it defined?" is stupid. You just found it. Read it!
    - If `search_code` gives you a file path, **READ IT**. Do not ask "Where is it?".
    - If you found a function name (e.g. `StockEndWeek`), ask yourself: "Is there a more specific function mentioned in the context or query?"
@@ -357,7 +372,6 @@ Final Answer: <Narrative, convincing summary of findings. Point to Appendix for 
             
             # Store result in facts if it's substantial (list or dict)
             facts = state.get("facts", [])
-            # Handle Structured Output (Dict with 'results')
             # Handle Structured Output (Dict with 'results')
             if isinstance(result, dict) and "results" in result:
                  facts.append(result["results"]) # Store the list for Appendix

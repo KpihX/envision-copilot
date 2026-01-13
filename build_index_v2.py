@@ -4,8 +4,8 @@ import json
 import pickle
 import numpy as np
 
-# Fix imports
-sys.path.append(str(Path(__file__).parent.parent.parent))
+# Fix imports (add project root to path)
+sys.path.append(str(Path(__file__).parent))
 
 from envision_rag.index.chunker import EnvisionChunker
 from sentence_transformers import SentenceTransformer

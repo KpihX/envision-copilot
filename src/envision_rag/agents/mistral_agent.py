@@ -81,7 +81,7 @@ class MistralAgent(LLMAgent):
             "model": self._model,
             "messages": messages,
             "temperature": 0.7,
-            "max_tokens": 1000
+            "max_tokens": 4096
         }
         
         response = requests.post(f"{self.base_url}/chat/completions", headers=headers, json=payload)

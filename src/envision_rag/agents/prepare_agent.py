@@ -5,7 +5,7 @@ from .llama3_agent import Llama3Agent
 from .groq_agent import GroqAgent
 from .qwen_agent import QwenAgent
 from .base import LLMAgent
-# from config_manager import get_config
+from envision_rag.config_manager import get_config
 
 def prepare_agent(agent_name: str) -> LLMAgent:
         """Prepare and return the default LLM agent based on configuration."""
@@ -18,7 +18,6 @@ def prepare_agent(agent_name: str) -> LLMAgent:
             agent = GPTAgent()
         elif agent_name == 'llama3':
             agent = Llama3Agent()
-            agent = GPTAgent()
         elif agent_name == 'llama3.2':
             agent = Llama3Agent('llama3.2')
         elif agent_name == 'qwen':

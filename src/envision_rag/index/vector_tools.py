@@ -84,7 +84,6 @@ class VectorTools:
             return []
             
         # 2. Rerank (Precision)
-        # 2. Rerank (Precision)
         if self.reranker:
             # Prepare pairs [Query, Chunk Content]
             pairs = [[query, c.context + "\n" + c.content] for c in candidates]

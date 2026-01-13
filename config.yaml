@@ -11,7 +11,7 @@ system:
 agent:
   # The "Brain" of the operation
   main_model: "mistral"     # High reasoning capability
-  fast_model: "mistral-small"     # For quick summaries/routing
+  fast_model: "mistral"     # For quick summaries/routing
   
   # Chain of Thought settings
   max_iterations: 10              # Max "Reason -> Act" loops to prevent infinite cycles
@@ -34,6 +34,18 @@ index:
 workflow:
   # Hybrid Search Weights
   use_graph_first: true           # Favor deterministic graph lookups over vector search
+
+benchmark:
+  # LLM-as-Judge settings
+  judge_model: "mistral"          # Model for semantic evaluation
+  questions_file: "questions.json"
+  default_n: 5                    # Default number of questions to test
+
+logging:
+  # Session logging for replay
+  enabled: true
+  log_dir: "data/logs"
+  max_logs_per_type: 50           # Keep last N logs per type
 
 # =============================================================================
 # LEGACY SECTIONS (Required by ConfigManager)

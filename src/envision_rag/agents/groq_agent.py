@@ -2,7 +2,7 @@ from typing import Optional
 import os
 from groq import Groq
 from .base import LLMAgent, rate_limited
-from config_manager import get_config
+from envision_rag.config_manager import get_config
 
 class GroqAgent(LLMAgent):
     """Implementation of an agent using Groq"""

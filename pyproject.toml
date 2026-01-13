@@ -1,7 +1,7 @@
 [project]
 name = "envision-rag"
 version = "0.1.0"
-description = "Add your description here"
+description = "Hybrid RAG system for Envision DSL codebase analysis with LLM-as-Judge benchmarking"
 readme = "README.md"
 authors = [
     { name = "Ivann KAMDEM", email = "kapoivha@gmail.com" }
@@ -26,6 +26,15 @@ dependencies = [
     "sentence-transformers>=5.2.0",
 ]
 
+[project.scripts]
+# Main CLI - Query the RAG system
+envision-rag = "envision_rag.main:main"
+# Benchmark - Run LLM-as-Judge evaluation
+envision-benchmark = "envision_rag.cli.benchmark:main"
+# Log Viewer - Replay saved sessions
+envision-logs = "envision_rag.cli.logs:main"
+
 [build-system]
 requires = ["uv_build>=0.9.21,<0.10.0"]
 build-backend = "uv_build"
+

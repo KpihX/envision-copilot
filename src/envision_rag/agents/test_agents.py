@@ -4,13 +4,13 @@ from pathlib import Path
 import time
 
 # Add project root to path
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 sys.path.append(str(project_root))
 
-from config_manager import ConfigManager
-from agents.gpt_agent import GPTAgent
-from agents.mistral_agent import MistralAgent
-from agents.gemini_agent import GeminiAgent
+from envision_rag.config_manager import ConfigManager
+from envision_rag.agents.gpt_agent import GPTAgent
+from envision_rag.agents.mistral_agent import MistralAgent
+from envision_rag.agents.gemini_agent import GeminiAgent
 
 # Load configuration
 config_manager = ConfigManager()
