@@ -99,7 +99,8 @@ class BenchmarkRunner:
         )
         
         # Initialize components
-        self.judge = BenchmarkJudge(judge_model=self.judge_model)
+        # Initialize components
+        self.judge = BenchmarkJudge(config=self.config)
         self.agent_app = None
         self.questions = []
     
@@ -126,11 +127,11 @@ class BenchmarkRunner:
         workflow = AgentWorkflow(self.config, tools, verbose=self.verbose)
         self.agent_app = workflow.build_graph()
     
-    def _log(self, title: str, content: str, style: str = "info"):
+    def _log(self, title: str, content: str, style: str = "info", always_display: bool = False):
         """Log to console and logger."""
         self.logger.log_event(style, title, content, style)
         
-        if not self.verbose:
+        if not self.verbose and not always_display:
             return
             
         if style == "question":
@@ -204,7 +205,7 @@ class BenchmarkRunner:
             q_text = q.get("question", "")
             
             self.console.print(f"\n[bold cyan]Question {i+1}/{total} (ID: {q_id})[/bold cyan]")
-            self._log(f"Question {q_id}", q_text, "question")
+            self._log(f"Question {q_id}", q_text, "question", always_display=True)
             
             # Run agent
             try:
@@ -226,12 +227,12 @@ class BenchmarkRunner:
             if len(display_answer) > 500:
                 display_answer = display_answer[:500] + "..."
             
-            self._log("Agent Answer", display_answer, "answer")
+            self._log("Agent Answer", display_answer, "answer", always_display=True)
             
             # Show expected
             expected = q.get("answers", [])
             expected_str = "\n".join([f"• {a}" for a in expected])
-            self._log("Expected Answer(s)", expected_str, "expected")
+            self._log("Expected Answer(s)", expected_str, "expected", always_display=True)
             
             # Judge
             judge_result = self.judge.evaluate(q, agent_answer)
@@ -239,9 +240,9 @@ class BenchmarkRunner:
             # Show verdict
             if judge_result.correct:
                 passed += 1
-                self._log("✅ CORRECT", f"Score: {judge_result.score:.0%}\n\n{judge_result.reasoning}", "verdict")
+                self._log("✅ CORRECT", f"Score: {judge_result.score:.0%}\n\n{judge_result.reasoning}", "verdict", always_display=True)
             else:
-                self._log("❌ INCORRECT", f"Score: {judge_result.score:.0%}\n\n{judge_result.reasoning}", "verdict")
+                self._log("❌ INCORRECT", f"Score: {judge_result.score:.0%}\n\n{judge_result.reasoning}", "verdict", always_display=True)
             
             total_score += judge_result.score
             

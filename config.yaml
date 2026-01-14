@@ -1,123 +1,170 @@
 # =============================================================================
-# ENVISION RAG CONFIGURATION (PLACEHOLDER)
+# ENVISION RAG CONFIGURATION (v2.0)
 # =============================================================================
+# This file serves as the Single Source of Truth for the application.
+# It defines paths, model behaviors, prompts, and system parameters.
+# Only edit this file to change the system's behavior without touching code.
 
+# -----------------------------------------------------------------------------
+# 1. SYSTEM SETTINGS
+# -----------------------------------------------------------------------------
+# Defines the location of source code, data artifacts, and file extensions.
 system:
-  # Path to the root of the Envision project to analyze
-  project_root: "./env_scripts"
-  # Directory to store generated artifacts (indexes, graphs)
-  data_dir: "./data"
+  scripts_dir: "./scripts"           # Directory containing source Envision files
+  file_extension: "nvn"              # Script file extension (do not include dot)
+  mapping_file: "mapping.txt"        # Optional file mapping ID -> Logical Path (format: id, path)
+  data_dir: "./data"                 # Directory for generated artifacts (graph, index, logs)
 
+# -----------------------------------------------------------------------------
+# 2. AGENT CONFIGURATION
+# -----------------------------------------------------------------------------
+# Controls the behavior of the Reasoning Agent (LangGraph).
 agent:
-  # The "Brain" of the operation
-  main_model: "mistral"     # High reasoning capability
-  fast_model: "mistral"     # For quick summaries/routing
-  
-  # Chain of Thought settings
-  max_iterations: 10              # Max "Reason -> Act" loops to prevent infinite cycles
-  temperature: 0.0                # Keep it deterministic for logic
+  # Main Reasoning Model: Used for complex queries and refined answers.
+  # Options: "mistral" (Mistral Large), "gemini" (Gemini Pro), "gpt-4" (OpenAI)
+  # Ensure API keys are set in .env (e.g., MISTRAL_API_KEY).
+  main_model: "mistral"
 
+  # Fast Model: Used for lighter tasks like summarization or routing (future use).
+  fast_model: "mistral"
+
+  # Max Iterations: Prevents infinite loops. The agent must answer within X steps.
+  max_iterations: 10
+
+  # Temperature: 0.0 = Deterministic/Factual. Higher = Creative.
+  # For code analysis, keep close to 0.0 to avoid invalid citations.
+  temperature: 0.0
+
+# -----------------------------------------------------------------------------
+# 3. GRAPH INDEX SETTINGS (NetworkX)
+# -----------------------------------------------------------------------------
+# Parameters for building the Structural Dependency Graph (Imports/Reads/Writes).
 graph:
-  # Static Analysis settings
-  include_patterns: ["**/*.nvn"]
-  exclude_patterns: ["**/Old/**/*"]
-  
-  # Graph storage
-  store_path: "${system.data_dir}/dependency_graph.json"
+  include_patterns: ["**/*.nvn"]     # Glob patterns to include in the graph scan
+  exclude_patterns: ["**/Old/**/*"]  # Glob patterns to exclude (e.g. legacy/backup code)
 
+# -----------------------------------------------------------------------------
+# 4. VECTOR INDEX SETTINGS (FAISS + Embeddings)
+# -----------------------------------------------------------------------------
+# Parameters for semantic code search.
 index:
-  # Vector Search settings
-  chunk_size: 512
-  overlap: 50
-  store_path: "${system.data_dir}/vector_store"
+  store_path: "data/vector_store"    # Directory where FAISS index and metadata are saved
+  chunk_size: 512                    # Max tokens per code chunk (impacts context size)
+  overlap: 50                        # Overlap tokens to preserve context between chunks
+  
+  # Embedding Model: Maps code text to vector space.
+  # Default: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+  # This model supports multi-language (good for Fr/En comments) and code.
+  embedding_model: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
-workflow:
-  # Hybrid Search Weights
-  use_graph_first: true           # Favor deterministic graph lookups over vector search
-
+# -----------------------------------------------------------------------------
+# 5. BENCHMARK SETTINGS
+# -----------------------------------------------------------------------------
+# Configuration for the 'uv run benchmark' tool to evaluate agent quality.
 benchmark:
-  # LLM-as-Judge settings
-  judge_model: "mistral"          # Model for semantic evaluation
+  # Judge Model: LLM used to evaluate the correctness of the agent's answer.
+  # Should be as smart or smarter than the agent model.
+  judge_model: "mistral"
+
+  # Questions File: JSON file containing ground truth Q&A pairs.
   questions_file: "questions.json"
-  default_n: 5                    # Default number of questions to test
 
+  # Default N: Number of questions to run if not specified.
+  default_n: 5
+
+# -----------------------------------------------------------------------------
+# 6. LOGGING SETTINGS
+# -----------------------------------------------------------------------------
 logging:
-  # Session logging for replay
-  enabled: true
-  log_dir: "data/logs"
-  max_logs_per_type: 50           # Keep last N logs per type
+  enabled: true                      # Global toggle for logging
+  log_dir: "data/logs"               # Directory for JSON logs
+  max_logs_per_type: 50              # Rotation limit: keep only last X logs per type
 
-# =============================================================================
-# LEGACY SECTIONS (Required by ConfigManager)
-# =============================================================================
-paths:
-  data_dir: "data"
-  input_dirs: ["env_scripts"]
-  pickle_extension: ".pkl" 
-  index_extension: ".index"
+# -----------------------------------------------------------------------------
+# 7. PROMPTS
+# -----------------------------------------------------------------------------
+# Externalized prompts for flexible engineering without code changes.
+prompts:
+  # Agent System Prompt: Defines the agent's persona and core capabilities.
+  agent_system: |
+    You are an expert software architect analyzing a Supply Chain Optimization Codebase written in Envision DSL (Lokad).
+    You have access to a Structural Graph (Imports/Reads/Writes) and a Semantic Code Index (Vector Search).
 
-parser:
-  type: "envision"
-  supported_extensions: [".nvn"]
-  multiline_patterns: true
-  case_sensitive: false
-  section_delimiter:
-    min_chars: 20
-    valid_chars: ["~", "=", "-"]
-    pattern_prefix: "///"
+    CONTEXT:
+    - The codebase is organized directly in folders (e.g. `/3. Inspectors/`).
+    - Scripts are identified by "Logical Paths" (e.g. `/1. utilities/foo`).
+    - Filenames (e.g. `12345.nvn`) are internal IDs. Prefer Logical Paths when using Graph Tools.
+    - Supply Chain Concepts: Stock, Forecast, Ordering, Dispatch.
+    - **PRIORITY RULE**: When asked "Where to configure X?", prefer the location where the **Business Logic** is defined (e.g. `match` statements, formulas) over the location where the data is loaded (e.g. `Manual Inputs`, `read`). The *Why* and *How* (Logic) is more important than the *What* (Data).
 
-chunker:
-  type: "semantic"
-  use_summary_embeddings: true
-  summary_model: "mistral"
-  summary_prompt: "Summarize..."
-  max_chunk_tokens: 512
-  overlap_lines: 2
-  preserve_boundaries: true
-  strategies:
-    group_by_section: true
-    group_related_assignments: true
-    keep_read_statements_separate: true
-    include_context_comments: true
-  block_priorities:
-    comment_block: 1
-    read_statement: 2
-    table_definition: 3
-    assignment: 4
-    show_statement: 5
-  chars_per_token: 4
+  # Tool Descriptions: Injected into the prompt so the agent knows how to use them.
+  tools_description: |
+    - scan_references(query): Finds relationships. Input format: "keyword path_pattern" 
+        * keyword: "read", "write", "import" (or "any").
+        * path_pattern: (Optional) Segment of the file path. Default "*".
+        * Example: `scan_references("import")` lists all modules used.
+        * Example: `scan_references("read /Clean/Items.ion")` finds who reads Items.
+        * Usage: Use to find dependencies, usages, and lineage.
+    - describe_impact(script_path): Traces impact. Input: "path/to/script"
+        * Returns: Files written by this script AND who reads those files.
+        * Usage: Use for impact analysis ("If I change X, what breaks?").
+    - grep_code(pattern): EXACT REGEX search. Input: "regex"
+        * Usage: Finding variable definitions (`Var = ...`), specific function names, or hardcoded strings.
+    - read_code(file_path, start_line, end_line): Reads file content.
+        * Usage: Inspecting logic after finding a file/location. Mandatory verification step.
+    - search_code(query): Semantic Vector Search. Input: "natural language query"
+        * Usage: Conceptual search ("how is stock calculated", "logic for forecasting").
 
-embedder:
-  default_type: "sentence_transformer"
-  text_preparation:
-    chars_per_token_code: 3
-    truncation_ratio: 0.8
-    min_lines_preserve: 1
-    max_variable_names: 3
-    max_table_names: 5
-  sentence_transformer:
-    model_name: "all-MiniLM-L6-v2"
-    device: "cpu"
-    trust_remote_code: false
-    normalize_embeddings: true
-    batch_size: 32
-    max_seq_length: 512
-    show_progress_bar: true
+  # Agent Instructions: Specific behavior guidelines and strategies.
+  agent_instructions: |
+    INSTRUCTIONS:
+    1. **STRATEGY**:
+       - Structural Question? (Dependencies, Impact, "Who reads X?") -> Use `scan_references`.
+       - Logic/Concept Question? ("How to calc X?") -> Use `search_code` then `read_code`.
+       - Specific Variable? -> Use `grep_code`.
+    2. **PRECISION-FIRST**:
+       - If user provides a specific path (e.g. `/Clean/Items.ion`), use it EXACTLY in `scan_references`.
+       - Do not start with broad wildcard searches if you have a specific target.
+    3. **VERIFICATION**:
+       - NEVER guess code content. If you find a relevant file, `read_code` it to confirm.
+       - If `search_code` returns snippets, `read_code` the surrounding context if needed.
+    4. **REPORTING**:
+       - If results are empty, say so. Do not hallucinate.
+       - Cite your sources (File paths).
 
-retriever:
-  type: "faiss"
-  files:
-    chunks_filename: "chunks"
-    index_filename: "faiss"
-    metadata_filename: "metadata"
-  faiss:
-    index_path: "./data/faiss_index"
-    index_type: "IndexFlatIP"
-    top_k: 10
-    search_threshold: 0.7
-    use_gpu: false
-    nprobe: 10
-    nlist: 100
-    hnsw_ef_search: 64
-    hnsw_m: 16
-    hnsw_ef_construction: 200
+  # Interactive Mode Instruction: Injected only when running in interactive mode.
+  interactive_instruction: |
+    MODE: Interactive. If the question is ambiguous or unclear, you may ask the user for clarification before proceeding. Be concise in your clarification requests.
+
+  # Chunk Summary Prompt: Used during indexing to generate semantic summaries of code blocks.
+  chunk_summary: |
+    Summarize this Envision DSL code block concisely for semantic search. Focus on: what data it reads/writes, what calculations it performs, key variable names.
+
+  # LLM-as-Judge Evaluation Prompt: Used by the benchmark runner.
+  judge_evaluation: |
+    You are a benchmark evaluator for a RAG system analyzing Envision DSL code.
+
+    TASK: Evaluate if the Agent's Answer is semantically correct.
+
+    QUESTION: {question}
+
+    EXPECTED ANSWER(S):
+    {expected}
+
+    ADDITIONAL CONTEXT (Appendix):
+    {appendix}
+
+    AGENT'S ANSWER:
+    {answer}
+
+    ---
+
+    EVALUATION CRITERIA:
+    1. Does the answer address the question correctly?
+    2. Is the key information from the expected answer present (even if worded differently)?
+    3. Are there any critical errors or hallucinations?
+
+    OUTPUT FORMAT (JSON only):
+    {{"score": <0.0-1.0>, "correct": <true/false>, "reasoning": "<brief explanation>"}}
+
+    Respond with ONLY the JSON object, no other text.

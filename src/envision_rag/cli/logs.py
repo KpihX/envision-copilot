@@ -4,11 +4,13 @@ Log Viewer CLI.
 Replays saved session logs with original Rich styling.
 
 Usage:
-    uv run envision-logs --type main --nth 1       # View last main.py run
-    uv run envision-logs --type benchmark --nth 2  # View 2nd to last benchmark
+    uv run logs -t main -n 1           # View last main.py run
+    uv run logs -t benchmark -n 2      # View 2nd to last benchmark
+    uv run logs -t main --clean 7      # Delete logs older than 7 days
 """
 import argparse
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from rich.console import Console
@@ -20,23 +22,18 @@ from rich.table import Table
 from envision_rag.logging.session_logger import SessionLogger, SessionLog
 
 
-def display_session(session: SessionLog, console: Console):
+console = Console()
+
+
+def display_session(session: SessionLog):
     """Display a session log with Rich styling."""
     
     # Header
-    console.print("\n" + "=" * 60)
-    console.print(f"[bold cyan]📜 Session Log: {session.session_id}[/bold cyan]")
-    console.print(f"   Type: {session.log_type}")
-    console.print(f"   Started: {session.started_at}")
-    console.print(f"   Ended: {session.ended_at or 'N/A'}")
-    
-    # Metadata
-    if session.metadata:
-        console.print(f"\n[bold]Metadata:[/bold]")
-        for k, v in session.metadata.items():
-            console.print(f"   {k}: {v}")
-    
-    console.print("\n" + "=" * 60)
+    console.print(Panel.fit(
+        f"[bold cyan]📜 Session: {session.session_id}[/bold cyan]\n"
+        f"[dim]Type: {session.log_type} | {session.started_at}[/dim]",
+        border_style="cyan"
+    ))
     
     # Events
     for event in session.events:
@@ -76,27 +73,45 @@ def display_session(session: SessionLog, console: Console):
         else:
             console.print(f"[bold]{title}[/bold]: {content}")
     
-    # Summary
-    if session.summary:
-        console.print("\n" + "=" * 60)
-        console.print("[bold]📊 Summary:[/bold]")
-        summary_table = Table(show_header=False, box=None)
-        for k, v in session.summary.items():
-            summary_table.add_row(str(k), str(v))
-        console.print(summary_table)
+    # No Summary section - Appendix is the last thing displayed
+
+
+def clean_old_logs(log_type: str, days: int, log_dir: str) -> int:
+    """Delete logs older than N days."""
+    logs_path = Path(log_dir) / log_type
+    if not logs_path.exists():
+        return 0
     
-    console.print("\n" + "=" * 60)
+    cutoff = datetime.now() - timedelta(days=days)
+    deleted = 0
+    
+    for log_file in logs_path.glob("*.json"):
+        # Parse date from filename: YYYY-MM-DD_HH-MM-SS_xxx.json
+        try:
+            parts = log_file.stem.split("_")
+            date_str = parts[0]  # YYYY-MM-DD
+            log_date = datetime.strptime(date_str, "%Y-%m-%d")
+            
+            if log_date < cutoff:
+                log_file.unlink()
+                deleted += 1
+        except (ValueError, IndexError):
+            continue
+    
+    return deleted
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="View saved session logs with Rich styling",
+        prog="logs",
+        description="View and manage saved session logs",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    uv run envision-logs -t main -n 1       # Last main.py run
-    uv run envision-logs -t benchmark -n 2  # 2nd to last benchmark
-    uv run envision-logs --list main        # List all main logs
+  uv run logs -t main -n 1           View last main query
+  uv run logs -t benchmark -n 2      View 2nd to last benchmark
+  uv run logs -t main --list         List all main logs
+  uv run logs -t benchmark --clean 7 Delete logs older than 7 days
         """
     )
     parser.add_argument(
@@ -104,40 +119,55 @@ Examples:
         type=str,
         choices=["main", "benchmark"],
         required=True,
-        help="Log type to view"
+        help="Log type to view/manage"
     )
     parser.add_argument(
         "-n", "--nth",
         type=int,
         default=1,
-        help="Which log to view: 1=most recent, 2=second most recent, etc."
+        help="Which log to view: 1=most recent, 2=second most recent"
     )
     parser.add_argument(
-        "--list",
+        "-l", "--list",
         action="store_true",
-        help="List available logs instead of viewing one"
+        help="List available logs"
     )
     parser.add_argument(
-        "--log-dir",
+        "-c", "--clean",
+        type=int,
+        metavar="DAYS",
+        help="Delete logs older than N days"
+    )
+    parser.add_argument(
+        "-d", "--log-dir",
         type=str,
         default="data/logs",
         help="Base directory for logs"
     )
     
     args = parser.parse_args()
-    console = Console()
     
-    if args.list:
+    if args.clean:
+        # Cleanup mode
+        deleted = clean_old_logs(args.type, args.clean, args.log_dir)
+        console.print(f"🗑️ Deleted [yellow]{deleted}[/yellow] {args.type} logs older than {args.clean} days")
+        
+    elif args.list:
         # List mode
         logs = SessionLogger.list_logs(args.type, args.log_dir)
         if not logs:
             console.print(f"[yellow]No logs found for type '{args.type}'[/yellow]")
             sys.exit(1)
         
-        console.print(f"\n[bold]📂 Available {args.type} logs:[/bold]")
-        for i, log in enumerate(logs, 1):
-            console.print(f"   {i}. {log.name}")
-        console.print(f"\nUse: envision-logs -t {args.type} -n <number>")
+        console.print(Panel.fit(
+            f"[bold]📂 {args.type.title()} Logs ({len(logs)} total)[/bold]",
+            border_style="blue"
+        ))
+        for i, log in enumerate(logs[:10], 1):  # Show last 10
+            console.print(f"  {i}. {log.name}")
+        if len(logs) > 10:
+            console.print(f"  [dim]... and {len(logs) - 10} more[/dim]")
+        console.print(f"\n[dim]Use: uv run logs -t {args.type} -n <number>[/dim]")
         
     else:
         # View mode
@@ -149,7 +179,7 @@ Examples:
                 console.print(f"[yellow]Available logs: {len(logs)}[/yellow]")
             sys.exit(1)
         
-        display_session(session, console)
+        display_session(session)
 
 
 if __name__ == "__main__":

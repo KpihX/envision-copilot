@@ -36,14 +36,15 @@ class BenchmarkJudge:
     For non-deterministic: semantic evaluation via LLM
     """
     
-    def __init__(self, judge_model: str = "mistral"):
+    def __init__(self, config: dict):
         """
         Initialize the judge.
         
         Args:
-            judge_model: Model to use for semantic evaluation
+            config: Full configuration dictionary
         """
-        self.judge_model = judge_model
+        self.config = config
+        self.judge_model = config.get("benchmark", {}).get("judge_model", "mistral")
         self.llm = None
     
     def initialize(self):
@@ -189,33 +190,20 @@ class BenchmarkJudge:
         expected_str = "\n".join([f"- {e}" for e in expected])
         appendix_str = "\n".join([f"- {a}" for a in appendix]) if appendix else "None"
         
-        prompt = f"""You are a benchmark evaluator for a RAG system analyzing Envision DSL code.
-
-TASK: Evaluate if the Agent's Answer is semantically correct.
-
-QUESTION: {q_text}
-
-EXPECTED ANSWER(S):
-{expected_str}
-
-ADDITIONAL CONTEXT (Appendix):
-{appendix_str}
-
-AGENT'S ANSWER:
-{got}
-
----
-
-EVALUATION CRITERIA:
-1. Does the answer address the question correctly?
-2. Is the key information from the expected answer present (even if worded differently)?
-3. Are there any critical errors or hallucinations?
-
-OUTPUT FORMAT (JSON only):
-{{"score": <0.0-1.0>, "correct": <true/false>, "reasoning": "<brief explanation>"}}
-
-Respond with ONLY the JSON object, no other text.
-"""
+        prompt_template = self.config.get('prompts', {}).get('judge_evaluation', """
+        TASK: Evaluate answer correctness.
+        QUESTION: {question}
+        EXPECTED: {expected}
+        ANSWER: {answer}
+        Respond with JSON: {{"score": float, "correct": bool, "reasoning": str}}
+        """)
+        
+        prompt = prompt_template.format(
+            question=q_text,
+            expected=expected_str,
+            appendix=appendix_str,
+            answer=got
+        )
         
         try:
             response = self.llm.generate_response(prompt)

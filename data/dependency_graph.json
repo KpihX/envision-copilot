@@ -6,7 +6,7 @@
     {
       "id": "/4. Optimization workflow/00 Home",
       "type": "script",
-      "path": "env_scripts/77929.nvn",
+      "path": "scripts/77929.nvn",
       "metadata": {
         "filename": "77929.nvn"
       }
@@ -20,7 +20,7 @@
     {
       "id": "/3. Inspectors/2 - Sales Analysis",
       "type": "script",
-      "path": "env_scripts/68010.nvn",
+      "path": "scripts/68010.nvn",
       "metadata": {
         "filename": "68010.nvn"
       }
@@ -60,7 +60,7 @@
     {
       "id": "/3. Inspectors/4 - Stores Analysis",
       "type": "script",
-      "path": "env_scripts/68012.nvn",
+      "path": "scripts/68012.nvn",
       "metadata": {
         "filename": "68012.nvn"
       }
@@ -68,7 +68,7 @@
     {
       "id": "/5. Long Term Planning Module/Category Menu",
       "type": "script",
-      "path": "env_scripts/82466.nvn",
+      "path": "scripts/82466.nvn",
       "metadata": {
         "filename": "82466.nvn"
       }
@@ -82,7 +82,7 @@
     {
       "id": "/1. utilities/2. preprocess/[ 1 ] - Technical PreProcessing",
       "type": "script",
-      "path": "env_scripts/68000.nvn",
+      "path": "scripts/68000.nvn",
       "metadata": {
         "filename": "68000.nvn"
       }
@@ -150,7 +150,7 @@
     {
       "id": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
       "type": "script",
-      "path": "env_scripts/68001.nvn",
+      "path": "scripts/68001.nvn",
       "metadata": {
         "filename": "68001.nvn"
       }
@@ -254,7 +254,7 @@
     {
       "id": "/5. Long Term Planning Module/Archive/General Vision V1",
       "type": "script",
-      "path": "env_scripts/82169.nvn",
+      "path": "scripts/82169.nvn",
       "metadata": {
         "filename": "82169.nvn"
       }
@@ -314,7 +314,7 @@
     {
       "id": "/4. Optimization workflow/06 Purchasing results",
       "type": "script",
-      "path": "env_scripts/68022.nvn",
+      "path": "scripts/68022.nvn",
       "metadata": {
         "filename": "68022.nvn"
       }
@@ -390,7 +390,7 @@
     {
       "id": "/4. Optimization workflow/FR/00 Menu General",
       "type": "script",
-      "path": "env_scripts/87829.nvn",
+      "path": "scripts/87829.nvn",
       "metadata": {
         "filename": "87829.nvn"
       }
@@ -398,7 +398,7 @@
     {
       "id": "/4. Optimization workflow/09.Simulation ROP and EOQ Dispatch",
       "type": "script",
-      "path": "env_scripts/75853.nvn",
+      "path": "scripts/75853.nvn",
       "metadata": {
         "filename": "75853.nvn"
       }
@@ -438,7 +438,7 @@
     {
       "id": "/4. Optimization workflow/00 Home2",
       "type": "script",
-      "path": "env_scripts/72915.nvn",
+      "path": "scripts/72915.nvn",
       "metadata": {
         "filename": "72915.nvn"
       }
@@ -446,7 +446,7 @@
     {
       "id": "/2. Data sanity/1 - Data Integrity Check",
       "type": "script",
-      "path": "env_scripts/68004.nvn",
+      "path": "scripts/68004.nvn",
       "metadata": {
         "filename": "68004.nvn"
       }
@@ -468,7 +468,7 @@
     {
       "id": "/4. Optimization workflow/05. Standard Purchase Suggestions",
       "type": "script",
-      "path": "env_scripts/68021.nvn",
+      "path": "scripts/68021.nvn",
       "metadata": {
         "filename": "68021.nvn"
       }
@@ -516,7 +516,7 @@
     {
       "id": "/2. Data sanity/3 - High Level Data Health",
       "type": "script",
-      "path": "env_scripts/68006.nvn",
+      "path": "scripts/68006.nvn",
       "metadata": {
         "filename": "68006.nvn"
       }
@@ -546,7 +546,7 @@
     {
       "id": "/6. Rule Based Pricing/Pricing Rules",
       "type": "script",
-      "path": "env_scripts/83121.nvn",
+      "path": "scripts/83121.nvn",
       "metadata": {
         "filename": "83121.nvn"
       }
@@ -604,7 +604,7 @@
     {
       "id": "/7. Documentation/4 Production",
       "type": "script",
-      "path": "env_scripts/68035.nvn",
+      "path": "scripts/68035.nvn",
       "metadata": {
         "filename": "68035.nvn"
       }
@@ -612,7 +612,7 @@
     {
       "id": "/5. Long Term Planning Module/Long Term Planning Menu",
       "type": "script",
-      "path": "env_scripts/82319.nvn",
+      "path": "scripts/82319.nvn",
       "metadata": {
         "filename": "82319.nvn"
       }
@@ -620,7 +620,7 @@
     {
       "id": "/3. Inspectors/5 - Supplier Inspector",
       "type": "script",
-      "path": "env_scripts/68013.nvn",
+      "path": "scripts/68013.nvn",
       "metadata": {
         "filename": "68013.nvn"
       }
@@ -648,7 +648,7 @@
     {
       "id": "/7. Documentation/1 Project",
       "type": "script",
-      "path": "env_scripts/68031.nvn",
+      "path": "scripts/68031.nvn",
       "metadata": {
         "filename": "68031.nvn"
       }
@@ -662,7 +662,7 @@
     {
       "id": "/8. Old/PurchaseOptimization",
       "type": "script",
-      "path": "env_scripts/87608.nvn",
+      "path": "scripts/87608.nvn",
       "metadata": {
         "filename": "87608.nvn"
       }
@@ -686,7 +686,7 @@
     {
       "id": "/4. Optimization workflow/07 Standard Dispatch Suggestion",
       "type": "script",
-      "path": "env_scripts/68023.nvn",
+      "path": "scripts/68023.nvn",
       "metadata": {
         "filename": "68023.nvn"
       }
@@ -718,7 +718,7 @@
     {
       "id": "/3. Inspectors/1 - Item Inspector",
       "type": "script",
-      "path": "env_scripts/68009.nvn",
+      "path": "scripts/68009.nvn",
       "metadata": {
         "filename": "68009.nvn"
       }
@@ -756,7 +756,7 @@
     {
       "id": "/4. Optimization workflow/05.b. Long Term Purchase Suggestions",
       "type": "script",
-      "path": "env_scripts/76705.nvn",
+      "path": "scripts/76705.nvn",
       "metadata": {
         "filename": "76705.nvn"
       }
@@ -828,7 +828,7 @@
     {
       "id": "/1. utilities/1. populating dataset/02 - Automatic Stock and PO History Creation",
       "type": "script",
-      "path": "env_scripts/67983.nvn",
+      "path": "scripts/67983.nvn",
       "metadata": {
         "filename": "67983.nvn"
       }
@@ -876,7 +876,7 @@
     {
       "id": "/5. Long Term Planning Module/Final Forecast Plan",
       "type": "script",
-      "path": "env_scripts/82317.nvn",
+      "path": "scripts/82317.nvn",
       "metadata": {
         "filename": "82317.nvn"
       }
@@ -948,7 +948,7 @@
     {
       "id": "/1. utilities/1. populating dataset/03 - Manual Inputs",
       "type": "script",
-      "path": "env_scripts/67984.nvn",
+      "path": "scripts/67984.nvn",
       "metadata": {
         "filename": "67984.nvn"
       }
@@ -972,7 +972,7 @@
     {
       "id": "/7. Documentation/3 Forecasts & Optimization",
       "type": "script",
-      "path": "env_scripts/68033.nvn",
+      "path": "scripts/68033.nvn",
       "metadata": {
         "filename": "68033.nvn"
       }
@@ -980,7 +980,7 @@
     {
       "id": "/4. Optimization workflow/03.b. Forecasting",
       "type": "script",
-      "path": "env_scripts/68019.nvn",
+      "path": "scripts/68019.nvn",
       "metadata": {
         "filename": "68019.nvn"
       }
@@ -1002,7 +1002,7 @@
     {
       "id": "/3. Inspectors/6 Compare to Min-Max strategy",
       "type": "script",
-      "path": "env_scripts/68014.nvn",
+      "path": "scripts/68014.nvn",
       "metadata": {
         "filename": "68014.nvn"
       }
@@ -1026,7 +1026,7 @@
     {
       "id": "/4. Optimization workflow/04 Economic Parameters",
       "type": "script",
-      "path": "env_scripts/68020.nvn",
+      "path": "scripts/68020.nvn",
       "metadata": {
         "filename": "68020.nvn"
       }
@@ -1050,7 +1050,7 @@
     {
       "id": "/4. Optimization workflow/French/00 Home",
       "type": "script",
-      "path": "env_scripts/78068.nvn",
+      "path": "scripts/78068.nvn",
       "metadata": {
         "filename": "78068.nvn"
       }
@@ -1058,7 +1058,7 @@
     {
       "id": "/7. Documentation/0 General Organization",
       "type": "script",
-      "path": "env_scripts/68030.nvn",
+      "path": "scripts/68030.nvn",
       "metadata": {
         "filename": "68030.nvn"
       }
@@ -1072,7 +1072,7 @@
     {
       "id": "/4. Optimization workflow/10 Audit Tools",
       "type": "script",
-      "path": "env_scripts/68026.nvn",
+      "path": "scripts/68026.nvn",
       "metadata": {
         "filename": "68026.nvn"
       }
@@ -1080,7 +1080,7 @@
     {
       "id": "/3. Inspectors/7 - Global Business Cockpit",
       "type": "script",
-      "path": "env_scripts/79365.nvn",
+      "path": "scripts/79365.nvn",
       "metadata": {
         "filename": "79365.nvn"
       }
@@ -1096,7 +1096,7 @@
     {
       "id": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning",
       "type": "script",
-      "path": "env_scripts/82166.nvn",
+      "path": "scripts/82166.nvn",
       "metadata": {
         "filename": "82166.nvn"
       }
@@ -1144,7 +1144,7 @@
     {
       "id": "/4. Optimization workflow/01 Inventory Optimization Overview",
       "type": "script",
-      "path": "env_scripts/68017.nvn",
+      "path": "scripts/68017.nvn",
       "metadata": {
         "filename": "68017.nvn"
       }
@@ -1168,7 +1168,7 @@
     {
       "id": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)",
       "type": "script",
-      "path": "env_scripts/79367.nvn",
+      "path": "scripts/79367.nvn",
       "metadata": {
         "filename": "79367.nvn"
       }
@@ -1200,7 +1200,7 @@
     {
       "id": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
       "type": "script",
-      "path": "env_scripts/80985.nvn",
+      "path": "scripts/80985.nvn",
       "metadata": {
         "filename": "80985.nvn"
       }
@@ -1232,7 +1232,7 @@
     {
       "id": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
       "type": "script",
-      "path": "env_scripts/77988.nvn",
+      "path": "scripts/77988.nvn",
       "metadata": {
         "filename": "77988.nvn"
       }
@@ -1256,7 +1256,7 @@
     {
       "id": "/4. Optimization workflow/FR/05. Suggestions d'achat",
       "type": "script",
-      "path": "env_scripts/87830.nvn",
+      "path": "scripts/87830.nvn",
       "metadata": {
         "filename": "87830.nvn"
       }
@@ -1280,7 +1280,7 @@
     {
       "id": "/8. Old/00 Home",
       "type": "script",
-      "path": "env_scripts/68016.nvn",
+      "path": "scripts/68016.nvn",
       "metadata": {
         "filename": "68016.nvn"
       }
@@ -1288,7 +1288,7 @@
     {
       "id": "/3. Inspectors/3 - Stock Inspector",
       "type": "script",
-      "path": "env_scripts/68011.nvn",
+      "path": "scripts/68011.nvn",
       "metadata": {
         "filename": "68011.nvn"
       }
@@ -1310,7 +1310,7 @@
     {
       "id": "/4. Optimization workflow/French/03 Forecasting",
       "type": "script",
-      "path": "env_scripts/78069.nvn",
+      "path": "scripts/78069.nvn",
       "metadata": {
         "filename": "78069.nvn"
       }
@@ -1332,7 +1332,7 @@
     {
       "id": "/5. Long Term Planning Module/High Level Forecast Cockpit",
       "type": "script",
-      "path": "env_scripts/82199.nvn",
+      "path": "scripts/82199.nvn",
       "metadata": {
         "filename": "82199.nvn"
       }
@@ -1380,7 +1380,7 @@
     {
       "id": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
       "type": "script",
-      "path": "env_scripts/67982.nvn",
+      "path": "scripts/67982.nvn",
       "metadata": {
         "filename": "67982.nvn"
       }
@@ -1450,7 +1450,7 @@
     {
       "id": "/4. Optimization workflow/French/07 Recommandations de Dispatch",
       "type": "script",
-      "path": "env_scripts/78018.nvn",
+      "path": "scripts/78018.nvn",
       "metadata": {
         "filename": "78018.nvn"
       }
@@ -1482,7 +1482,7 @@
     {
       "id": "/7. Documentation/Fill Rate Example",
       "type": "script",
-      "path": "env_scripts/68036.nvn",
+      "path": "scripts/68036.nvn",
       "metadata": {
         "filename": "68036.nvn"
       }
@@ -1502,7 +1502,7 @@
     {
       "id": "/7. Documentation/2 Data phase",
       "type": "script",
-      "path": "env_scripts/68032.nvn",
+      "path": "scripts/68032.nvn",
       "metadata": {
         "filename": "68032.nvn"
       }
@@ -1510,7 +1510,7 @@
     {
       "id": "/4. Optimization workflow/08. Dispatch ROP definition",
       "type": "script",
-      "path": "env_scripts/75854.nvn",
+      "path": "scripts/75854.nvn",
       "metadata": {
         "filename": "75854.nvn"
       }
@@ -1534,7 +1534,7 @@
     {
       "id": "/5. Long Term Planning Module/Category Vision",
       "type": "script",
-      "path": "env_scripts/82299.nvn",
+      "path": "scripts/82299.nvn",
       "metadata": {
         "filename": "82299.nvn"
       }
@@ -1588,7 +1588,7 @@
     {
       "id": "/4. Optimization workflow/03 Forecast Menu",
       "type": "script",
-      "path": "env_scripts/86092.nvn",
+      "path": "scripts/86092.nvn",
       "metadata": {
         "filename": "86092.nvn"
       }
@@ -1596,7 +1596,7 @@
     {
       "id": "/4. Optimization workflow/French/05.Recommandations d'Achats",
       "type": "script",
-      "path": "env_scripts/78023.nvn",
+      "path": "scripts/78023.nvn",
       "metadata": {
         "filename": "78023.nvn"
       }
@@ -1632,7 +1632,7 @@
     {
       "id": "/2. Data sanity/2 - Low Level Data Health",
       "type": "script",
-      "path": "env_scripts/68005.nvn",
+      "path": "scripts/68005.nvn",
       "metadata": {
         "filename": "68005.nvn"
       }
@@ -1640,7 +1640,7 @@
     {
       "id": "/4. Optimization workflow/02 Suppliers",
       "type": "script",
-      "path": "env_scripts/68018.nvn",
+      "path": "scripts/68018.nvn",
       "metadata": {
         "filename": "68018.nvn"
       }
@@ -1648,7 +1648,7 @@
     {
       "id": "/7. Documentation/3.1 Action Reward Example",
       "type": "script",
-      "path": "env_scripts/68034.nvn",
+      "path": "scripts/68034.nvn",
       "metadata": {
         "filename": "68034.nvn"
       }
@@ -1744,7 +1744,7 @@
     {
       "id": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
       "type": "script",
-      "path": "env_scripts/68002.nvn",
+      "path": "scripts/68002.nvn",
       "metadata": {
         "filename": "68002.nvn"
       }

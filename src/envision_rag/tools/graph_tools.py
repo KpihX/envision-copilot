@@ -1,4 +1,4 @@
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Any
 import logging
 from envision_rag.graph.graph_types import DependencyGraph, EdgeType, NodeType
 

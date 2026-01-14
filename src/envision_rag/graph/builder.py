@@ -1,15 +1,18 @@
+"""
+Graph Builder - Parses Envision scripts and builds dependency graph.
+"""
 import re
 import logging
 from pathlib import Path
-from typing import List, Dict, Optional
-import sys
-
-# Ensure package import works
-sys.path.append(str(Path(__file__).parent.parent.parent))
+from typing import Dict
 
 from envision_rag.graph.graph_types import DependencyGraph, Node, Edge, NodeType, EdgeType
 
 logger = logging.getLogger(__name__)
+
+# Constants
+MAX_RECURSION_DEPTH = 10
+SCRIPT_EXT = "nvn"
 
 class GraphBuilder:
     """
@@ -65,7 +68,7 @@ class GraphBuilder:
         return consts
 
     def _resolve_placeholders(self, text: str, consts: Dict[str, str], depth: int = 0) -> str:
-        if depth > 10:
+        if depth > MAX_RECURSION_DEPTH:
             return text
         replaced = self.placeholder_pattern.sub(lambda match: consts.get(match.group(1), ""), text)
         if replaced == text:
@@ -90,11 +93,11 @@ class GraphBuilder:
 
     def _get_logical_path(self, filename: str) -> str:
         """Type safe helper to get logical path"""
-        return self.file_mapping.get(filename.replace('.nvn', ''), filename)
+        return self.file_mapping.get(filename.replace(f'.{SCRIPT_EXT}', ''), filename)
 
     def build(self) -> DependencyGraph:
         """Scan all .nvn files and populate the graph."""
-        files = list(self.root_dir.glob("*.nvn"))
+        files = list(self.root_dir.glob(f"*.{SCRIPT_EXT}"))
         print(f"🔍 GraphBuilder: Scanning {len(files)} files in {self.root_dir}...")
 
         for file_path in files:

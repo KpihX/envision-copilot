@@ -1,11 +1,9 @@
+"""
+LLM Agent Test Suite.
+Tests different LLM agents (GPT, Mistral, Gemini) for basic functionality.
+"""
 import os
-import sys
-from pathlib import Path
 import time
-
-# Add project root to path
-project_root = Path(__file__).parent.parent.parent
-sys.path.append(str(project_root))
 
 from envision_rag.config_manager import ConfigManager
 from envision_rag.agents.gpt_agent import GPTAgent

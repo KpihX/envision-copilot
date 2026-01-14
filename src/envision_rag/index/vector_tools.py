@@ -6,8 +6,9 @@ from sentence_transformers import SentenceTransformer, CrossEncoder
 from typing import List, Dict, Any
 
 class VectorTools:
-    def __init__(self, index_dir: str = "data/vector_store"):
+    def __init__(self, index_dir: str = "data/vector_store", model_name: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"):
         self.index_dir = Path(index_dir)
+        self.model_name = model_name
         self.index = None
         self.chunks = []
         self.model = None
@@ -26,18 +27,11 @@ class VectorTools:
             with open(meta_path, "rb") as f:
                 self.chunks = pickle.load(f)
             
-            # Load Bi-Encoder for retrieval (Fast) - Logic: Multilingual for Fr <-> En match
-            self.model = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
+            # Load Bi-Encoder for retrieval
+            self.model = SentenceTransformer(self.model_name)
             
             # Load Cross-Encoder for Reranking (Accurate)
-            # This model is small but significantly improves precision
-            # DISABLED TEMPORARILY: ms-marco is English-Only and kills French queries.
             self.reranker = None
-            # try:
-            #     self.reranker = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
-            # except Exception as e:
-            #     print(f"⚠️ Could not load Reranker: {e}. Falling back to standard retrieval.")
-            #     self.reranker = None
 
     def search_code(self, query: str, k: int = 5) -> List[str]:
         """

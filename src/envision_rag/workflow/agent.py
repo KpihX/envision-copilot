@@ -1,6 +1,6 @@
-from typing import TypedDict, List, Annotated, Dict, Any, Union
+"""Agent Workflow - ReAct-style agent with LangGraph."""
+from typing import TypedDict, List, Dict, Any
 import re
-import operator
 import pprint
 from langgraph.graph import StateGraph, END, START
 from rich.console import Console
@@ -8,9 +8,8 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.syntax import Syntax
 
-import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent.parent))
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 from envision_rag.agents.prepare_agent import prepare_agent
 from envision_rag.tools.graph_tools import GraphTools
@@ -32,18 +31,23 @@ class AgentState(TypedDict):
     plan: List[str]      # Explicit plan of action (checklist)
 
 class AgentWorkflow:
-    def __init__(self, config: Dict[str, Any], graph_tools: GraphTools, verbose: bool = False, logger = None):
+    def __init__(self, config: Dict[str, Any], graph_tools: GraphTools, 
+                 verbose: bool = False, logger = None, interactive: bool = False):
         self.config = config
         self.tools = graph_tools
-        self.search_tools = SearchTools() # Initialize SearchTools
+        self.search_tools = SearchTools()
         self.verbose = verbose
+        self.interactive = interactive  # If True, agent can ask clarifications
         self.console = Console()
-        self.logger = logger  # Optional SessionLogger for persistence
+        self.logger = logger
         # Lazy load vector tools (might require index to exist)
         try:
-            self.vector_tools = VectorTools()
-        except:
-             print("⚠️ Vector Index not found. Semantic search disabled.")
+             index_config = config.get('index', {})
+             store_path = index_config.get('store_path', 'data/vector_store')
+             model_name = index_config.get('embedding_model', 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
+             self.vector_tools = VectorTools(index_dir=store_path, model_name=model_name)
+        except Exception as e:
+             print(f"⚠️ Vector Index not found or error loading: {e}. Semantic search disabled.")
              self.vector_tools = None
 
         self.llm = prepare_agent(config.get('agent', {}).get('main_model', 'mistral'))
@@ -147,30 +151,18 @@ class AgentWorkflow:
                     facts_text += f"- {s}\n"
                     seen.add(s)
         
+        # Load prompts from config
+        prompts = self.config.get('prompts', {})
+        system_prompt = prompts.get('agent_system', "You are an expert software architect...")
+        tools_desc = prompts.get('tools_description', "")
+        instructions = prompts.get('agent_instructions', "")
+        interactive_instr = prompts.get('interactive_instruction', "") if self.interactive else ""
+        
         prompt = f"""
-You are an expert software architect analyzing a Supply Chain Optimization Codebase written in Envision DSL (Lokad).
-You have access to a Structural Graph (Imports/Reads/Writes) and a Semantic Code Index (Vector Search).
-
-CONTEXT:
-- The codebase is organized directly in folders (e.g. `/3. Inspectors/`).
-- Scripts are identified by "Logical Paths" (e.g. `/1. utilities/foo`).
-- Filenames (e.g. `12345.nvn`) are internal IDs. Prefer Logical Paths when using Graph Tools.
-- Supply Chain Concepts: Stock, Forecast, Ordering, Dispatch.
-- **PRIORITY RULE**: When asked "Where to configure X?", prefer the location where the **Business Logic** is defined (e.g. `match` statements, formulas) over the location where the data is loaded (e.g. `Manual Inputs`, `read`). The *Why* and *How* (Logic) is more important than the *What* (Data).
+{system_prompt}
 
 TOOLS AVAILABLE:
-- scan_references(query): Finds relationships. Input format: "keyword path" 
-    * keyword: "read", "write", "import" (or "any").
-    * path: (Optional) Segment of the file path. Default "*".
-    * Example: `scan_references("import")` lists all modules used.
-    * Example: `scan_references("read Items.ion")` finds who reads items.
-- grep_code(pattern): EXACT REGEX search. Essential for finding variable definitions/assignments.
-    * Example: `grep_code("ReDispatchCycle =")` finds where the variable is assigned.
-- read_code(file_path, start_line, end_line): Read specific lines of a file.
-    * Use to inspect Logic Blocks found by grep/search.
-    * Example: `read_code("/1. utilities/foo", 10, 50)`
-- describe_impact(script_path): What files does this script generate and who reads them?
-- search_code(query): Semantic search for logic/snippets. (Input: Simple string query).
+{tools_desc}
 
 QUESTION: {question}
 PLAN: {state.get('plan', [])}
@@ -178,59 +170,8 @@ PLAN: {state.get('plan', [])}
 PREVIOUS REASONING:
 {scratchpad}
 
-INSTRUCTIONS:
-1. Analyze the Question and any OBSERVED FACTS.
-2. If you have the answer, output 'Final Answer: ...'. 
-   - **CRITICAL**: Do NOT just give a dry one-line answer. 
-   - **SYNTHESIZE**: Explain *how* you arrived at the conclusion.
-   - **JUSTIFY**: Use the facts to convince the user.
-   - **REFERENCE**: Explicitly mention "Please refer to the Appendix for the full list of..." if facts were moved there.
-   - The Appendix is automatically generated, so you don't need to repeat the raw list, but you MUST contextually point to it.
-3. If you need more facts, use a Tool. Format: 'Action: tool_name("arg")'
-4. ALWAYS explain your reasoning with 'Thought: ...' before acting.
-
-5. **PRECISION-FIRST QUERY STRATEGY** (CRITICAL):
-   - **START PRECISE**: When the question mentions a specific path (e.g. `/Clean/Items.ion`), your FIRST query MUST use the EXACT path.
-     - GOOD: `scan_references("read /Clean/Items.ion")`
-     - BAD: `scan_references("read Items.ion")` ← This is too broad and will match OTHER files like `/Override/Items.ion`!
-   - **EVALUATE NOISE**: If your results contain entries that don't match the exact path asked, they are NOISE.
-     - Example: Asked about `/Clean/Items.ion` but results show `/Clean/Forecast/Periodic/FcItems.ion` → That's a different file!
-   - **REFINE IF NOISY**: If results are noisy, refine with a more specific query or filter mentally.
-   - **BROADEN ONLY IF EMPTY**: Only use partial paths if the exact path returns 0 results.
-   - **COUNT CAREFULLY**: When counting, only count results that EXACTLY match the requested path.
-
-6. **REFORMULATION STRATEGY**:
-   - If `search_code` returns references (graphs, usage) but NO DEFINITION:
-     - **DO NOT give up**.
-     - **DO NOT hallucinate**.
-     - **REFORMULATE** your query (e.g., try English keywords like "function", "def", "logic", or synonyms).
-     - Example: If "calculer stock" fails, try "stock calculation logic" or "stockEvol".
-     - **USE `read_code`**: If `grep_code` finds a `def` or function signature, ALWAYS use `read_code` to verify the logic inside before answering.
-7. **PLANNING**:
-   - At the beginning, propose a Plan: `Plan: ["Step 1", "Step 2"]`
-   - If a step fails or is insufficient, UPDATE the plan.
-   - Mention the plan status in your thought process.
-8. **STOPPING CRITERIA**:
-   - DO NOT simulate the "Observation" part. 
-   - After outputting "Action: ...", **STOP generating**. The system will provide the observation.
-
-9. **VERIFICATION & EXHAUSTIVENESS**:
-   - **BREADTH-FIRST**: When `search_code` returns multiple relevant candidates (e.g. A, B, C), you MUST acknowledge ALL of them in your Plan.
-     - BAD: "I found A, so I will check A."
-     - GOOD: "I found A (Rank 1) and B (Rank 3). Both seem relevant. I will check A *and* B."
-   - **DEPTH-FIRST**: You are FORBIDDEN from generating a Final Answer until you have verified (via `read_code`) at least the top 2-3 most promising candidates.
-     - **CRITICAL**: `search_code` results contain `File: ...` and `Context: ...`. **USE THESE PATHS DIRECTLY**.
-     - Do NOT use `grep_code` to find what you already found. 
-     - If `search_code` says "File: /1. util/foo", JUST RUN `read_code("/1. util/foo", 1, 50)`.
-     - Compare candidates: "Why is A better than B?"
-   - **REPORTING**: Your Final Answer MUST explicity mention the alternatives you explored.
-     - "I found `StockEndWeek` and `StockEvol`. I selected `StockEndWeek` because X, but `StockEvol` is also valid for Y."
-
-10. **SELF-CORRECTION**:
-   - If `grep_code` finds a definition, asking "Where is it defined?" is stupid. You just found it. Read it!
-   - If `search_code` gives you a file path, **READ IT**. Do not ask "Where is it?".
-   - If you found a function name (e.g. `StockEndWeek`), ask yourself: "Is there a more specific function mentioned in the context or query?"
-   - Use `grep_code` to search for `def` definitions of key concepts.
+{instructions}
+{interactive_instr}
 
 RESPONSE FORMAT:
 Thought: <reasoning>

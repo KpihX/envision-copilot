@@ -47,7 +47,7 @@ class Llama3Agent(LLMAgent):
     @property
     def model_name(self) -> str:
         """Return the model name"""
-        return f"Llama3-{self._model}"
+        return f"Llama3-{self.model}"
 
 if __name__ == "__main__":
     agent = Llama3Agent()

@@ -26,17 +26,6 @@ class ConfigManager:
     1. Environment variables (from .env file)
     2. YAML configuration file
     3. Default values defined in YAML
-    
-    Usage:
-        config = ConfigManager()
-        
-        # Access configuration sections
-        chunker_config = config.get_chunker_config()
-        embedder_config = config.get_embedder_config()
-        
-        # Access specific values
-        max_tokens = config.get('chunker.max_chunk_tokens')
-        api_key = config.get_api_key('gemini')
     """
     
     def __init__(self, config_file: str = "config.yaml", env_file: str = ".env"):
@@ -80,7 +69,7 @@ class ConfigManager:
     
     def _validate_config(self):
         """Validate essential configuration sections exist."""
-        required_sections = ['parser', 'chunker', 'embedder', 'retriever']
+        required_sections = ['system', 'agent', 'graph', 'index']
         missing_sections = [section for section in required_sections 
                           if section not in self.config]
         
@@ -92,17 +81,11 @@ class ConfigManager:
         Get configuration value using dot notation.
         
         Args:
-            key: Configuration key in dot notation (e.g., 'chunker.max_chunk_tokens')
+            key: Configuration key in dot notation (e.g., 'index.chunk_size')
             default: Default value if key not found
             
         Returns:
             Configuration value
-            
-        Examples:
-            >>> config.get('chunker.max_chunk_tokens')
-            512
-            >>> config.get('embedder.sentence_transformer.model_name')
-            'all-MiniLM-L6-v2'
         """
         keys = key.split('.')
         value = self.config
@@ -133,76 +116,33 @@ class ConfigManager:
         logger.warning(f"Unknown provider: {provider}")
         return None
     
-    def get_parser_config(self) -> Dict[str, Any]:
-        """Get parser configuration section."""
-        return self.config.get('parser', {})
-    
-    def get_chunker_config(self) -> Dict[str, Any]:
-        """Get chunker configuration section."""
-        return self.config.get('chunker', {})
-    
-    def get_embedder_config(self, embedder_type: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Get embedder configuration section.
-        
-        Args:
-            embedder_type: Specific embedder type or None for default
-            
-        Returns:
-            Embedder configuration
-        """
-        embedder_config = self.config.get('embedder', {})
-        
-        if embedder_type is None:
-            embedder_type = embedder_config.get('default_type', 'sentence_transformer')
-        
-        # Return both general config and specific embedder config
-        specific_config = embedder_config.get(embedder_type, {})
-        return {
-            'type': embedder_type,
-            'general': embedder_config,
-            'specific': specific_config,
-            **specific_config  # Flatten specific config for easier access
-        }
-    
-    def get_retriever_config(self) -> Dict[str, Any]:
-        """Get retriever configuration section."""
-        retriever_config = self.config.get('retriever', {})
-        
-        # Flatten FAISS-specific config to top level for compatibility
-        faiss_config = retriever_config.get('faiss', {})
-        if faiss_config:
-            retriever_config = {**retriever_config, **faiss_config}
-        
-        return retriever_config
-    
-    def get_pipeline_config(self) -> Dict[str, Any]:
-        """Get pipeline configuration section."""
-        return self.config.get('pipeline', {})
+    def get_system_config(self) -> Dict[str, Any]:
+        """Get system configuration (paths, extensions)."""
+        return self.config.get('system', {})
+
+    def get_agent_config(self) -> Dict[str, Any]:
+        """Get agent configuration."""
+        return self.config.get('agent', {})
+
+    def get_index_config(self) -> Dict[str, Any]:
+        """Get vector index configuration."""
+        return self.config.get('index', {})
+
+    def get_graph_config(self) -> Dict[str, Any]:
+        """Get graph configuration."""
+        return self.config.get('graph', {})
+
+    def get_benchmark_config(self) -> Dict[str, Any]:
+        """Get benchmark configuration."""
+        return self.config.get('benchmark', {})
     
     def get_logging_config(self) -> Dict[str, Any]:
-        """Get logging configuration section."""
+        """Get logging configuration."""
         return self.config.get('logging', {})
-    
-    def get_default_agent(self) -> str:
-        """Get default agent from configuration."""
-        return self.config.get('agent', {}).get('default_model', 'mistral')
-    
-    def get_chunk_summary_agent(self) -> str:
-        """Get agent for chunk summaries. Use benchmark_model if specified, otherwise default."""
-        return self.config.get('chunker', {}).get('summary_model', self.get_default_agent())
-    
-    def get_benchmark_agent(self) -> str:
-        """Get agent for llm as a judge. Use benchmark_model if specified, otherwise default."""
-        return self.config.get('benchmark', {}).get('benchmark_model', self.get_default_agent())
-    
-    def get_benchmark_type(self) -> str:
-        """Get benchmark type from configuration."""
-        return self.config.get('benchmark', {}).get('benchmark_type', 'cosine_similarity')
-        
+
     def __repr__(self) -> str:
         """String representation of configuration manager."""
-        return f"ConfigManager(env=dev, config_file={self.config_file})"
+        return f"ConfigManager(config_file={self.config_file})"
 
 # Global configuration instance
 _config_instance: Optional[ConfigManager] = None

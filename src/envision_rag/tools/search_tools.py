@@ -8,7 +8,7 @@ class SearchTools:
     Tools for exact pattern searching in the codebase (Grep-like).
     Handles mapping from internal IDs (68001.nvn) to Logical Paths (/1. utilities/...).
     """
-    def __init__(self, root_dir: str = "env_scripts", mapping_path: str = "mapping.txt"):
+    def __init__(self, root_dir: str = "scripts", mapping_path: str = "mapping.txt"):
         self.root_dir = Path(root_dir)
         self.mapping = {}
         self._load_mapping(mapping_path)
