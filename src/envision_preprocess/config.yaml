@@ -1,0 +1,13 @@
+parsing:
+  script_dir: "scripts"
+  script_ext: "nvn"
+  mapping_file: "src/envision_preprocess/mapping.txt"
+  recursion_limit: 10
+  
+output:
+  network_file: "data/network/network.json"
+  metadata_file: "data/network/metadata.json"
+
+filters:
+  include_patterns: ["**/*.nvn"]
+  exclude_patterns: ["**/Old/**/*"]

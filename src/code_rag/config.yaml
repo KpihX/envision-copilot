@@ -1,0 +1,12 @@
+indexing:
+  chunk_size: 512
+  overlap: 50
+  model_name: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+  
+input:
+  network_file: "data/network/network.json"
+
+output:
+  index_file: "data/vector_store/faiss.index"
+  store_dir: "data/vector_store"
+  metadata_file: "data/vector_store/metadata.json"

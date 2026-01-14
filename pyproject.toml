@@ -1,45 +1,39 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "envision-rag"
-version = "0.1.0"
-description = "Hybrid RAG system for Envision DSL codebase analysis with LLM-as-Judge benchmarking"
+version = "3.0.0"
+description = "Modular Envision DSL RAG System"
 readme = "README.md"
-authors = [
-    { name = "Ivann KAMDEM", email = "kapoivha@gmail.com" }
-]
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 dependencies = [
-    "networkx>=3.0",
     "langgraph>=0.0.10",
     "langchain>=0.1.0",
+    "langchain-mistralai>=0.1.0",
+    "langchain-google-genai>=0.0.1",
+    "langchain-groq>=0.0.1",
+    "sentence-transformers>=2.2.0",
+    "faiss-cpu>=1.7.0",
+    "networkx>=3.0",
     "rich>=13.0.0",
-    "faiss-cpu>=1.7.4",
-    "numpy",
-    "pyyaml",
-    "openai>=2.15.0",
-    "google-generativeai>=0.8.6",
-    "mistralai>=1.10.0",
-    "groq>=1.0.0",
-    "python-dotenv>=1.2.1",
-    "ollama>=0.6.1",
-    "pandas>=2.3.3",
-    "requests>=2.32.5",
-    "sentence-transformers>=5.2.0",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0.0",
+    "numpy>=1.24.0",
 ]
 
 [project.scripts]
-# Main CLI - Query the RAG system
-main = "envision_rag.main:main"
-# Build indexes (graph/vector)
-build = "envision_rag.cli.build_index:main"
-# Benchmark - Run LLM-as-Judge evaluation
-benchmark = "envision_rag.cli.benchmark:main"
-# Log Viewer - View/manage saved sessions
-logs = "envision_rag.cli.logs:main"
-# Test Scripts - Query indexes directly
-test-graph = "envision_rag.tests.test_graph:main"
-test-vector = "envision_rag.tests.test_vector:main"
+llm = "llms.main:main"
+network = "envision_preprocess.network:main"
+index = "code_rag.index:main"
+copilot = "envision_copilot.main:main"
+benchmark = "envision_benchmark.main:main"
 
-[build-system]
-requires = ["uv_build>=0.9.21,<0.10.0"]
-build-backend = "uv_build"
-
+[tool.hatch.build.targets.wheel]
+packages = ["src/llms", "src/envision_preprocess", "src/code_rag", "src/envision_copilot", "src/envision_benchmark"]
+dev-dependencies = [
+    "pytest>=7.4.0",
+    "black>=23.0.0",
+    "isort>=5.0.0",
+]

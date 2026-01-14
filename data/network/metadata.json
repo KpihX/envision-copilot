@@ -1,0 +1,20 @@
+{
+  "generated_at": "2026-01-14T13:54:40.528122",
+  "source_files": 60,
+  "node_count": 323,
+  "edge_count": 561,
+  "nodes_by_type": {
+    "script": 60,
+    "file": 88,
+    "table": 96,
+    "var": 64,
+    "function": 15
+  },
+  "edges_by_type": {
+    "imports": 55,
+    "reads": 264,
+    "defines": 177,
+    "writes": 63,
+    "export": 2
+  }
+}
