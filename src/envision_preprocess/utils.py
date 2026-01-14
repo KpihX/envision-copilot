@@ -36,6 +36,7 @@ class ConfigLoader:
                         mapping[parts[0].strip()] = parts[1].strip()
         return mapping
 
+
     @staticmethod
     def get_logical_path(filename: str, mapping: dict, extension: str = "nvn") -> str:
         base = filename.replace(f'.{extension}', '')
@@ -43,9 +44,12 @@ class ConfigLoader:
 
     @staticmethod
     def clean_path(raw_path: str) -> str:
-        import re
-        clean = re.sub(r'\\\{[^}]+\}', '', raw_path)
-        clean = clean.replace('\\', '/')
-        if not clean.startswith('/') and '/' in clean:
+        # Preserve placeholders like \{...\} to avoid phantom root nodes
+        clean = raw_path.replace('\\', '/')
+        # Collapse multiple slashes (e.g. // -> /)
+        while '//' in clean:
+            clean = clean.replace('//', '/')
+            
+        if not clean.startswith('/') and ('/' in clean or '.' in clean):
              clean = '/' + clean
         return clean

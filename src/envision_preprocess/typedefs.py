@@ -21,6 +21,7 @@ class EdgeType(str, Enum):
 class Node:
     id: str           # Unique Identifier (Logical Path or Name)
     type: NodeType
+    name: Optional[str] = None # Short name (filename or symbol name)
     path: Optional[str] = None # Physical path
     content: Optional[str] = None # Resolved content
     start_line: Optional[int] = None
@@ -44,6 +45,10 @@ class Network:
 
     def add_edge(self, edge: Edge):
         self.edges.append(edge)
+
+    def remove_edge(self, edge: Edge):
+        if edge in self.edges:
+            self.edges.remove(edge)
 
     def to_dict(self):
         return {

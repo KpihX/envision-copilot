@@ -7,7 +7,5 @@ parsing:
 output:
   network_file: "data/network/network.json"
   metadata_file: "data/network/metadata.json"
+  snippet_lines: 10
 
-filters:
-  include_patterns: ["**/*.nvn"]
-  exclude_patterns: ["**/Old/**/*"]
