@@ -21,6 +21,7 @@ Before embedding a script, we prepend a **Context Header**:
 <Actual Code Content>
 ```
 *   **Benefit**: The embedding model "sees" the connections. Searching for "Items.ion consumer" naturally retrieves this script.
+*   **Source Tracking**: Each chunk now explicitly stores the `source` (Full Logical Path) in metadata, ensuring the agent constantly knows exactly which file is being referenced.
 
 ### 2. Two-Stage Retrieval
 1.  **Recall (Dense Search)**: Fetch top 50 candidates using `sentence-transformers/all-MiniLM-L6-v2` via FAISS. High speed, broad net.

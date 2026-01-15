@@ -63,6 +63,14 @@ This implies a set of files dependent on the `Category` variable.
     *   If files exist (`Category_1.ion`): Explicit links are created.
     *   If no files found (yet): A representative **Pattern Node** (`Category_*.ion`) is created to signify the dependency.
 
+### 4. Search & Introspection (Refined API)
+The API supports advanced querying beyond simple lookups:
+*   `resolve_node_id(query)`: Resolves IDs or logical paths.
+*   `get_neighbors(id)`: Traverses incoming/outgoing processing.
+*   **`grep_nodes(pattern)`**: Regex search within node CONTENT (Scripts, Functions). 
+    *   Useful for finding local variables or patterns often missed by vector search.
+    *   Filters: `node_type`, `node_ids`.
+
 ---
 
 ## 📊 Data Model (Network Structure)

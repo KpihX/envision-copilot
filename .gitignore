@@ -12,6 +12,7 @@
 # =============================================================================
 # Virtual environment (project uses env/)
 env/
+.venv/
 
 # Python bytecode
 __pycache__/
@@ -58,3 +59,11 @@ saved_models/
 
 # Logs
 *.log
+
+# Cleanup & Temporary files
+old/
+old2/
+data/
+/useless
+GEMINI.md
+uv.lock
