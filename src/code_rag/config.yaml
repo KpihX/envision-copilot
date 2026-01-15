@@ -1,12 +1,30 @@
 indexing:
+  model_name: "sentence-transformers/all-MiniLM-L6-v2"
   chunk_size: 512
   overlap: 50
-  model_name: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-  
+  block_keywords: 
+    - "read"
+    - "write"
+    - "export"
+    - "def"
+    - "process"
+    - "store"
+    - "import"
+    - "show"
+    - "table"
+    - "where"
+    - "keep"
+    - "when"
+
+retrieval:
+  reranker_name: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+  top_k_recall: 50
+  top_k_final: 5
+  use_reranker: true
+
 input:
   network_file: "data/network/network.json"
 
 output:
   index_file: "data/vector_store/faiss.index"
-  store_dir: "data/vector_store"
   metadata_file: "data/vector_store/metadata.json"

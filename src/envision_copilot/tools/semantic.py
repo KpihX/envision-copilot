@@ -1,21 +1,57 @@
-from code_rag.retriever import Retriever
-from ..utils import ConfigLoader
+from typing import Dict, Any, Union, List
+import logging
+from code_rag.retriever import GraphRetriever
 
 class SemanticTools:
-    def __init__(self, config_path: str = "config.yaml"):
-        # We need to initialize the retriever with ITS OWN config
-        # But Copilot config points to it
-        self.config = ConfigLoader.load_config(config_path)
-        rag_config_path = self.config.get("paths", {}).get("vector_config", "src/code_rag/config.yaml")
-        
-        self.retriever = Retriever(config_path=rag_config_path)
+    """
+    Wrapper around Code RAG Retriever.
+    """
+    def __init__(self, config: Dict[str, Any] = None):
+        try:
+             self.retriever = GraphRetriever() # Load config internally
+        except Exception as e:
+            logging.error(f"Failed to initialize SemanticTools: {e}")
+            self.retriever = None
 
-    def search_code(self, query: str) -> str:
-        """Semantically searches the codebase."""
-        results = self.retriever.retrieve(query, k=10, rerank_top_k=3)
-        
-        output = []
-        for res in results:
-            output.append(f"--- File: {res['source_id']} ---\n{res['text']}\n")
+    def search(self, query: str, top_k: int = 5, **kwargs) -> Union[List[Dict], str]:
+        """
+        Executes semantic search with Graph-Aware chunks.
+        """
+        if not self.retriever:
+            return "Error: RAG Retriever not initialized (Run 'uv run index --build' first)."
+
+        try:
+            # Query the RAG
+            response = self.retriever.query(query, top_k=top_k)
             
-        return "\n".join(output) if output else "No results found."
+            # Extract only relevant info for the agent to save tokens
+            # We want: Source, Content Wrapper, Score
+            
+            summary = []
+            results = response.get("results", [])
+            
+            for res in results:
+                summary.append({
+                    "source_id": res.get("source_id"),
+                    "source": res.get("source"), # Add Full Path
+                    "lines": res.get("lines"),
+                    "score": res.get("score"),
+                    # Truncate content slightly if massive? 
+                    # Chunks are usually 512 tokens (~2000 chars).
+                    # Let's keep full content but maybe structure it.
+                    "content": res.get("content"),
+                    "context": res.get("context") # Graph Header
+                })
+                
+            # Enrich stats
+            stats = response.get("stats", {})
+            stats["displayed_count"] = len(summary)
+
+            return {
+                "query": query,
+                "stats": stats,
+                "results": summary
+            }
+
+        except Exception as e:
+            return f"Error during semantic search: {e}"

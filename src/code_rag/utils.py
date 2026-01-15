@@ -5,11 +5,12 @@ from typing import Dict, Any
 class ConfigLoader:
     @staticmethod
     def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
-        packages_root = Path(__file__).parent
-        path = packages_root / "config.yaml"
+        """Loads YAML config. Defaults to src/code_rag/config.yaml"""
+        package_root = Path(__file__).parent
+        path = package_root / "config.yaml"
         
         if Path(config_path).exists() and config_path != "config.yaml":
-            path = Path(config_path)
+             path = Path(config_path)
 
         if not path.exists():
             return {}

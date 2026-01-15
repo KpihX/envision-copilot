@@ -2,116 +2,146 @@ import os
 import json
 import logging
 from pathlib import Path
-from typing import List, Dict, Any
 from datetime import datetime
 
 import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
+from rich.progress import track
 
 from .utils import ConfigLoader
+from .chunker import GraphChunker
 
 logger = logging.getLogger(__name__)
 
-class Indexer:
+class GraphIndexer:
     def __init__(self, config_path: str = "config.yaml"):
         self.config = ConfigLoader.load_config(config_path)
         self.idx_config = self.config.get("indexing", {})
-        self.input_config = self.config.get("input", {})
         self.output_config = self.config.get("output", {})
+        self.input_config = self.config.get("input", {})
         
-        self.model = SentenceTransformer(self.idx_config.get("model_name", "all-MiniLM-L6-v2"))
+        model_name = self.idx_config.get("model_name", "sentence-transformers/all-MiniLM-L6-v2")
+        print(f"📦 Loading Embedding Model: {model_name}")
+        self.model = SentenceTransformer(model_name)
         
+        self.chunker = GraphChunker(
+            chunk_size=self.idx_config.get("chunk_size", 512),
+            overlap=self.idx_config.get("overlap", 50),
+            block_keywords=self.idx_config.get("block_keywords")
+        )
+
     def build(self):
         # 1. Load Network
-        net_path = Path(self.input_config["network_file"])
+        net_path = Path(self.input_config.get("network_file", "data/network/network.json"))
+        # Fix relative path if needed (though running via uv usually sets CWD root or we should use Project Root trick)
+        # Using simple Path assuming execution from root as per standard
+        
+        if not net_path.exists():
+            # Try finding it relative to project root heuristic
+            project_root = Path(__file__).parent.parent.parent
+            net_path = project_root / self.input_config.get("network_file", "data/network/network.json")
+            
         if not net_path.exists():
             print(f"❌ Network file not found at {net_path}. Run 'uv run network --build' first.")
             return
 
+        print(f"📂 Loading Graph from {net_path}...")
         with open(net_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
             
         nodes = data.get("nodes", {})
+        edges = data.get("edges", [])
         
-        # 2. Chunking (Script Content)
-        print("🔄 Chunking scripts...")
-        chunks = self._chunk_nodes(nodes)
-        print(f"📊 Generated {len(chunks)} chunks.")
+        # 2. Build Neighborhood Map (Optimization)
+        print("🔗 Building Neighborhood Map...")
+        neighborhoods = {nid: {"incoming": [], "outgoing": []} for nid in nodes}
         
-        # 3. Embedding
-        print("🧠 Generating embeddings...")
-        texts = [c["text"] for c in chunks]
-        embeddings = self.model.encode(texts, show_progress_bar=True)
+        nodes_lookup = nodes # ID -> Node
         
-        # 4. Indexing (FAISS)
-        dimension = embeddings.shape[1]
-        index = faiss.IndexFlatL2(dimension)
-        index.add(np.array(embeddings))
-        
-        # 5. Saving
-        self._save_index(index, chunks)
-        
-    def _chunk_nodes(self, nodes: Dict[str, Any]) -> List[Dict[str, Any]]:
-        chunks = []
-        chunk_size = self.idx_config.get("chunk_size", 512)
-        overlap = self.idx_config.get("overlap", 50)
-        
-        for node_id, node in nodes.items():
-            if node["type"] == "script" and node.get("content"):
-                lines = node["content"].splitlines()
-                # Simple sliding window over lines (approx tokens)
-                # Ideally use semantic chunker from old impl if possible
-                # For now, strict line chunking for simplicity & standard output
+        for edge in edges:
+            src = edge["source"]
+            tgt = edge["target"]
+            etype = edge["type"]
+            
+            # Outgoing
+            if src in neighborhoods:
+                tgt_node = nodes_lookup.get(tgt)
+                tgt_label = tgt_node.get("name") if tgt_node else tgt
+                neighborhoods[src]["outgoing"].append({
+                    "target_id": tgt,
+                    "target_label": tgt_label,
+                    "edge_type": etype
+                })
                 
-                current_chunk = []
-                current_len = 0
+            # Incoming
+            if tgt in neighborhoods:
+                src_node = nodes_lookup.get(src)
+                src_label = src_node.get("name") if src_node else src
+                neighborhoods[tgt]["incoming"].append({
+                    "source_id": src,
+                    "source_label": src_label,
+                    "edge_type": etype
+                })
                 
-                for i, line in enumerate(lines):
-                    line_len = len(line.split()) # Rough token count
-                    current_chunk.append(line)
-                    current_len += line_len
-                    
-                    if current_len >= chunk_size:
-                        text = "\n".join(current_chunk)
-                        chunks.append({
-                            "text": text,
-                            "source_id": node_id,
-                            "lines": f"{max(1, i - len(current_chunk))}-{i+1}",
-                            "type": "code_block"
-                        })
-                        # Overlap: Keep last N lines
-                        # Quick approximation: keep last 5 lines (~50 tokens)
-                        keep_lines = 5
-                        current_chunk = current_chunk[-keep_lines:]
-                        current_len = sum(len(l.split()) for l in current_chunk)
+        # 3. Generate Graph-Aware Chunks
+        print("🔄 Generating Graph-Aware Chunks...")
+        all_chunks = []
+        
+        # Iterate only scripts
+        script_nodes = [n for nid, n in nodes.items() if n["type"] == "script"]
+        
+        for node in track(script_nodes, description="Chunking..."):
+            nid = node["id"]
+            node_chunks = self.chunker.chunk_node(node, neighborhoods[nid])
+            for c in node_chunks:
+                c["source"] = node.get("path", nid)  # Add Source Path for RAG
+            all_chunks.extend(node_chunks)
+            
+        print(f"📊 Generated {len(all_chunks)} chunks from {len(script_nodes)} scripts.")
+        
+        if not all_chunks:
+            print("⚠️ No chunks generated. Exiting.")
+            return
 
-                if current_chunk:
-                    chunks.append({
-                        "text": "\n".join(current_chunk),
-                        "source_id": node_id,
-                        "lines": "tail",
-                        "type": "code_block_tail"
-                    })
-                    
-        return chunks
+        # 4. Embed
+        print("🧠 Computing Embeddings...")
+        texts = [c["text"] for c in all_chunks]
+        embeddings = self.model.encode(texts, show_progress_bar=True, batch_size=32)
+        
+        # 5. Index (FAISS)
+        dimension = embeddings.shape[1]
+        print(f"🗂️ Building FAISS Index (Dim: {dimension})...")
+        index = faiss.IndexFlatL2(dimension)
+        index.add(np.array(embeddings).astype('float32'))
+        
+        # 6. Save
+        self._save_index(index, all_chunks)
 
     def _save_index(self, index, chunks):
-        out_dir = Path(self.output_config["store_dir"])
-        out_dir.mkdir(parents=True, exist_ok=True)
+        index_file = Path(self.output_config.get("index_file", "data/vector_store/faiss.index"))
+        meta_file = Path(self.output_config.get("metadata_file", "data/vector_store/metadata.json"))
+
+        # Create parent directories if needed
+        index_file.parent.mkdir(parents=True, exist_ok=True)
+        meta_file.parent.mkdir(parents=True, exist_ok=True)
         
-        # Save FAISS
-        faiss.write_index(index, str(out_dir / "faiss.index"))
+        faiss.write_index(index, str(index_file))
         
-        # Save Metadata (Chunks + Stats)
         meta = {
             "generated_at": datetime.now().isoformat(),
-            "model": self.idx_config["model_name"],
+            "model": self.idx_config.get("model_name"),
             "count": len(chunks),
-            "chunks": chunks
+            "chunks": chunks 
         }
         
-        with open(Path(self.output_config["metadata_file"]), 'w', encoding='utf-8') as f:
+        with open(meta_file, 'w', encoding='utf-8') as f:
             json.dump(meta, f, indent=2)
             
-        print(f"✅ Index saved to {out_dir}")
+        print(f"✅ Index saved.")
+        print(f"   - Index: {index_file}")
+        print(f"   - Metadata: {meta_file}")
+
+if __name__ == "__main__":
+    indexer = GraphIndexer()
+    indexer.build()

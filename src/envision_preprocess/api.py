@@ -27,6 +27,7 @@ class EnvisionGraphAPI:
         Triggers a full rebuild of the network from source scripts.
         Returns the stats of the build.
         """
+        print("[Network] 🏗️ Building dependency graph from source...")
         builder = NetworkBuilder() # Config is loaded internally by Builder too, or pass it? Builder loads its own.
         # Ideally pass config to builder to avoid double load, but Builder init handles it.
         builder.build()
@@ -68,6 +69,18 @@ class EnvisionGraphAPI:
         if edge_type:
             return [e for e in edges if e["type"] == edge_type]
         return edges
+
+    def get_nodes(self, node_type: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Returns list of nodes, optionally filtered by type."""
+        self._load_data()
+        nodes = []
+        for nid, node in self._graph_cache.get("nodes", {}).items():
+            if node_type:
+                if node.get("type") == node_type:
+                    nodes.append(node)
+            else:
+                nodes.append(node)
+        return nodes
 
     def search_nodes(self, query: str) -> List[Dict[str, Any]]:
         """
@@ -114,6 +127,52 @@ class EnvisionGraphAPI:
                 return nid
                 
         return None
+
+    def grep_nodes(self, pattern: str, node_type: Optional[str] = None, node_ids: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        """
+        Search for a regex pattern within the CONTENT of nodes.
+        Filters:
+          - node_type: Only search nodes of this type (e.g., 'script', 'function').
+          - node_ids: Only search within this specific list of node IDs.
+        """
+        self._load_data()
+        import re
+        
+        try:
+            regex = re.compile(pattern, re.IGNORECASE)
+        except re.error as e:
+            return [{"error": f"Invalid Regex: {e}"}]
+
+        matches = []
+        
+        # Decide which nodes to iterate
+        candidates = self._graph_cache["nodes"].items()
+        
+        for nid, node in candidates:
+            # 1. Filter by ID List
+            if node_ids and nid not in node_ids:
+                continue
+                
+            # 2. Filter by Type
+            if node_type and node.get("type") != node_type:
+                continue
+                
+            # 3. Check Content
+            content = node.get("content", "")
+            if not content:
+                continue
+                
+            if regex.search(content):
+                # Found a match!
+                # Return snippet? For now just return the node info. Tool will format match lines.
+                matches.append({
+                    "id": nid,
+                    "type": node.get("type"),
+                    "path": node.get("path"),
+                    "name": node.get("name")
+                })
+                
+        return matches
 
     def get_neighbors(self, node_id: str, 
                       direction: str = "all", 

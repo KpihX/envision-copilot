@@ -1,63 +1,74 @@
-import json
-from pathlib import Path
-from typing import List, Dict, Any, Optional
-
-from ..utils import ConfigLoader
+from typing import Dict, Any, Union
+import logging
+from envision_preprocess.api import EnvisionGraphAPI
 
 class StructuralTools:
-    def __init__(self, config_path: str = "config.yaml"):
-        self.config = ConfigLoader.load_config(config_path)
-        net_path = Path(self.config.get("paths", {}).get("network_file", "data/network/network.json"))
-        
-        if not net_path.exists():
-            raise FileNotFoundError(f"Network file not found at {net_path}")
+    """
+    Wrapper around EnvisionGraphAPI to provide tool-friendly output.
+    """
+    def __init__(self, config: Dict[str, Any] = None):
+        try:
+            # Initialize with default or provided config
+            self.api = EnvisionGraphAPI()
+            # Cache check
+            if not self.api.net_path.exists():
+                logging.warning(f"Graph not found at {self.api.net_path}. Structural tools might fail.")
+        except Exception as e:
+            logging.error(f"Failed to initialize StructuralTools: {e}")
+            self.api = None
+
+    def explore(self, action: str = "stats", node_id: str = None, **kwargs) -> Union[Dict, str]:
+        """
+        Explores the graph structure.
+        """
+        if not self.api:
+            return "Error: Graph API not initialized (Run 'uv run network --build' first)."
+
+        if action == "stats":
+            return self.api.get_stats()
+
+        if action == "nodes":
+            node_type = kwargs.get("type")
+            nodes = self.api.get_nodes(node_type=node_type)
+            # Simplify output: ID, Name, Path only. NO CONTENT.
+            simplified = []
+            for n in nodes:
+                simplified.append({
+                    "id": n.get("id", "unknown"),
+                    "name": n.get("name"), 
+                    "path": n.get("path"),
+                    "type": n.get("type")
+                })
             
-        with open(net_path, 'r') as f:
-            self.data = json.load(f)
-            self.nodes = self.data.get("nodes", {})
-            self.edges = self.data.get("edges", [])
+            # Truncate if too many
+            limit = 50
+            if len(simplified) > limit:
+                return {
+                    "total_count": len(simplified),
+                    "showing_first": limit,
+                    "nodes": simplified[:limit],
+                    "warning": "ResultSet truncated. Use more specific filters."
+                }
+            return simplified
+            
+        if action == "edges":
+            edge_type = kwargs.get("type")
+            return self.api.get_edges(edge_type=edge_type)
 
-    def scan_network_context(self, file_path_or_id: str) -> str:
-        """Finds what a script reads/writes/imports."""
-        # Normalize ID
-        target_id = None
-        for nid in self.nodes:
-            if file_path_or_id in nid:
-                target_id = nid
-                break
-        
-        if not target_id:
-            return f"Node '{file_path_or_id}' not found."
-
-        # Find connections
-        reads = []
-        writes = []
-        imports = []
-        
-        for edge in self.edges:
-            if edge["source"] == target_id:
-                if edge["type"] == "reads": reads.append(edge["target"])
-                if edge["type"] == "writes": writes.append(edge["target"])
-                if edge["type"] == "imports": imports.append(edge["target"])
+        if action == "neighbors":
+            if not node_id:
+                return "Error: node_id is required for neighbors action. Use 'nodes' or 'edges' for global queries."
+            
+            # Try exact first
+            try:
+                # Pass kwargs to support relation_type and direction filters
+                result = self.api.get_neighbors(node_id, **kwargs)
                 
-        return json.dumps({
-            "id": target_id,
-            "reads": reads,
-            "writes": writes,
-            "imports": imports
-        }, indent=2)
-
-    def find_producers(self, output_path: str) -> str:
-        """Finds which script writes to a given path (e.g. table or file)."""
-        producers = []
-        for edge in self.edges:
-            if edge["target"] == output_path and edge["type"] in ["writes", "defines"]:
-                producers.append(edge["source"])
+                if result is None:
+                    return f"Error: Node '{node_id}' not found in graph."
                 
-        if not producers:
-             # Try soft match
-             for nid in self.nodes:
-                 if output_path in nid:
-                     return self.find_producers(nid)
-                     
-        return f"Producers for {output_path}: {producers}"
+                return result
+            except Exception as e:
+                return f"Error exploring neighbors: {e}"
+
+        return f"Error: Unknown action '{action}'"
