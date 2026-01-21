@@ -18,8 +18,10 @@ def main():
     parser.add_argument("-b", "--build", action="store_true", help="Build/Rebuild the Index")
     parser.add_argument("-q", "--query", type=str, help="Search the index")
     parser.add_argument("-k", "--top-k", type=int, default=5, help="Number of results to return")
+    parser.add_argument("-r", "--recall", type=int, default=None, help="Number of candidates to retrieve from FAISS")
+    parser.add_argument("--no-rerank", "-n", action="store_true", help="Disable reranking")
     parser.add_argument("-s", "--stats", action="store_true", help="Show index statistics")
-    parser.add_argument("-n", "--num-samples", type=int, default=3, help="Number of sample chunks to show with --stats")
+    parser.add_argument("--num-samples", type=int, default=3, help="Number of sample chunks to show with --stats")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
     
     args = parser.parse_args()
@@ -36,8 +38,9 @@ def main():
     if args.query:
         print(f"🔍 Searching for: [bold]{args.query}[/bold]")
         retriever = GraphRetriever()
+        retriever.set_reranking(not args.no_rerank)
         try:
-            response = retriever.query(args.query, top_k=args.top_k)
+            response = retriever.query(args.query, top_k=args.top_k, recall_k=args.recall)
             stats = response["stats"]
             results = response["results"]
             console.print(f"[dim]Recall: {stats['total_candidates']} candidates -> Reranked: {stats['reranked']}[/dim]")

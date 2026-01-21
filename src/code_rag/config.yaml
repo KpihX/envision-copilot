@@ -2,7 +2,7 @@ indexing:
   model_name: "sentence-transformers/all-MiniLM-L6-v2"
   chunk_size: 512
   overlap: 50
-  block_keywords: 
+  block_keywords:
     - "read"
     - "write"
     - "export"
@@ -21,6 +21,12 @@ retrieval:
   top_k_recall: 50
   top_k_final: 5
   use_reranker: true
+
+benchmark:
+  questions_file: "src/code_rag/benchmark/questions.json"
+  log_file: "data/logs/rag_benchmark.json"
+  top_k: 5
+  recall_k: 50
 
 input:
   network_file: "data/network/network.json"

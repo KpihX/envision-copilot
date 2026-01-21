@@ -1,0 +1,232 @@
+{
+    "pattern_based": [
+        {
+            "id": 1,
+            "question": "Where are best sellers calculated?",
+            "answers": [
+                "/3. Inspectors/4 - Stores Analysis"
+            ],
+            "patterns": [
+                "/3. Inspectors/4 - Stores Analysis"
+            ]
+        },
+        {
+            "id": 2,
+            "question": "The client wants to add a new location for dispatch. Where to configure the ReDispatchCycle field specific to this location?",
+            "answers": [
+                "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing"
+            ],
+            "patterns": [
+                "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+                "ReDispatchCycle"
+            ]
+        },
+        {
+            "id": 3,
+            "question": "Is there a function to calculate stock evolution over time considering arrivals and demand?",
+            "answers": [
+                "Yes",
+                "the stockEvol function, defined in /1. utilities/Modules/Functions"
+            ],
+            "patterns": [
+                "stockEvol",
+                "/1. utilities/Modules/Functions"
+            ]
+        },
+        {
+            "id": 4,
+            "question": "I will receive a new column FuturSellPrice in my catalog table. In which script should I perform consistency checks on the observed values?",
+            "answers": [
+                "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing"
+            ],
+            "patterns": [
+                "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing"
+            ]
+        },
+        {
+            "id": 5,
+            "question": "Is there a place to find condensed information to analyze different suppliers?",
+            "answers": [
+                "yes",
+                "/3. Inspectors/5 - Supplier Inspector"
+            ],
+            "patterns": [
+                "/3. Inspectors/5 - Supplier Inspector"
+            ]
+        },
+        {
+            "id": 6,
+            "question": "Where to configure global changes on selling prices to observe their impact on sales forecasting?",
+            "answers": [
+                "/6. Rule Based Pricing/Pricing Rules"
+            ],
+            "patterns": [
+                "/6. Rule Based Pricing/Pricing Rules"
+            ]
+        },
+        {
+            "id": 7,
+            "question": "How are fill rate targets defined according to catalog products?",
+            "answers": [
+                "Items.CategoryFRTarget = (86 + Items.AgressivenessFactor * 12) / 100"
+            ],
+            "patterns": [
+                "Items.CategoryFRTarget = (86 + Items.AgressivenessFactor * 12) / 100"
+            ]
+        },
+        {
+            "id": 8,
+            "question": "How and where is annual growth defined for each product?",
+            "answers": [
+                "Annual growth is defined in script /1. utilities/1. populating dataset/01 - Catalog and Orders History Creation via formula: Catalog.AnnualGrowth = if Catalog.IsTopItem then 0.05 else 0.025"
+            ],
+            "patterns": [
+                "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+                "Catalog.AnnualGrowth"
+            ]
+        },
+        {
+            "id": 9,
+            "question": "Are sales weighted by their dates when learning to determine future sales forecast?",
+            "answers": [
+                "Yes: smoothing gives more weight to recent weeks. Defined in /1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff."
+            ],
+            "patterns": [
+                "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff"
+            ]
+        },
+        {
+            "id": 10,
+            "question": "Where can the client configure target fill rate parameters?",
+            "answers": [
+                "/4. Optimization workflow/05.New Standard Purchase Suggestions"
+            ],
+            "patterns": [
+                "/4. Optimization workflow/05.New Standard Purchase Suggestions"
+            ]
+        },
+        {
+            "id": 11,
+            "question": "For the web, is the aggressiveness coefficient capped in any way?",
+            "answers": [
+                "Yes: its minimum value is 0.2, in /4. Optimization workflow/01 Inventory Optimization Overview."
+            ],
+            "patterns": [
+                "/4. Optimization workflow/01 Inventory Optimization Overview",
+                "0.2"
+            ]
+        },
+        {
+            "id": 12,
+            "question": "How do we model the cost of holding a unit of product in stock?",
+            "answers": [
+                "With an annual carryingCost = 0.3 rate applied to purchase price, prorated over 7 days."
+            ],
+            "patterns": [
+                "carryingCost = 0.3",
+                "/4. Optimization workflow/07 Standard Dispatch Suggestion"
+            ]
+        },
+        {
+            "id": 13,
+            "question": "Does the client have autonomy to configure the demand satisfaction rate (fill rate) target themselves?",
+            "answers": [
+                "Yes, directly via dashboard."
+            ],
+            "patterns": [
+                "/4. Optimization workflow/07 Standard Dispatch Suggestion New"
+            ]
+        },
+        {
+            "id": 14,
+            "question": "The client would like to track stockout evolution: is there an existing dashboard that could be useful?",
+            "answers": [
+                "Yes: /3. Inspectors/7 - Global Business Cockpit."
+            ],
+            "patterns": [
+                "/3. Inspectors/7 - Global Business Cockpit"
+            ]
+        },
+        {
+            "id": 15,
+            "question": "What type of average demand is displayed to the client on the account?",
+            "answers": [
+                "We distinguish Average Demand for replenishment, Average Demand for coverage, Total Average Demand."
+            ],
+            "patterns": [
+                "/4. Optimization workflow/FR/05. Suggestions d'achat"
+            ]
+        },
+        {
+            "id": 16,
+            "question": "Is there a specific handling for top products in the scripts?",
+            "answers": [
+                "Yes",
+                "IsTopItem is used for specific product treatment"
+            ],
+            "patterns": [
+                "IsTopItem"
+            ]
+        },
+        {
+            "id": 17,
+            "question": "When was the Orders data generated using which date range?",
+            "answers": [
+                "Date range for orders generation."
+            ],
+            "patterns": [
+                "2015"
+            ]
+        },
+        {
+            "id": 18,
+            "question": "How many seasonality profiles are learned to create the forecasting engine?",
+            "answers": [
+                10,
+                "10 seasonality profiles"
+            ],
+            "patterns": [
+                "10"
+            ]
+        }
+    ],
+    "non_pattern_based": [
+        {
+            "id": 19,
+            "question": "What is done in this account?",
+            "answers": [
+                "Data cleaning",
+                "Analysis & diagnostics",
+                "Forecast preparation"
+            ]
+        },
+        {
+            "id": 20,
+            "question": "How often are preprocesses refreshed?",
+            "answers": [
+                "Every Sunday via automatic sequence"
+            ]
+        },
+        {
+            "id": 21,
+            "question": "What time window is considered for sales forecast learning?",
+            "answers": [
+                "The last 4 years of sales"
+            ]
+        },
+        {
+            "id": 22,
+            "question": "How is a reference defined as a top reference?",
+            "answers": [
+                "It's data provided by the client via an import file; it's not calculated by Lokad."
+            ]
+        },
+        {
+            "id": 23,
+            "question": "Can I include return sales (negative quantities) in my KPI calculations?",
+            "answers": [
+                "No: sales with null or negative quantities are filtered."
+            ]
+        }
+    ]
+}

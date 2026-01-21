@@ -23,9 +23,19 @@ class GraphRetriever:
         self.chunks = []
         self.bi_encoder = None
         self.reranker = None
+        self._reranker_instance = None
         
         if self.ret_config.get("use_reranker", True):
-            self.reranker = Reranker(self.ret_config.get("reranker_name", "cross-encoder/ms-marco-MiniLM-L-6-v2"))
+            self._reranker_instance = Reranker(self.ret_config.get("reranker_name", "cross-encoder/ms-marco-MiniLM-L-6-v2"))
+            self.reranker = self._reranker_instance
+
+    def set_reranking(self, enabled: bool):
+        """Enable or disable reranking at runtime."""
+        if enabled:
+            self._reranker_instance = Reranker(self.ret_config.get("reranker_name", "cross-encoder/ms-marco-MiniLM-L-6-v2"))
+            self.reranker = self._reranker_instance
+        else:
+            self.reranker = None
 
     def _ensure_loaded(self):
         if self.index is not None:
@@ -57,14 +67,20 @@ class GraphRetriever:
         # Load Bi-Encoder
         self.bi_encoder = SentenceTransformer(self.idx_config.get("model_name", "sentence-transformers/all-MiniLM-L6-v2"))
         
-    def query(self, query_text: str, top_k: int = 5) -> Dict[str, Any]:
+    def query(self, query_text: str, top_k: int = 5, recall_k: int = None) -> Dict[str, Any]:
         """
         Full Retrieval Pipeline: Recall -> Rerank.
+        
+        Args:
+            query_text: The query string
+            top_k: Number of final results to return
+            recall_k: Number of candidates to retrieve from FAISS (default: from config)
         """
         self._ensure_loaded()
         
         # 1. Recall (Broad)
-        recall_k = self.ret_config.get("top_k_recall", 50)
+        if recall_k is None:
+            recall_k = self.ret_config.get("top_k_recall", 50)
         print(f"[RAG] 🔍 Retrieving top {recall_k} candidates from vector index...")
         
         query_vec = self.bi_encoder.encode([query_text]).astype('float32')

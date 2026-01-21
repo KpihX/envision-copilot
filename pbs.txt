@@ -1,0 +1,9 @@
+- Pas de 2015 dans les scripts mais juste "formstartDate = if startDate == date(2001,01,01) then today() - 365 * 15"
+            
+            "id": 31,
+            "question": "De quand datent les premières ventes observables dans la table des ventes ?",
+            "deterministic": true,
+            "answers": [
+                "2015."
+            ],
+            "appendix": []
