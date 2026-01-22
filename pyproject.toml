@@ -1,5 +1,5 @@
 [project]
-name = "envision-rag"
+name = "envision-copilot"
 version = "3.0.0"
 description = "Modular Envision DSL RAG System"
 readme = "README.md"
@@ -30,6 +30,8 @@ index = "code_rag.index:main"
 copilot = "envision_copilot.main:main"
 benchmark = "envision_benchmark.main:main"
 rag-benchmark = "code_rag.benchmark.main:main"
+rag-benchmark-oriented = "code_rag.benchmark.oriented_benchmark:main"
+optimize-heuristic = "code_rag.benchmark.optimize_heuristic:main"
 
 [build-system]
 requires = [

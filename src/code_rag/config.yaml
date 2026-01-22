@@ -1,19 +1,35 @@
-# Embedding Models Available (all free from Hugging Face):
+# ══════════════════════════════════════════════════════════════════════════════
+# EMBEDDING MODELS
+# All models are free from Hugging Face
+# ══════════════════════════════════════════════════════════════════════════════
 # ┌─────────────────────────────────────────┬──────┬──────────┬──────────────┐
 # │ Model                                   │ Dim  │ MTEB (%) │ Speed        │
 # ├─────────────────────────────────────────┼──────┼──────────┼──────────────┤
 # │ sentence-transformers/all-MiniLM-L6-v2  │ 384  │ ~55%     │ Very fast    │
 # │ BAAI/bge-base-en-v1.5                   │ 768  │ ~63%     │ 2x slower    │
 # │ intfloat/e5-base-v2                     │ 768  │ ~62%     │ 2x slower    │
+# │ intfloat/multilingual-e5-base           │ 768  │ ~61%     │ Multilingual │
 # │ BAAI/bge-large-en-v1.5                  │ 1024 │ ~65%     │ 4x slower    │
+# │ intfloat/e5-large-v2                    │ 1024 │ ~64%     │ 4x slower    │
 # └─────────────────────────────────────────┴──────┴──────────┴──────────────┘
 
 indexing:
-  # model_name: "sentence-transformers/all-MiniLM-L6-v2"  # Fast, 384 dim
-  model_name: "sentence-transformers/all-MiniLM-L6-v2"
-  chunk_size: 350
-  overlap: 5 # Number of lines to keep between chunks
-  max_deps: 5 # Max dependencies to show in header
+  # Chunker type: "graph" (default, uses dependency context)
+  chunker_type: "graph"
+
+  # Vector Engine type: sentence-transformers (default)
+  engine_type: "sentence-transformers"
+
+  # Embedding model (sentence-transformers compatible)
+  # Options: see table above
+  engine_name: "sentence-transformers/all-MiniLM-L6-v2"
+
+  # Chunk parameters
+  chunk_size: 350 # Max tokens per chunk (approx)
+  overlap: 5 # Lines to keep between chunks for context
+  max_deps: 5 # Max dependencies to show in chunk header
+
+  # Block keywords for semantic chunking (Envision DSL)
   block_keywords:
     - "read"
     - "write"
@@ -41,13 +57,17 @@ indexing:
 retrieval:
   # Reranker type: heuristic, cross-encoder, bge, mxbai, answerai
   # - heuristic: Fast domain-specific heuristics (no ML model, recommended)
+  # - oriented: Fast domain-specific heuristics (no ML model, recommended)
   # - cross-encoder: MS-MARCO cross-encoder (general purpose)
   # - bge: BAAI/bge-reranker (robust for technical terms)
   # - mxbai/answerai: Require HuggingFace authentication
-  reranker_type: "heuristic"
+  reranker_type: "oriented"
   # Optional: override default model for ML rerankers
   # reranker_name: "BAAI/bge-reranker-base"
   top_k_recall: 50
+
+  # Enable Graph Horizon (Related Nodes) in output
+  enable_horizon: true
   top_k_final: 5
   use_reranker: true
   # Use contextual reranking (ML rerankers only)
@@ -55,7 +75,8 @@ retrieval:
 
 benchmark:
   questions_file: "src/code_rag/benchmark/questions.json"
-  log_file: "data/logs/rag_benchmark.json"
+  log_dir: "datas/code_rag/benchmark"
+  oriented_log_dir: "datas/code_rag/benchmark/oriented"
   top_k: 5
   recall_k: 50
 
@@ -74,6 +95,8 @@ heuristic_reranking:
     # TTB: Technical Term Boost (Strategy 1)
     # Purpose: Boost chunks containing exact technical terms from query
     # (camelCase identifiers, script paths, formulas with =)
+    # Contains exact technical terms from query
+    # (camelCase identifiers, script paths, formulas with =)
     # Higher value = stronger boost for exact term matches
     technical_term_boost: 0.7
 
@@ -90,7 +113,7 @@ heuristic_reranking:
     # SDP: Source Diversity Penalty (Strategy 2)
     # Purpose: Penalize repeated chunks from same source file
     # Higher value = stronger diversity enforcement
-    diversity_penalty: 0.9
+    diversity_penalty: 0.1
 
   # ─────────────────────────────────────────────────────────────────────────────
   # TTB SUB-SCORES
@@ -100,11 +123,11 @@ heuristic_reranking:
   ttb_scores:
     # Path match: term starts with "/" (e.g., "/1. utilities/Modules")
     # Highest boost because paths are very specific identifiers
-    path_match: 0.5
+    path_match: 0.3
 
     # Formula match: term contains "=" or "." (e.g., "carryingCost = 0.3")
     # High boost for variable assignments and object properties
-    formula_match: 0.4
+    formula_match: 0.2
 
     # Identifier match: camelCase, PascalCase, snake_case terms
     # Standard boost for code identifiers
@@ -118,10 +141,10 @@ heuristic_reranking:
   pds_params:
     # If density exceeds this threshold, give bonus
     # Purpose: Extra reward for chunks matching >50% of query words
-    density_bonus_threshold: 0.5
+    density_bonus_threshold: 0.4
 
     # Bonus added when threshold exceeded
-    density_bonus: 0.2
+    density_bonus: 0.25
 
   # ─────────────────────────────────────────────────────────────────────────────
   # DB SCORES
@@ -142,17 +165,26 @@ heuristic_reranking:
   # ─────────────────────────────────────────────────────────────────────────────
   sdp_penalties:
     # 2nd chunk from same source: mild penalty
-    first_repeat: 0.15
+    first_repeat: 0.05
 
     # 3rd chunk from same source: moderate penalty
-    second_repeat: 0.30
+    second_repeat: 0.15
 
     # 4th+ chunk from same source: strong penalty
-    third_plus: 0.45
+    third_plus: 0.3
 
 input:
-  network_file: "data/network/network.json"
+  network_file: "datas/network/network.json"
 
 output:
-  index_file: "data/vector_store/faiss.index"
-  metadata_file: "data/vector_store/metadata.json"
+  index_file: "datas/code_rag/index/faiss.index"
+  metadata_file: "datas/code_rag/index/metadata.json"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ORIENTED RERANKER CONFIGURATION
+# Only used when reranker_type: "oriented" (inherits heuristic weights too)
+# ══════════════════════════════════════════════════════════════════════════════
+oriented_reranking:
+  weights:
+    keyword_match: 1.5 # Boost per general keyword (def, show)
+    term_match: 2.0 # Boost per technical term (StockEvol, Catalog)

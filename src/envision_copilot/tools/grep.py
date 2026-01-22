@@ -13,40 +13,22 @@ class GrepTools:
             logging.error(f"Failed to initialize GrepTools: {e}")
             self.api = None
 
-    def search(self, pattern: str, node_type: str = None, node_ids: List[str] = None) -> Union[List[Dict], str]:
+    def grep_search(self, patterns: List[str]) -> Union[Dict[str, Any], str]:
         """
-        Search for a regex pattern within the CONTENT of nodes.
-        Filters:
-          - node_type: Only search nodes of this type (e.g., 'script', 'function', 'var').
-          - node_ids: Only search within this specific list of node IDs.
+        Scan all nodes for occurrences of specific patterns (keywords, terms, paths).
+        Returns rich statistics to help the Agent decide between RAG or Direct Read.
         """
         if not self.api:
-            return "Error: Graph API not initialized."
-            
+             return "Error: Graph API not initialized."
+
         try:
-            matches = self.api.grep_nodes(pattern, node_type=node_type, node_ids=node_ids)
-            
-            # Format output for Agent
-            if not matches:
-                return "No matches found."
-            
-            # If error returned
-            if isinstance(matches, list) and len(matches) > 0 and "error" in matches[0]:
-                return matches[0]["error"]
-                
-            # Limit results
-            limit = 50
-            results = matches[:limit]
-            
-            summary = []
-            for m in results:
-                summary.append(f"[{m.get('type')}] {m.get('id')} ({m.get('path')})")
-                
-            output = f"Found {len(matches)} matches (showing first {len(summary)}):\n" + "\n".join(summary)
-            if len(matches) > limit:
-                output += f"\n...and {len(matches) - limit} more."
-                
-            return output
+             # Use the new multi-pattern grep_search from API
+             # API returns {"patterns": { "p": { "total": N, "files": [...] } }}
+             result = self.api.grep_search(patterns)
+             return result
+
+        except Exception as e:
+             return f"Error executing grep_search: {e}"
 
         except Exception as e:
             return f"Error executing grep_search: {e}"

@@ -1,146 +1,132 @@
 # Envision Code RAG
 
-**The "Memory" of the System.**
+**The Semantic Memory of the System.**
 
-This module builds a **Graph-Aware Vector Index** of the Envision codebase.
-Unlike standard RAG which blindly chunks text, this engine leverages the dependency graph to enrich each chunk with context (dependencies, imports, purposes), and uses a Two-Stage retrieval process for high precision.
+This module builds a **Graph-Aware Vector Index** of the Envision codebase, enabling the Copilot to retrieve relevant code snippets not just by keyword, but by *meaning* and *structural relationship*.
 
-> ⚠️ **IMPORTANT**: This RAG system is **optimized for English queries**. The embedding model performs best with English text. If your copilot receives French questions, translate them to English before calling the retriever.
+It features a pilotable retrieval engine that allows the Agent to "focus" the search on specific symbols (functions, variables) identified via the Mini-Map.
+
+---
+
+## 💡 Why? The Evolution
+
+### The Problem
+Standard RAG pipelines treat code as flat text. They blindly chunk files, losing critical structural information.
+*   *Query*: "Where is the `IsTopItem` logic?"
+*   *Naive RAG*: Might find a comment mentioning `IsTopItem`, but miss the actual function definition if it's in a file named differently or hidden in a generic `utils.py`.
+*   *Result*: The LLM hallucinates or says "I don't know".
+
+### The Solution: Graph-Aware & Oriented
+We shifted to a **Graph-Aware** architecture that leverages the dependency graph (Envision Network) to enrich chunks, combined with an **Oriented Reranker** driven by symbol extraction.
+*   **Contextual**: Every chunk knows who imports it and what it consumes.
+*   **Modular**: We separated the *Vector Engine* (Storage) from the *Reranking Strategy* (Precision).
+*   **Pilotable**: The Agent can instruct the Reranker to find specific keys ("Find StockEvol").
 
 ---
 
 ## 🏗️ Architecture
 
-### 1. Graph-Aware Chunking (`chunker.py`)
-Code is not just text; it's a web of dependencies.
-Before embedding a script, we prepend a **Context Header**:
+### 1. Vector Engines (`vector_engines/`)
+The foundational storage layer. Uses a **Factory Pattern**.
+*   **Role**: Handles Embedding (Indexing) and Dense Retrieval (Recall).
+*   **Implementation**: `sentence-transformers` engine (FAISS + SentenceBERT).
+
+### 2. Graph-Aware Chunking (`chunker.py`)
+Before embedding, code is **Enriched**.
 ```text
 [Script: PathSchemas | Node: /1. utilities/PathSchemas]
-[Imports: Global.ion]
-[Reads: /Clean/Items.ion]
-
-<Actual Code Content>
+[Imports: Global.ion]   <-- Graph Context
 ```
-*   **Benefit**: The embedding model "sees" the connections. Searching for "Items.ion consumer" naturally retrieves this script.
-*   **Source Tracking**: Each chunk stores the full `source` path in metadata, ensuring the agent knows exactly which file is being referenced.
-
-### 2. Two-Stage Retrieval (`retriever.py`)
-1.  **Recall (Dense Search)**: Fetch top `recall_k` candidates (default: 50) using `sentence-transformers/all-MiniLM-L6-v2` via FAISS.
-2.  **Precision (Rerank)**: Re-score using a cross-encoder reranker for semantic matching.
+Searching for "Items.ion consumer" naturally finds this script.
 
 ### 3. Modular Rerankers (`rerankers/`)
-Extensible reranker package supporting multiple models:
+Retrieval is a two-stage process: **Recall** (Broad) -> **Rerank** (Precise).
+We support diverse strategies:
 
-| Type            | Model                                            | Notes                       |
-| --------------- | ------------------------------------------------ | --------------------------- |
-| `cross-encoder` | `cross-encoder/ms-marco-MiniLM-L-6-v2`           | Default, fast               |
-| `bge`           | `BAAI/bge-reranker-base`                         | Best for technical terms    |
-| `mxbai`         | `mixedbread-ai/mxbai-rerank-base-v1`             | Best speed/accuracy (gated) |
-| `answerai`      | `tomaarsen/reranker-modernbert-base-msmarco-bce` | Optimized Q&A (gated)       |
+| Type            | Strategy              | Best For...                               |
+| :-------------- | :-------------------- | :---------------------------------------- |
+| **`oriented`**  | **Guided Heuristics** | **Copilot Usage** (Targets specific keys) |
+| `heuristic`     | Domain-Specific Rules | Code Search (Passive)                     |
+| `bge`           | Deep Learning (BAAI)  | Technical Documentation & Concepts        |
+| `cross-encoder` | MS-MARCO              | General Purpose Q&A                       |
 
-**Contextual Reranking**: When enabled, chunks are enriched with metadata (FILE, SCRIPT, CONTEXT) before reranking for better relevance.
+#### 🧠 Spotlight: The Oriented Reranker
+Designed for Agentic workflows. It extends the `HeuristicReranker` to allow surgical retrieval.
+1.  **Inherits Heuristic Intelligence**: Uses all TTB, PDS, and Diversity logic.
+2.  **Targeted Boosting**: Heavily boosts chunks containing injected `keywords` (concepts) or `terms` (symbols).
+    *   *Agent*: "I see 'StockEvol' in the query. Reranker, boost 'StockEvol'!"
+    *   *Reranker*: *Boosts chunks containing the function definition.*
 
 ---
 
 ## 🚀 Usage
 
-### CLI (`index.py`)
-
-#### Build Index
+### 1. Indexing (Build the Memory)
+The CLI uses the factory to load the configured engine and build the index.
 ```bash
 uv run index --build
 ```
+*   *Input*: `datas/network/network.json`
+*   *Output*: `datas/code_rag/index/`
 
-#### Query
+### 2. Querying (Test it)
 ```bash
 uv run index -q "Where are best sellers calculated?"
-uv run index -q "stockEvol function" --no-rerank   # Skip reranking
-uv run index -q "Items table" -r 100               # Recall 100 candidates
+uv run index -q "IsTopItem" --no-rerank      # Raw vector search
 ```
 
-#### Statistics
+### 3. Benchmarking (`benchmark/`)
+We don't guess; we measure.
 ```bash
-uv run index --stats
+uv run rag-benchmark            # Run full suite
+uv run rag-benchmark -t 50      # Check top-50 recall
 ```
-
----
-
-## 📊 Benchmark (`benchmark/`)
-
-Evaluate retrieval quality by testing if expected patterns are found in retrieved chunks.
-
-### Run Benchmark
-```bash
-uv run rag-benchmark                    # All questions with defaults from config
-uv run rag-benchmark -t 10              # Top-10 final chunks
-uv run rag-benchmark -r 100             # Recall 100 candidates from FAISS
-uv run rag-benchmark -n                 # Disable reranking
-uv run rag-benchmark --ids 1 2 3        # Specific questions only
-uv run rag-benchmark --alpha log        # Use logarithmic decay for position score
-```
-
-### Metrics
-The benchmark computes three key metrics:
-
-1. **Recall Score**: Percentage of patterns found in top-K chunks
-2. **Position Score**: Quality-weighted score using α-decay (penalizes lower ranks)
-3. **Rerank Gain**: Improvement from reranking vs dense-only retrieval
-
-### Output
-For each question, the benchmark shows:
-- Which patterns are found (✓) or missing (✗)
-- Which chunks contain patterns, with their rank position
-- Position delta (↑/↓) when reranking is active
-- Summary statistics with rerank gain
-
-### Questions File
-Located at `benchmark/questions.json` with pattern-based questions containing syntactic patterns to find (paths, formulas, variable names).
-
-> 📝 All benchmark questions are in **English** for optimal retrieval performance.
 
 ---
 
 ## ⚙️ Configuration (`config.yaml`)
 
+Everything is configurable. No hardcoding.
+
 ```yaml
 indexing:
-  model_name: "sentence-transformers/all-MiniLM-L6-v2"
-  chunk_size: 350      # Characters per chunk
-  overlap: 5           # Lines overlap between chunks
-  max_deps: 5          # Max dependencies to include in context
+  engine_type: "sentence-transformers"
+  engine_name: "sentence-transformers/all-MiniLM-L6-v2"
+  chunker_type: "graph"
 
 retrieval:
-  reranker_type: "bge"           # cross-encoder, bge, mxbai, answerai
-  # reranker_name: "custom/model" # Override default model
+  # The Precision Layer
+  reranker_type: "oriented"  # Recommended for Copilot
   use_reranker: true
-  contextual_reranking: true     # Enrich chunks with metadata before reranking
-  top_k_recall: 50
-  top_k_final: 5
+  
+  # Base Heuristic Logic
+  heuristic_reranking:
+    weights:
+      technical_term_boost: 0.7
+      pattern_density: 0.4
+      diversity_penalty: 0.9
 
-benchmark:
-  questions_file: "src/code_rag/benchmark/questions.json"
-  log_file: "data/logs/rag_benchmark.json"
-  top_k: 50
-  recall_k: 50
+  # Oriented Logic (The Pilot)
+  oriented_reranking:
+    weights:
+      keyword_match: 1.5  # Boost per general keyword (def, show)
+      term_match: 2.0     # Boost per technical term (StockEvol)
 ```
 
 ---
 
-## 📁 Structure
+## 📁 Project Structure
 
 ```
 code_rag/
-├── chunker.py        # Graph-aware chunking
-├── indexer.py        # FAISS index builder
-├── retriever.py      # Two-stage retrieval (dense + rerank)
-├── index.py          # CLI entry point
-├── config.yaml       # All configuration
-├── utils.py          # Shared utilities
-├── rerankers/        # Modular reranker package
-│   ├── __init__.py       # Factory function & registry
-│   ├── base.py           # Abstract base class
-│   └── sentence_reranker.py  # Unified cross-encoder implementation
-└── benchmark/
-    ├── main.py           # Benchmark runner
-    └── questions.json    # Test questions (English)
+├── vector_engines/       # 🏭 ENGINE FACTORY
+│   ├── ...
+├── rerankers/            # 🧠 RERANKING STRAT
+│   ├── oriented_reranker.py  # <-- The Pilot
+│   ├── heuristic_reranker.py # Custom Domain Logic
+│   └── sentence_reranker.py  # ML Wrappers
+├── benchmark/            # 📊 MEASUREMENT
+├── chunkers/             # 🔪 PREPROCESSING
+├── index.py              # CLI Entry Point
+└── config.yaml           # Configuration
 ```

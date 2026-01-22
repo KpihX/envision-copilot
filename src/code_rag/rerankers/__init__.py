@@ -33,6 +33,7 @@ Extensibility:
 from .base import BaseReranker
 from .sentence_reranker import SentenceReranker, DEFAULT_MODELS, MODEL_FAMILY_NAMES
 from .heuristic_reranker import HeuristicReranker
+from .oriented_reranker import OrientedReranker
 
 # Registry of available rerankers
 RERANKERS = {
@@ -43,6 +44,7 @@ RERANKERS = {
     "answerai": SentenceReranker,
     # Heuristic-based (no ML model)
     "heuristic": HeuristicReranker,
+    "oriented": OrientedReranker,
 }
 
 
@@ -78,6 +80,12 @@ def get_reranker(reranker_type: str = "cross-encoder", model_name: str = None, c
         # Pass full heuristic_reranking section (weights, ttb_scores, pds_params, etc.)
         heuristic_config = config.get("heuristic_reranking", {})
         return HeuristicReranker(config=heuristic_config)
+    elif reranker_class == OrientedReranker:
+        # Load full config (OrientedReranker needs access to both heuristic and oriented keys)
+        if config is None:
+            from ..utils import ConfigLoader
+            config = ConfigLoader.load_config()
+        return OrientedReranker(config=config)
     elif reranker_class == SentenceReranker:
         return SentenceReranker.from_type(reranker_type, model_name)
     else:
@@ -91,6 +99,7 @@ __all__ = [
     "BaseReranker",
     "SentenceReranker",
     "HeuristicReranker",
+    "OrientedReranker",
     "get_reranker",
     "RERANKERS",
     "DEFAULT_MODELS",

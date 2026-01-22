@@ -1,8 +1,8 @@
 judge:
   model: "mistral"
-  
+
 input:
   questions_file: "src/envision_benchmark/questions.json"
-  
+
 output:
-  report_file: "data/logs/benchmark_report.json"
+  report_dir: "datas/benchmark"

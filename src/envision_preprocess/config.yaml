@@ -3,9 +3,8 @@ parsing:
   script_ext: "nvn"
   mapping_file: "src/envision_preprocess/mapping.txt"
   recursion_limit: 10
-  
-output:
-  network_file: "data/network/network.json"
-  metadata_file: "data/network/metadata.json"
-  snippet_lines: 10
 
+output:
+  network_file: "datas/network/network.json"
+  metadata_file: "datas/network/metadata.json"
+  snippet_lines: 10

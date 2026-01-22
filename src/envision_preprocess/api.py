@@ -128,51 +128,7 @@ class EnvisionGraphAPI:
                 
         return None
 
-    def grep_nodes(self, pattern: str, node_type: Optional[str] = None, node_ids: Optional[List[str]] = None) -> List[Dict[str, Any]]:
-        """
-        Search for a regex pattern within the CONTENT of nodes.
-        Filters:
-          - node_type: Only search nodes of this type (e.g., 'script', 'function').
-          - node_ids: Only search within this specific list of node IDs.
-        """
-        self._load_data()
-        import re
-        
-        try:
-            regex = re.compile(pattern, re.IGNORECASE)
-        except re.error as e:
-            return [{"error": f"Invalid Regex: {e}"}]
 
-        matches = []
-        
-        # Decide which nodes to iterate
-        candidates = self._graph_cache["nodes"].items()
-        
-        for nid, node in candidates:
-            # 1. Filter by ID List
-            if node_ids and nid not in node_ids:
-                continue
-                
-            # 2. Filter by Type
-            if node_type and node.get("type") != node_type:
-                continue
-                
-            # 3. Check Content
-            content = node.get("content", "")
-            if not content:
-                continue
-                
-            if regex.search(content):
-                # Found a match!
-                # Return snippet? For now just return the node info. Tool will format match lines.
-                matches.append({
-                    "id": nid,
-                    "type": node.get("type"),
-                    "path": node.get("path"),
-                    "name": node.get("name")
-                })
-                
-        return matches
 
     def get_neighbors(self, node_id: str, 
                       direction: str = "all", 
@@ -270,3 +226,72 @@ class EnvisionGraphAPI:
             "incoming": result["incoming"],
             "outgoing": result["outgoing"]
         }
+        
+    def grep_search(self, patterns: List[str]) -> Dict[str, Any]:
+        """
+        Scan all nodes (scripts only) for occurrences of specific regex patterns.
+        Returns rich statistics to help the Agent decide between RAG or Direct Read.
+        
+        Args:
+            patterns: List of regex strings to search for (case-insensitive)
+            
+        Returns:
+            {
+              "patterns": {
+                "MyRegex.*": {
+                  "total": 12,
+                  "scripts": [
+                    { "path": "/1. utilities/...", "id": "67992", "count": 5 },
+                    ... (top 20)
+                  ]
+                }
+              }
+            }
+        """
+        self._load_data()
+        import re
+        
+        # Compile patterns
+        compiled_patterns = {}
+        results = {}
+        
+        for pat in patterns:
+            try:
+                # Compile with IGNORECASE
+                compiled_patterns[pat] = re.compile(pat, re.IGNORECASE)
+                results[pat] = {"total": 0, "scripts": []}
+            except re.error as e:
+                # Store error but continue
+                results[pat] = {"error": f"Invalid Regex: {e}", "total": 0, "scripts": []}
+
+        for nid, node in self._graph_cache["nodes"].items():
+            # Filter: Scripts only
+            if node.get("type") != "script":
+                continue
+
+            content = node.get("content", "")
+            if not content: continue
+            
+            # Search each pattern
+            for pat_str, regex in compiled_patterns.items():
+                matches = regex.findall(content)
+                count = len(matches)
+                
+                if count > 0:
+                    results[pat_str]["total"] += count
+                    results[pat_str]["scripts"].append({
+                        "path": node.get("path"),
+                        "id": nid,
+                        "name": node.get("name"),
+                        "count": count
+                    })
+        
+        # Sort and trim
+        for pat in results:
+            if "scripts" in results[pat]:
+                # Sort by count desc
+                results[pat]["scripts"].sort(key=lambda x: x["count"], reverse=True)
+                # Cap at top 20 to avoid payload explosion
+                results[pat]["scripts"] = results[pat]["scripts"][:20]
+                
+        return {"patterns": results}

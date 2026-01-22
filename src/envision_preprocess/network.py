@@ -190,6 +190,14 @@ def main():
                     p = Panel(json.dumps(node, indent=2), title=f"Example {count+1}: {title_label}", border_style="green")
                     console.print(p)
                     
+                    if node.get("metadata", {}).get("symbols"):
+                        syms = node["metadata"]["symbols"]
+                        s_text = []
+                        for k, v in syms.items():
+                            if v: s_text.append(f"{k}: {len(v)}")
+                        if s_text:
+                            console.print(f"   Symbols: {', '.join(s_text)}")
+                        
                     if "content" in node and node["content"]:
                         print_snippet(node["content"])
                         
@@ -300,7 +308,21 @@ def main():
                     for dtype, lines in docs.items():
                         if lines: doc_node.add(f"[bold]{dtype}[/bold]: {len(lines)} items")
                 for k, v in meta.items():
-                    if k != "docs": meta_node.add(f"{k}: {v}")
+                    if k == "symbols":
+                         # Symbols Visualizer
+                        sym_node = meta_node.add("Symbols")
+                        for cat, items in v.items():
+                            if items:
+                                cat_node = sym_node.add(f"[bold]{cat}[/bold]")
+                                # Sort by count desc
+                                sorted_items = sorted(items.items(), key=lambda x: x[1], reverse=True)
+                                # Show top 10
+                                for key, count in sorted_items[:10]:
+                                    cat_node.add(f"{key}: [cyan]{count}[/cyan]")
+                                if len(sorted_items) > 10:
+                                    cat_node.add(f"[dim]... and {len(sorted_items) - 10} more[/dim]")
+                    elif k != "docs": 
+                        meta_node.add(f"{k}: {v}")
             
              # Relationships via API
              neighbors = api.get_neighbors(node_id, relation_type=args.relation)

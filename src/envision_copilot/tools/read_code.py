@@ -1,26 +1,38 @@
-import json
-from pathlib import Path
-from ..utils import ConfigLoader
+from envision_preprocess.api import EnvisionGraphAPI
 
 class CodeReader:
     def __init__(self, config_path: str = "config.yaml"):
-        self.config = ConfigLoader.load_config(config_path)
-        net_path = Path(self.config.get("paths", {}).get("network_file", "data/network/network.json"))
-        
-        with open(net_path, 'r') as f:
-            self.data = json.load(f)
-            self.nodes = self.data.get("nodes", {})
+        # We rely on API which loads config internally
+        try:
+             self.api = EnvisionGraphAPI(config_path)
+             # Preload to be fast
+             self.api.get_stats() 
+        except Exception as e:
+             self.api = None
+             print(f"Error init CodeReader: {e}")
 
     def read_code(self, script_id: str) -> str:
-        """Returns the content of a script node."""
-        # Exact match
-        node = self.nodes.get(script_id)
-        if node and node.get("content"):
-             return node["content"]
+        """
+        Returns the content of a script node, prepended with Context Header.
+        """
+        if not self.api:
+            return "Error: Graph API not initialized."
+            
+        # 1. Resolve ID (if path provided)
+        real_id = self.api.resolve_node_id(script_id) or script_id
+        
+        # 2. Get Node Content
+        node = self.api.get_node(real_id)
+        if not node:
+             # Try soft search if exact fail?
+             # For now, stick to exact or path resolution.
+             return f"Script/Node '{script_id}' not found."
              
-        # Soft match
-        for nid, n in self.nodes.items():
-            if script_id in nid and n.get("content"):
-                return f"# Content of {nid}\n{n['content']}"
-                
-        return f"Starting code for '{script_id}' not found or empty."
+        content = node.get("content", "")
+        if not content:
+             return f"Node found but no content available (Type: {node.get('type')}). Use get_node() for structure inspection."
+             
+        # 3. Get Context Header (Docs, Symbols)
+        header = self.api.get_file_context(real_id)
+        
+        return f"{header}\n\nCONTENT:\n{content}"

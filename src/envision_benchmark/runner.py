@@ -1,5 +1,7 @@
 import json
 import logging
+import uuid
+from datetime import datetime
 from pathlib import Path
 from rich.progress import track
 
@@ -106,8 +108,15 @@ class BenchmarkRunner:
         return score, eval_res
 
     def _save_report(self, results):
-        out_path = Path(self.config.get("output", {}).get("report_file", "data/logs/benchmark_report.json"))
-        out_path.parent.mkdir(parents=True, exist_ok=True)
+        # Format: YYYY-MM-DD_HH-MM-SS_uuid.json
+        out_dir = Path(self.config.get("output", {}).get("report_dir", "datas/benchmark"))
+        out_dir.mkdir(parents=True, exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        unique_id = uuid.uuid4().hex[:8]
+        filename = f"{timestamp}_{unique_id}.json"
+        
+        out_path = out_dir / filename
         
         with open(out_path, 'w') as f:
             json.dump(results, f, indent=2)

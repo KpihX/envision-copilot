@@ -12,10 +12,11 @@ Metrics:
 
 import json
 import argparse
+import uuid
 import math
 from pathlib import Path
 from datetime import datetime
-from typing import List, Dict, Any, Set, Tuple, Callable
+from typing import List, Dict, Any, Set, Callable
 
 from rich.console import Console
 from rich.table import Table
@@ -23,91 +24,27 @@ from rich.panel import Panel
 from rich.progress import track
 from rich import box
 
-from code_rag.retriever import GraphRetriever
+from code_rag.vector_engines import get_retriever
 from code_rag.utils import ConfigLoader
 
 console = Console()
 
 
-# ============================================================================
-# ALPHA FUNCTIONS - Position decay functions for ranking score
-# ============================================================================
-
-def alpha_log(rank: int) -> float:
-    """
-    Logarithmic decay: α = 1 / (1 + log(rank))
-    
-    Smooth decay that doesn't penalize too harshly:
-    - Rank 1: 1.00
-    - Rank 5: 0.59
-    - Rank 10: 0.43
-    - Rank 50: 0.25
-    """
-    return 1.0 / (1.0 + math.log(rank))
-
-
-def alpha_linear(rank: int, max_rank: int = 100) -> float:
-    """
-    Linear decay: α = max(0, 1 - rank/max_rank)
-    
-    Simple linear decay:
-    - Rank 1: 0.99
-    - Rank 50: 0.50
-    - Rank 100: 0.00
-    """
-    return max(0.0, 1.0 - rank / max_rank)
-
-
-# Default alpha function
-ALPHA_FUNCTIONS = {
-    "log": alpha_log,
-    "linear": alpha_linear
-}
-DEFAULT_ALPHA = "linear"
+from .common import (
+    alpha_log, 
+    alpha_linear, 
+    compute_position_score, 
+    load_questions,
+    ALPHA_FUNCTIONS,
+    DEFAULT_ALPHA
+)
 
 
 # ============================================================================
 # SCORING FUNCTIONS - Reusable by optimize_weights.py
 # ============================================================================
 
-def compute_position_score(
-    patterns: List[str], 
-    pattern_first_ranks: Dict[str, int],
-    alpha_fn: Callable[[int], float] = None
-) -> float:
-    """
-    Compute position score for a question.
-    
-    Score = Σ (α(rank) × 1/n) for each pattern found
-    
-    Where:
-    - n = total number of patterns for the question
-    - α(rank) = decay function based on first occurrence rank
-    - If pattern not found, contributes 0
-    
-    Args:
-        patterns: List of patterns to find
-        pattern_first_ranks: Dict mapping pattern -> first rank where found
-        alpha_fn: Position decay function (defaults to alpha_linear)
-    
-    Returns:
-        Position score in [0, 1]
-    """
-    if alpha_fn is None:
-        alpha_fn = alpha_linear
-    
-    n = len(patterns)
-    if n == 0:
-        return 0.0
-    
-    score = 0.0
-    for p in patterns:
-        if p in pattern_first_ranks:
-            rank = pattern_first_ranks[p]
-            alpha = alpha_fn(rank)
-            score += alpha * (1.0 / n)
-    
-    return score
+
 
 
 class RAGBenchmark:
@@ -119,7 +56,8 @@ class RAGBenchmark:
         top_k: int = None, 
         recall_k: int = None, 
         use_reranking: bool = None,
-        alpha_fn: str = DEFAULT_ALPHA
+        alpha_fn: str = DEFAULT_ALPHA,
+        pattern_as_keywords: bool = False
     ):
         # Load config
         self.config = ConfigLoader.load_config()
@@ -132,35 +70,34 @@ class RAGBenchmark:
         use_rerank = use_reranking if use_reranking is not None else ret_config.get("use_reranker", True)
         
         # Initialize retriever
-        self.retriever = GraphRetriever()
+        self.retriever = get_retriever("src/code_rag/config.yaml", verbose=True)
         self.retriever.set_reranking(use_rerank)
         self.use_reranking = use_rerank
         
         # Alpha function for position scoring
         self.alpha_fn = ALPHA_FUNCTIONS.get(alpha_fn, alpha_log)
         self.alpha_name = alpha_fn
+        self.pattern_as_keywords = pattern_as_keywords
 
-        # Resolve questions path
         if questions_path is None:
-            questions_file = bench_config.get("questions_file", "src/code_rag/benchmark/questions.json")
-            # Try relative to project root
-            project_root = Path(__file__).parent.parent.parent.parent
-            questions_path = project_root / questions_file
-            if not questions_path.exists():
-                # Fallback to relative to this file
-                questions_path = Path(__file__).parent / "questions.json"
+             # Let common loader handle defaults
+             self.pattern_questions = load_questions()
         else:
-            questions_path = Path(questions_path)
-
-        with open(questions_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        self.pattern_questions = data.get("pattern_based", [])
+             self.pattern_questions = load_questions(str(questions_path))
+             
+        # Log file path
         
         # Log file path
-        log_file = bench_config.get("log_file", "src/code_rag/data/log/benchmark.json")
+        # Log directory path
+        log_dir = bench_config.get("log_dir", "datas/code_rag/benchmark")
         project_root = Path(__file__).parent.parent.parent.parent
-        self.log_path = project_root / log_file
+        
+        # Determine unique filename: YYYY-MM-DD_HH-MM-SS_uuid.json
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        unique_id = uuid.uuid4().hex[:8]
+        filename = f"{timestamp}_{unique_id}.json"
+        
+        self.log_path = project_root / log_dir / filename
         # Ensure log directory exists
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         
@@ -192,28 +129,8 @@ class RAGBenchmark:
         patterns: List[str], 
         pattern_first_ranks: Dict[str, int]
     ) -> float:
-        """
-        Compute position score for a question.
-        
-        Score = Σ (α(rank) × 1/n) for each pattern found
-        
-        Where:
-        - n = total number of patterns for the question
-        - α(rank) = decay function based on first occurrence rank
-        - If pattern not found, contributes 0
-        """
-        n = len(patterns)
-        if n == 0:
-            return 0.0
-        
-        score = 0.0
-        for p in patterns:
-            if p in pattern_first_ranks:
-                rank = pattern_first_ranks[p]
-                alpha = self.alpha_fn(rank)
-                score += alpha * (1.0 / n)
-        
-        return score
+        """Call global helper with self.alpha_fn"""
+        return compute_position_score(patterns, pattern_first_ranks, self.alpha_fn)
 
     def run(self, question_ids: List[int] = None) -> Dict[str, Any]:
         """
@@ -323,7 +240,13 @@ class RAGBenchmark:
             total_patterns += len(patterns)
 
             # Execute RAG search
-            response = self.retriever.query(query, top_k=self.top_k, recall_k=self.recall_k)
+            keywords = patterns if self.pattern_as_keywords else None
+            response = self.retriever.query(
+                query, 
+                top_k=self.top_k, 
+                recall_k=self.recall_k,
+                keywords=keywords
+            )
             chunks = response.get("results", [])
 
             # Find patterns in each chunk and track first occurrence rank

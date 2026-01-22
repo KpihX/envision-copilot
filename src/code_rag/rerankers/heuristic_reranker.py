@@ -93,13 +93,14 @@ class HeuristicReranker(BaseReranker):
     def _predict(self, pairs: List[List[str]]) -> List[float]:
         """Not used - we override rank() directly."""
         raise NotImplementedError("HeuristicReranker uses rank() directly")
-    
+
     def rank(
         self, 
         query: str, 
         candidates: List[Dict[str, Any]], 
         top_k: int = 5,
-        use_contextual: bool = True  # Ignored for heuristic
+        use_contextual: bool = True,  # Ignored for heuristic
+        **kwargs # Accept oriented args (targets, keywords) gracefully
     ) -> List[Tuple[int, float]]:
         """
         Rerank candidates using domain-specific heuristics.
@@ -132,6 +133,7 @@ class HeuristicReranker(BaseReranker):
                 source = cand.get("source", "")
             
             # Base score (normalized position - earlier = higher baseline)
+            # We decouple Reranker from Semantic Score to allow pure heuristic re-evaluation
             base_score = 1.0 - (idx / len(candidates)) * 0.3
             
             # Strategy 1: Technical Term Boost (TTB)

@@ -1,0 +1,1382 @@
+{
+  "timestamp": "2026-01-22T22:34:31.521993",
+  "config": {
+    "top_k": 50,
+    "recall_k": 50,
+    "reranking": true,
+    "alpha_function": "linear"
+  },
+  "summary": {
+    "total_questions": 18,
+    "all_found": 16,
+    "partial": 1,
+    "none_found": 1,
+    "patterns_found": 21,
+    "patterns_total": 23,
+    "recall_rate": 91.30434782608695,
+    "recall_score": 16.5,
+    "position_score": 14.465000000000002,
+    "position_rate": 80.36111111111111,
+    "max_score": 18,
+    "position_score_no_rerank": 14.090000000000002,
+    "rerank_gain": 0.375
+  },
+  "results": [
+    {
+      "id": 1,
+      "question": "Where are best sellers calculated?",
+      "patterns": [
+        "/3. Inspectors/4 - Stores Analysis"
+      ],
+      "found": [
+        "/3. Inspectors/4 - Stores Analysis"
+      ],
+      "missing": [],
+      "pattern_first_ranks": {
+        "/3. Inspectors/4 - Stores Analysis": 1
+      },
+      "chunks_with_patterns": [
+        {
+          "rank": 1,
+          "source": "/3. Inspectors/4 - Stores Analysis",
+          "score": 1.3666666666666667,
+          "patterns": [
+            "/3. Inspectors/4 - Stores Analysis"
+          ],
+          "rank_delta": 0
+        },
+        {
+          "rank": 14,
+          "source": "/3. Inspectors/4 - Stores Analysis",
+          "score": 1.0013333333333334,
+          "patterns": [
+            "/3. Inspectors/4 - Stores Analysis"
+          ],
+          "rank_delta": -13
+        }
+      ],
+      "recall_score": 1.0,
+      "position_score": 0.99,
+      "success": true,
+      "position_score_no_rerank": 0.99,
+      "rerank_delta": 0.0
+    },
+    {
+      "id": 2,
+      "question": "The client wants to add a new location for dispatch. Where to configure the ReDispatchCycle field specific to this location?",
+      "patterns": [
+        "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+        "ReDispatchCycle"
+      ],
+      "found": [
+        "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+        "ReDispatchCycle"
+      ],
+      "missing": [],
+      "pattern_first_ranks": {
+        "ReDispatchCycle": 1,
+        "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing": 9
+      },
+      "chunks_with_patterns": [
+        {
+          "rank": 1,
+          "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch",
+          "score": 1.37,
+          "patterns": [
+            "ReDispatchCycle"
+          ],
+          "rank_delta": 0
+        },
+        {
+          "rank": 2,
+          "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)",
+          "score": 1.3639999999999999,
+          "patterns": [
+            "ReDispatchCycle"
+          ],
+          "rank_delta": 0
+        },
+        {
+          "rank": 3,
+          "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch",
+          "score": 1.358,
+          "patterns": [
+            "ReDispatchCycle"
+          ],
+          "rank_delta": -2
+        },
+        {
+          "rank": 4,
+          "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+          "score": 1.322,
+          "patterns": [
+            "ReDispatchCycle"
+          ],
+          "rank_delta": 5
+        },
+        {
+          "rank": 5,
+          "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)",
+          "score": 1.3119999999999998,
+          "patterns": [
+            "ReDispatchCycle"
+          ],
+          "rank_delta": -3
+        },
+        {
+          "rank": 6,
+          "source": "/4. Optimization workflow/08. Dispatch ROP definition",
+          "score": 1.2999999999999998,
+          "patterns": [
+            "ReDispatchCycle"
+          ],
+          "rank_delta": 0
+        },
+        {
+          "rank": 7,
+          "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion",
+          "score": 1.2759999999999998,
+          "patterns": [
+            "ReDispatchCycle"
+          ],
+          "rank_delta": 3
+        },
+        {
+          "rank": 8,
+          "source": "/4. Optimization workflow/08. Dispatch ROP definition",
+          "score": 1.2440000000000002,
+          "patterns": [
+            "ReDispatchCycle"
+          ],
+          "rank_delta": -2
+        },
+        {
+          "rank": 9,
+          "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+          "score": 1.222,
+          "patterns": [
+            "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+            "ReDispatchCycle"
+          ],
+          "rank_delta": 40
+        },
+        {
+          "rank": 10,
+          "source": "/1. utilities/1. populating dataset/03 - Manual Inputs",
+          "score": 1.1560000000000001,
+          "patterns": [
+            "ReDispatchCycle"
+          ],
+          "rank_delta": 20
+        },
+        {
+          "rank": 11,
+          "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)",
+          "score": 1.1440000000000001,
+          "patterns": [
+            "ReDispatchCycle"
+          ],
+          "rank_delta": -9
+        },
+        {
+          "rank": 12,
+          "source": "/1. utilities/1. populating dataset/03 - Manual Inputs",
+          "score": 1.138,
+          "patterns": [
+            "ReDispatchCycle"
+          ],
+          "rank_delta": 18
+        },
+        {
+          "rank": 13,
+          "source": "/4. Optimization workflow/08. Dispatch ROP definition",
+          "score": 1.1320000000000001,
+          "patterns": [
+            "ReDispatchCycle"
+          ],
+          "rank_delta": -7
+        },
+        {
+          "rank": 14,
+          "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+          "score": 1.13,
+          "patterns": [
+            "ReDispatchCycle"
+          ],
+          "rank_delta": -5
+        },
+        {
+          "rank": 15,
+          "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+          "score": 1.124,
+          "patterns": [
+            "ReDispatchCycle"
+          ],
+          "rank_delta": -6
+        },
+        {
+          "rank": 16,
+          "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch",
+          "score": 1.12,
+          "patterns": [
+            "ReDispatchCycle"
+          ],
+          "rank_delta": -15
+        }
+      ],
+      "recall_score": 1.0,
+      "position_score": 0.95,
+      "success": true,
+      "position_score_no_rerank": 0.75,
+      "rerank_delta": 0.19999999999999996
+    },
+    {
+      "id": 3,
+      "question": "Is there a function to calculate stock evolution over time considering arrivals and demand?",
+      "patterns": [
+        "stockEvol",
+        "/1. utilities/Modules/Functions"
+      ],
+      "found": [
+        "/1. utilities/Modules/Functions",
+        "stockEvol"
+      ],
+      "missing": [],
+      "pattern_first_ranks": {
+        "stockEvol": 2,
+        "/1. utilities/Modules/Functions": 2
+      },
+      "chunks_with_patterns": [
+        {
+          "rank": 2,
+          "source": "/1. utilities/Modules/Functions",
+          "score": 1.3222222222222222,
+          "patterns": [
+            "stockEvol",
+            "/1. utilities/Modules/Functions"
+          ],
+          "rank_delta": -1
+        },
+        {
+          "rank": 4,
+          "source": "/1. utilities/Modules/Functions",
+          "score": 1.2922222222222222,
+          "patterns": [
+            "/1. utilities/Modules/Functions"
+          ],
+          "rank_delta": -3
+        },
+        {
+          "rank": 7,
+          "source": "/1. utilities/1. populating dataset/02 - Automatic Stock and PO History Creation",
+          "score": 1.2657777777777777,
+          "patterns": [
+            "stockEvol"
+          ],
+          "rank_delta": -4
+        },
+        {
+          "rank": 24,
+          "source": "/4. Optimization workflow/09.Simulation ROP and EOQ Dispatch",
+          "score": 1.0468888888888888,
+          "patterns": [
+            "stockEvol"
+          ],
+          "rank_delta": -16
+        },
+        {
+          "rank": 35,
+          "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch",
+          "score": 0.9904444444444443,
+          "patterns": [
+            "stockEvol"
+          ],
+          "rank_delta": -25
+        }
+      ],
+      "recall_score": 1.0,
+      "position_score": 0.98,
+      "success": true,
+      "position_score_no_rerank": 0.99,
+      "rerank_delta": -0.010000000000000009
+    },
+    {
+      "id": 4,
+      "question": "I will receive a new column FuturSellPrice in my catalog table. In which script should I perform consistency checks on the observed values?",
+      "patterns": [
+        "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing"
+      ],
+      "found": [
+        "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing"
+      ],
+      "missing": [],
+      "pattern_first_ranks": {
+        "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing": 3
+      },
+      "chunks_with_patterns": [
+        {
+          "rank": 3,
+          "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+          "score": 1.1093333333333333,
+          "patterns": [
+            "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing"
+          ],
+          "rank_delta": -1
+        },
+        {
+          "rank": 5,
+          "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+          "score": 1.094,
+          "patterns": [
+            "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing"
+          ],
+          "rank_delta": -3
+        },
+        {
+          "rank": 9,
+          "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+          "score": 1.0613333333333335,
+          "patterns": [
+            "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing"
+          ],
+          "rank_delta": -7
+        },
+        {
+          "rank": 10,
+          "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+          "score": 1.058,
+          "patterns": [
+            "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing"
+          ],
+          "rank_delta": -8
+        },
+        {
+          "rank": 13,
+          "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+          "score": 1.0433333333333334,
+          "patterns": [
+            "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing"
+          ],
+          "rank_delta": -11
+        },
+        {
+          "rank": 16,
+          "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+          "score": 1.0266666666666668,
+          "patterns": [
+            "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing"
+          ],
+          "rank_delta": -14
+        },
+        {
+          "rank": 23,
+          "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+          "score": 1.0006666666666666,
+          "patterns": [
+            "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing"
+          ],
+          "rank_delta": -21
+        }
+      ],
+      "recall_score": 1.0,
+      "position_score": 0.97,
+      "success": true,
+      "position_score_no_rerank": 0.98,
+      "rerank_delta": -0.010000000000000009
+    },
+    {
+      "id": 5,
+      "question": "Is there a place to find condensed information to analyze different suppliers?",
+      "patterns": [
+        "/3. Inspectors/5 - Supplier Inspector"
+      ],
+      "found": [
+        "/3. Inspectors/5 - Supplier Inspector"
+      ],
+      "missing": [],
+      "pattern_first_ranks": {
+        "/3. Inspectors/5 - Supplier Inspector": 21
+      },
+      "chunks_with_patterns": [
+        {
+          "rank": 21,
+          "source": "/3. Inspectors/5 - Supplier Inspector",
+          "score": 0.9339999999999999,
+          "patterns": [
+            "/3. Inspectors/5 - Supplier Inspector"
+          ],
+          "rank_delta": -9
+        },
+        {
+          "rank": 24,
+          "source": "/3. Inspectors/5 - Supplier Inspector",
+          "score": 0.9191428571428572,
+          "patterns": [
+            "/3. Inspectors/5 - Supplier Inspector"
+          ],
+          "rank_delta": -12
+        }
+      ],
+      "recall_score": 1.0,
+      "position_score": 0.79,
+      "success": true,
+      "position_score_no_rerank": 0.88,
+      "rerank_delta": -0.08999999999999997
+    },
+    {
+      "id": 6,
+      "question": "Where to configure global changes on selling prices to observe their impact on sales forecasting?",
+      "patterns": [
+        "/6. Rule Based Pricing/Pricing Rules"
+      ],
+      "found": [
+        "/6. Rule Based Pricing/Pricing Rules"
+      ],
+      "missing": [],
+      "pattern_first_ranks": {
+        "/6. Rule Based Pricing/Pricing Rules": 8
+      },
+      "chunks_with_patterns": [
+        {
+          "rank": 8,
+          "source": "/6. Rule Based Pricing/Pricing Rules",
+          "score": 1.0468888888888888,
+          "patterns": [
+            "/6. Rule Based Pricing/Pricing Rules"
+          ],
+          "rank_delta": 0
+        },
+        {
+          "rank": 21,
+          "source": "/6. Rule Based Pricing/Pricing Rules",
+          "score": 0.9508888888888889,
+          "patterns": [
+            "/6. Rule Based Pricing/Pricing Rules"
+          ],
+          "rank_delta": -13
+        },
+        {
+          "rank": 39,
+          "source": "/6. Rule Based Pricing/Pricing Rules",
+          "score": 0.8644444444444445,
+          "patterns": [
+            "/6. Rule Based Pricing/Pricing Rules"
+          ],
+          "rank_delta": -31
+        }
+      ],
+      "recall_score": 1.0,
+      "position_score": 0.92,
+      "success": true,
+      "position_score_no_rerank": 0.92,
+      "rerank_delta": 0.0
+    },
+    {
+      "id": 7,
+      "question": "How are fill rate targets defined according to catalog products?",
+      "patterns": [
+        "Items.CategoryFRTarget = (86 + Items.AgressivenessFactor * 12) / 100"
+      ],
+      "found": [
+        "Items.CategoryFRTarget = (86 + Items.AgressivenessFactor * 12) / 100"
+      ],
+      "missing": [],
+      "pattern_first_ranks": {
+        "Items.CategoryFRTarget = (86 + Items.AgressivenessFactor * 12) / 100": 35
+      },
+      "chunks_with_patterns": [
+        {
+          "rank": 35,
+          "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+          "score": 0.8922857142857143,
+          "patterns": [
+            "Items.CategoryFRTarget = (86 + Items.AgressivenessFactor * 12) / 100"
+          ],
+          "rank_delta": 3
+        }
+      ],
+      "recall_score": 1.0,
+      "position_score": 0.65,
+      "success": true,
+      "position_score_no_rerank": 0.62,
+      "rerank_delta": 0.030000000000000027
+    },
+    {
+      "id": 8,
+      "question": "How and where is annual growth defined for each product?",
+      "patterns": [
+        "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+        "Catalog.AnnualGrowth"
+      ],
+      "found": [
+        "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation"
+      ],
+      "missing": [
+        "Catalog.AnnualGrowth"
+      ],
+      "pattern_first_ranks": {
+        "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation": 1
+      },
+      "chunks_with_patterns": [
+        {
+          "rank": 1,
+          "source": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+          "score": 1.264,
+          "patterns": [
+            "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation"
+          ],
+          "rank_delta": 6
+        }
+      ],
+      "recall_score": 0.5,
+      "position_score": 0.495,
+      "success": false,
+      "position_score_no_rerank": 0.46499999999999997,
+      "rerank_delta": 0.030000000000000027
+    },
+    {
+      "id": 9,
+      "question": "Are sales weighted by their dates when learning to determine future sales forecast?",
+      "patterns": [
+        "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff"
+      ],
+      "found": [
+        "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff"
+      ],
+      "missing": [],
+      "pattern_first_ranks": {
+        "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff": 8
+      },
+      "chunks_with_patterns": [
+        {
+          "rank": 8,
+          "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+          "score": 1.1454285714285715,
+          "patterns": [
+            "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff"
+          ],
+          "rank_delta": 2
+        },
+        {
+          "rank": 12,
+          "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+          "score": 1.0602857142857143,
+          "patterns": [
+            "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff"
+          ],
+          "rank_delta": -2
+        },
+        {
+          "rank": 15,
+          "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+          "score": 1.0242857142857142,
+          "patterns": [
+            "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff"
+          ],
+          "rank_delta": -5
+        },
+        {
+          "rank": 16,
+          "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+          "score": 1.0134285714285713,
+          "patterns": [
+            "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff"
+          ],
+          "rank_delta": -6
+        },
+        {
+          "rank": 21,
+          "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+          "score": 0.9822857142857143,
+          "patterns": [
+            "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff"
+          ],
+          "rank_delta": -11
+        },
+        {
+          "rank": 23,
+          "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+          "score": 0.9762857142857143,
+          "patterns": [
+            "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff"
+          ],
+          "rank_delta": -13
+        },
+        {
+          "rank": 24,
+          "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+          "score": 0.9611428571428572,
+          "patterns": [
+            "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff"
+          ],
+          "rank_delta": -14
+        },
+        {
+          "rank": 25,
+          "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+          "score": 0.9582857142857143,
+          "patterns": [
+            "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff"
+          ],
+          "rank_delta": -15
+        },
+        {
+          "rank": 28,
+          "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+          "score": 0.9402857142857144,
+          "patterns": [
+            "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff"
+          ],
+          "rank_delta": -18
+        },
+        {
+          "rank": 30,
+          "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+          "score": 0.9282857142857144,
+          "patterns": [
+            "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff"
+          ],
+          "rank_delta": -20
+        },
+        {
+          "rank": 41,
+          "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+          "score": 0.8682857142857143,
+          "patterns": [
+            "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff"
+          ],
+          "rank_delta": -31
+        },
+        {
+          "rank": 43,
+          "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+          "score": 0.8442857142857143,
+          "patterns": [
+            "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff"
+          ],
+          "rank_delta": -33
+        }
+      ],
+      "recall_score": 1.0,
+      "position_score": 0.92,
+      "success": true,
+      "position_score_no_rerank": 0.9,
+      "rerank_delta": 0.020000000000000018
+    },
+    {
+      "id": 10,
+      "question": "Where can the client configure target fill rate parameters?",
+      "patterns": [
+        "/4. Optimization workflow/05.New Standard Purchase Suggestions"
+      ],
+      "found": [
+        "/4. Optimization workflow/05.New Standard Purchase Suggestions"
+      ],
+      "missing": [],
+      "pattern_first_ranks": {
+        "/4. Optimization workflow/05.New Standard Purchase Suggestions": 8
+      },
+      "chunks_with_patterns": [
+        {
+          "rank": 8,
+          "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+          "score": 1.2646666666666668,
+          "patterns": [
+            "/4. Optimization workflow/05.New Standard Purchase Suggestions"
+          ],
+          "rank_delta": 5
+        },
+        {
+          "rank": 15,
+          "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+          "score": 1.2280000000000002,
+          "patterns": [
+            "/4. Optimization workflow/05.New Standard Purchase Suggestions"
+          ],
+          "rank_delta": -2
+        },
+        {
+          "rank": 16,
+          "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+          "score": 1.222,
+          "patterns": [
+            "/4. Optimization workflow/05.New Standard Purchase Suggestions"
+          ],
+          "rank_delta": -3
+        },
+        {
+          "rank": 33,
+          "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+          "score": 1.0786666666666667,
+          "patterns": [
+            "/4. Optimization workflow/05.New Standard Purchase Suggestions"
+          ],
+          "rank_delta": -20
+        },
+        {
+          "rank": 44,
+          "source": "/4. Optimization workflow/05.New Standard Purchase Suggestions",
+          "score": 0.9226666666666666,
+          "patterns": [
+            "/4. Optimization workflow/05.New Standard Purchase Suggestions"
+          ],
+          "rank_delta": -31
+        },
+        {
+          "rank": 49,
+          "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+          "score": 0.8266666666666667,
+          "patterns": [
+            "/4. Optimization workflow/05.New Standard Purchase Suggestions"
+          ],
+          "rank_delta": -8
+        }
+      ],
+      "recall_score": 1.0,
+      "position_score": 0.92,
+      "success": true,
+      "position_score_no_rerank": 0.87,
+      "rerank_delta": 0.050000000000000044
+    },
+    {
+      "id": 11,
+      "question": "For the web, is the aggressiveness coefficient capped in any way?",
+      "patterns": [
+        "/4. Optimization workflow/01 Inventory Optimization Overview",
+        "0.2"
+      ],
+      "found": [
+        "/4. Optimization workflow/01 Inventory Optimization Overview",
+        "0.2"
+      ],
+      "missing": [],
+      "pattern_first_ranks": {
+        "0.2": 2,
+        "/4. Optimization workflow/01 Inventory Optimization Overview": 4
+      },
+      "chunks_with_patterns": [
+        {
+          "rank": 2,
+          "source": "/7. Documentation/Fill Rate Example",
+          "score": 1.0246666666666666,
+          "patterns": [
+            "0.2"
+          ],
+          "rank_delta": 6
+        },
+        {
+          "rank": 4,
+          "source": "/4. Optimization workflow/01 Inventory Optimization Overview",
+          "score": 1.0,
+          "patterns": [
+            "/4. Optimization workflow/01 Inventory Optimization Overview"
+          ],
+          "rank_delta": -3
+        },
+        {
+          "rank": 23,
+          "source": "/4. Optimization workflow/01 Inventory Optimization Overview",
+          "score": 0.874,
+          "patterns": [
+            "/4. Optimization workflow/01 Inventory Optimization Overview"
+          ],
+          "rank_delta": -22
+        }
+      ],
+      "recall_score": 1.0,
+      "position_score": 0.97,
+      "success": true,
+      "position_score_no_rerank": 0.9550000000000001,
+      "rerank_delta": 0.014999999999999902
+    },
+    {
+      "id": 12,
+      "question": "How do we model the cost of holding a unit of product in stock?",
+      "patterns": [
+        "carryingCost = 0.3",
+        "/4. Optimization workflow/07 Standard Dispatch Suggestion"
+      ],
+      "found": [
+        "carryingCost = 0.3",
+        "/4. Optimization workflow/07 Standard Dispatch Suggestion"
+      ],
+      "missing": [],
+      "pattern_first_ranks": {
+        "carryingCost = 0.3": 13,
+        "/4. Optimization workflow/07 Standard Dispatch Suggestion": 13
+      },
+      "chunks_with_patterns": [
+        {
+          "rank": 13,
+          "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+          "score": 1.102,
+          "patterns": [
+            "carryingCost = 0.3",
+            "/4. Optimization workflow/07 Standard Dispatch Suggestion"
+          ],
+          "rank_delta": 21
+        }
+      ],
+      "recall_score": 1.0,
+      "position_score": 0.87,
+      "success": true,
+      "position_score_no_rerank": 0.6599999999999999,
+      "rerank_delta": 0.21000000000000008
+    },
+    {
+      "id": 13,
+      "question": "Does the client have autonomy to configure the demand satisfaction rate (fill rate) target themselves?",
+      "patterns": [
+        "/4. Optimization workflow/07 Standard Dispatch Suggestion New"
+      ],
+      "found": [
+        "/4. Optimization workflow/07 Standard Dispatch Suggestion New"
+      ],
+      "missing": [],
+      "pattern_first_ranks": {
+        "/4. Optimization workflow/07 Standard Dispatch Suggestion New": 37
+      },
+      "chunks_with_patterns": [
+        {
+          "rank": 37,
+          "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+          "score": 0.9233333333333333,
+          "patterns": [
+            "/4. Optimization workflow/07 Standard Dispatch Suggestion New"
+          ],
+          "rank_delta": -1
+        }
+      ],
+      "recall_score": 1.0,
+      "position_score": 0.63,
+      "success": true,
+      "position_score_no_rerank": 0.64,
+      "rerank_delta": -0.010000000000000009
+    },
+    {
+      "id": 14,
+      "question": "The client would like to track stockout evolution: is there an existing dashboard that could be useful?",
+      "patterns": [
+        "/3. Inspectors/7 - Global Business Cockpit"
+      ],
+      "found": [
+        "/3. Inspectors/7 - Global Business Cockpit"
+      ],
+      "missing": [],
+      "pattern_first_ranks": {
+        "/3. Inspectors/7 - Global Business Cockpit": 24
+      },
+      "chunks_with_patterns": [
+        {
+          "rank": 24,
+          "source": "/3. Inspectors/7 - Global Business Cockpit",
+          "score": 0.918,
+          "patterns": [
+            "/3. Inspectors/7 - Global Business Cockpit"
+          ],
+          "rank_delta": -1
+        },
+        {
+          "rank": 43,
+          "source": "/3. Inspectors/7 - Global Business Cockpit",
+          "score": 0.8059999999999999,
+          "patterns": [
+            "/3. Inspectors/7 - Global Business Cockpit"
+          ],
+          "rank_delta": -20
+        }
+      ],
+      "recall_score": 1.0,
+      "position_score": 0.76,
+      "success": true,
+      "position_score_no_rerank": 0.77,
+      "rerank_delta": -0.010000000000000009
+    },
+    {
+      "id": 15,
+      "question": "What type of average demand is displayed to the client on the account?",
+      "patterns": [
+        "/4. Optimization workflow/FR/05. Suggestions d'achat"
+      ],
+      "found": [
+        "/4. Optimization workflow/FR/05. Suggestions d'achat"
+      ],
+      "missing": [],
+      "pattern_first_ranks": {
+        "/4. Optimization workflow/FR/05. Suggestions d'achat": 32
+      },
+      "chunks_with_patterns": [
+        {
+          "rank": 32,
+          "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+          "score": 0.9046666666666666,
+          "patterns": [
+            "/4. Optimization workflow/FR/05. Suggestions d'achat"
+          ],
+          "rank_delta": -4
+        },
+        {
+          "rank": 43,
+          "source": "/4. Optimization workflow/FR/05. Suggestions d'achat",
+          "score": 0.8326666666666667,
+          "patterns": [
+            "/4. Optimization workflow/FR/05. Suggestions d'achat"
+          ],
+          "rank_delta": -15
+        }
+      ],
+      "recall_score": 1.0,
+      "position_score": 0.6799999999999999,
+      "success": true,
+      "position_score_no_rerank": 0.72,
+      "rerank_delta": -0.040000000000000036
+    },
+    {
+      "id": 16,
+      "question": "Is there a specific handling for top products in the scripts?",
+      "patterns": [
+        "IsTopItem"
+      ],
+      "found": [
+        "IsTopItem"
+      ],
+      "missing": [],
+      "pattern_first_ranks": {
+        "IsTopItem": 1
+      },
+      "chunks_with_patterns": [
+        {
+          "rank": 1,
+          "source": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+          "score": 1.34,
+          "patterns": [
+            "IsTopItem"
+          ],
+          "rank_delta": 0
+        },
+        {
+          "rank": 2,
+          "source": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+          "score": 1.074,
+          "patterns": [
+            "IsTopItem"
+          ],
+          "rank_delta": -1
+        },
+        {
+          "rank": 7,
+          "source": "/4. Optimization workflow/05. Standard Purchase Suggestions",
+          "score": 1.038,
+          "patterns": [
+            "IsTopItem"
+          ],
+          "rank_delta": 1
+        },
+        {
+          "rank": 8,
+          "source": "/4. Optimization workflow/07 Standard Dispatch Suggestion New",
+          "score": 1.02,
+          "patterns": [
+            "IsTopItem"
+          ],
+          "rank_delta": 3
+        },
+        {
+          "rank": 10,
+          "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+          "score": 0.984,
+          "patterns": [
+            "IsTopItem"
+          ],
+          "rank_delta": 7
+        },
+        {
+          "rank": 11,
+          "source": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+          "score": 0.978,
+          "patterns": [
+            "IsTopItem"
+          ],
+          "rank_delta": -10
+        },
+        {
+          "rank": 14,
+          "source": "/3. Inspectors/6 Compare to Min-Max strategy",
+          "score": 0.966,
+          "patterns": [
+            "IsTopItem"
+          ],
+          "rank_delta": 6
+        },
+        {
+          "rank": 15,
+          "source": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+          "score": 0.9560000000000001,
+          "patterns": [
+            "IsTopItem"
+          ],
+          "rank_delta": -14
+        },
+        {
+          "rank": 16,
+          "source": "/4. Optimization workflow/06 Purchasing results",
+          "score": 0.954,
+          "patterns": [
+            "IsTopItem"
+          ],
+          "rank_delta": 6
+        },
+        {
+          "rank": 20,
+          "source": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+          "score": 0.942,
+          "patterns": [
+            "IsTopItem"
+          ],
+          "rank_delta": -19
+        },
+        {
+          "rank": 25,
+          "source": "/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing",
+          "score": 0.9119999999999999,
+          "patterns": [
+            "IsTopItem"
+          ],
+          "rank_delta": 4
+        },
+        {
+          "rank": 27,
+          "source": "/4. Optimization workflow/French/05.Recommandations d'Achats",
+          "score": 0.9000000000000001,
+          "patterns": [
+            "IsTopItem"
+          ],
+          "rank_delta": -10
+        },
+        {
+          "rank": 34,
+          "source": "/1. utilities/1. populating dataset/02 - Automatic Stock and PO History Creation",
+          "score": 0.8460000000000001,
+          "patterns": [
+            "IsTopItem"
+          ],
+          "rank_delta": 6
+        },
+        {
+          "rank": 42,
+          "source": "/4. Optimization workflow/06 Purchasing results",
+          "score": 0.798,
+          "patterns": [
+            "IsTopItem"
+          ],
+          "rank_delta": -20
+        }
+      ],
+      "recall_score": 1.0,
+      "position_score": 0.99,
+      "success": true,
+      "position_score_no_rerank": 0.99,
+      "rerank_delta": 0.0
+    },
+    {
+      "id": 17,
+      "question": "When was the Orders data generated using which date range?",
+      "patterns": [
+        "2015"
+      ],
+      "found": [],
+      "missing": [
+        "2015"
+      ],
+      "pattern_first_ranks": {},
+      "chunks_with_patterns": [],
+      "recall_score": 0.0,
+      "position_score": 0.0,
+      "success": false,
+      "position_score_no_rerank": 0.0,
+      "rerank_delta": 0.0
+    },
+    {
+      "id": 18,
+      "question": "How many seasonality profiles are learned to create the forecasting engine?",
+      "patterns": [
+        "10"
+      ],
+      "found": [
+        "10"
+      ],
+      "missing": [],
+      "pattern_first_ranks": {
+        "10": 2
+      },
+      "chunks_with_patterns": [
+        {
+          "rank": 2,
+          "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+          "score": 1.0571428571428572,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -1
+        },
+        {
+          "rank": 3,
+          "source": "/4. Optimization workflow/French/03 Forecasting",
+          "score": 1.0451428571428572,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": 0
+        },
+        {
+          "rank": 4,
+          "source": "/4. Optimization workflow/French/03 Forecasting",
+          "score": 1.0391428571428571,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -1
+        },
+        {
+          "rank": 5,
+          "source": "/4. Optimization workflow/03.b. Forecasting",
+          "score": 1.0331428571428571,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": 0
+        },
+        {
+          "rank": 8,
+          "source": "/4. Optimization workflow/03.b. Forecasting",
+          "score": 1.0151428571428571,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -3
+        },
+        {
+          "rank": 9,
+          "source": "/4. Optimization workflow/French/03 Forecasting",
+          "score": 0.9971428571428571,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -6
+        },
+        {
+          "rank": 10,
+          "source": "/5. Long Term Planning Module/High Level Forecast Cockpit",
+          "score": 0.9851428571428572,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": 3
+        },
+        {
+          "rank": 11,
+          "source": "/4. Optimization workflow/French/03 Forecasting",
+          "score": 0.9791428571428572,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -8
+        },
+        {
+          "rank": 12,
+          "source": "/4. Optimization workflow/French/03 Forecasting",
+          "score": 0.9731428571428572,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -9
+        },
+        {
+          "rank": 14,
+          "source": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning",
+          "score": 0.9551428571428572,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": 3
+        },
+        {
+          "rank": 15,
+          "source": "/4. Optimization workflow/French/07 Recommandations de Dispatch",
+          "score": 0.952,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -6
+        },
+        {
+          "rank": 16,
+          "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+          "score": 0.9491428571428572,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -15
+        },
+        {
+          "rank": 17,
+          "source": "/5. Long Term Planning Module/Final Forecast Plan",
+          "score": 0.946,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -7
+        },
+        {
+          "rank": 20,
+          "source": "/4. Optimization workflow/French/03 Forecasting",
+          "score": 0.9131428571428571,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -17
+        },
+        {
+          "rank": 21,
+          "source": "/1. utilities/1. populating dataset/04 - Data Creation for Long Term Planning",
+          "score": 0.904,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -4
+        },
+        {
+          "rank": 23,
+          "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+          "score": 0.8982857142857144,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -22
+        },
+        {
+          "rank": 25,
+          "source": "/4. Optimization workflow/03.b. Forecasting",
+          "score": 0.8831428571428572,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -20
+        },
+        {
+          "rank": 26,
+          "source": "/4. Optimization workflow/04 Economic Parameters",
+          "score": 0.88,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -5
+        },
+        {
+          "rank": 29,
+          "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+          "score": 0.868,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -28
+        },
+        {
+          "rank": 30,
+          "source": "/4. Optimization workflow/03.b. Forecasting",
+          "score": 0.8651428571428572,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -25
+        },
+        {
+          "rank": 33,
+          "source": "/5. Long Term Planning Module/High Level Forecast Cockpit",
+          "score": 0.85,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -20
+        },
+        {
+          "rank": 34,
+          "source": "/4. Optimization workflow/03.b. Forecasting",
+          "score": 0.8471428571428572,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -29
+        },
+        {
+          "rank": 35,
+          "source": "/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation",
+          "score": 0.832,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -6
+        },
+        {
+          "rank": 39,
+          "source": "/4. Optimization workflow/French/03 Forecasting",
+          "score": 0.7991428571428572,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -36
+        },
+        {
+          "rank": 42,
+          "source": "/4. Optimization workflow/03.b. Forecasting",
+          "score": 0.7811428571428571,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -37
+        },
+        {
+          "rank": 43,
+          "source": "/5. Long Term Planning Module/Archive/General Vision V1",
+          "score": 0.778,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -5
+        },
+        {
+          "rank": 46,
+          "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+          "score": 0.766,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -45
+        },
+        {
+          "rank": 49,
+          "source": "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
+          "score": 0.736,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": -48
+        },
+        {
+          "rank": 50,
+          "source": "/4. Optimization workflow/03 Forecast Menu",
+          "score": 0.706,
+          "patterns": [
+            "10"
+          ],
+          "rank_delta": 0
+        }
+      ],
+      "recall_score": 1.0,
+      "position_score": 0.98,
+      "success": true,
+      "position_score_no_rerank": 0.99,
+      "rerank_delta": -0.010000000000000009
+    }
+  ]
+}

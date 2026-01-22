@@ -1,6 +1,6 @@
 from typing import Dict, Any, Union, List
 import logging
-from code_rag.retriever import GraphRetriever
+from code_rag.vector_engines import get_retriever
 
 class SemanticTools:
     """
@@ -8,21 +8,27 @@ class SemanticTools:
     """
     def __init__(self, config: Dict[str, Any] = None):
         try:
-             self.retriever = GraphRetriever() # Load config internally
+             self.retriever = get_retriever() # Load config internally
         except Exception as e:
             logging.error(f"Failed to initialize SemanticTools: {e}")
             self.retriever = None
 
-    def search(self, query: str, top_k: int = 5, **kwargs) -> Union[List[Dict], str]:
+    def search(self, query: str, top_k: int = 5, keywords: List[str] = None, terms: List[str] = None, horizon: bool = False, **kwargs) -> Union[List[Dict], str]:
         """
-        Executes semantic search with Graph-Aware chunks.
+        Executes semantic search with Graph-Aware chunks, Oriented Reranking, and Horizon scan.
         """
         if not self.retriever:
             return "Error: RAG Retriever not initialized (Run 'uv run index --build' first)."
 
         try:
             # Query the RAG
-            response = self.retriever.query(query, top_k=top_k)
+            response = self.retriever.query(
+                query, 
+                top_k=top_k, 
+                targets=terms, 
+                keywords=keywords,
+                horizon=horizon
+            )
             
             # Extract only relevant info for the agent to save tokens
             # We want: Source, Content Wrapper, Score
@@ -47,10 +53,10 @@ class SemanticTools:
             stats = response.get("stats", {})
             stats["displayed_count"] = len(summary)
 
-            return {
                 "query": query,
                 "stats": stats,
-                "results": summary
+                "results": summary,
+                "horizon": response.get("horizon", [])
             }
 
         except Exception as e:

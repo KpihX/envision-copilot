@@ -8,6 +8,7 @@ import fnmatch
 
 from .typedefs import Network, Node, Edge, NodeType, EdgeType
 from .utils import ConfigLoader
+from .extractor import SymbolExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -282,7 +283,8 @@ class NetworkBuilder:
             content=content, 
             metadata={
                 # logical_path and filename removed as redundant
-                "docs": docs
+                "docs": docs,
+                "symbols": SymbolExtractor.extract(self._strip_comments(content))
             }
         )
         self.network.add_node(script_node)

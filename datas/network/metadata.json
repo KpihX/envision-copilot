@@ -1,0 +1,751 @@
+{
+  "generated_at": "2026-01-22T19:42:14.413293",
+  "source_files": 60,
+  "node_count": 443,
+  "edge_count": 699,
+  "nodes_by_type": {
+    "script": 60,
+    "file": 74,
+    "table": 96,
+    "var": 196,
+    "function": 17
+  },
+  "edges_by_type": {
+    "imports": 55,
+    "reads": 270,
+    "defines": 309,
+    "writes": 63,
+    "export": 2
+  },
+  "resolutions": {
+    "globs": [
+      {
+        "pattern": "/Input/PO/*.ion",
+        "matches": [
+          "/Input/PO/ManualPO_01.ion",
+          "/Input/PO/PO_01.ion"
+        ],
+        "count": 2
+      },
+      {
+        "pattern": "/Input/*/*/*",
+        "matches": [
+          "/Input/Documentation/Fill Rate/FakeCatalog.csv",
+          "/Input/Documentation/Fill Rate/fillrate.csv",
+          "/Input/Documentation/ActRwd Example/ActRwdDocsItems.ion",
+          "/Input/Documentation/ActRwd Example/ActRwdDocsOrders.ion",
+          "/Input/Documentation/ActRwd Example/ActRwdDocsDemand.ion",
+          "/Input/Documentation/ActRwd Example/ActRwdDocsFC.ion"
+        ],
+        "count": 6
+      }
+    ],
+    "placeholders": [
+      {
+        "original": "\\{inputFolder}Items.ion",
+        "resolved": "/Clean/Items.ion",
+        "source": "68010 (Edge)"
+      },
+      {
+        "original": "\\{inputFolder}Orders.ion",
+        "resolved": "/Clean/Orders.ion",
+        "source": "68010 (Edge)"
+      },
+      {
+        "original": "/\\{inputFolder}Stock.ion",
+        "resolved": "//Clean/Stock.ion",
+        "source": "68010 (Edge)"
+      },
+      {
+        "original": "/\\{inputFolder}PO.ion",
+        "resolved": "//Clean/PO.ion",
+        "source": "68010 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}/Input/",
+        "resolved": "/Input/",
+        "source": "68000::var::filestorage"
+      },
+      {
+        "original": "\\{testStorage}/Manual/",
+        "resolved": "/Manual/",
+        "source": "68000::var::manualStorage"
+      },
+      {
+        "original": "\\{testStorage}/Clean/tmp/",
+        "resolved": "/Clean/tmp/",
+        "source": "68000::var::exportPath"
+      },
+      {
+        "original": "\\{filestorage}Catalog/Catalog*",
+        "resolved": "/Input/Catalog/Catalog*",
+        "source": "68000 (Edge)"
+      },
+      {
+        "original": "\\{filestorage}/Orders/Orders*",
+        "resolved": "/Input//Orders/Orders*",
+        "source": "68000 (Edge)"
+      },
+      {
+        "original": "\\{filestorage}/PO/*.ion",
+        "resolved": "/Input//PO/*.ion",
+        "source": "68000 (Edge)"
+      },
+      {
+        "original": "\\{manualStorage}Suppliers_Dashboard.ion",
+        "resolved": "/Manual/Suppliers_Dashboard.ion",
+        "source": "68000 (Edge)"
+      },
+      {
+        "original": "\\{exportPath}Catalog.ion",
+        "resolved": "/Clean/tmp/Catalog.ion",
+        "source": "68000 (Edge)"
+      },
+      {
+        "original": "\\{exportPath}Orders.ion",
+        "resolved": "/Clean/tmp/Orders.ion",
+        "source": "68000 (Edge)"
+      },
+      {
+        "original": "\\{exportPath}Purchaseorders.ion",
+        "resolved": "/Clean/tmp/Purchaseorders.ion",
+        "source": "68000 (Edge)"
+      },
+      {
+        "original": "\\{exportPath}Suppliers.ion",
+        "resolved": "/Clean/tmp/Suppliers.ion",
+        "source": "68000 (Edge)"
+      },
+      {
+        "original": "\\{exportPath}Stock.ion",
+        "resolved": "/Clean/tmp/Stock.ion",
+        "source": "68000 (Edge)"
+      },
+      {
+        "original": "\\{exportPath}Logs/LogDefault.ion",
+        "resolved": "/Clean/tmp/Logs/LogDefault.ion",
+        "source": "68000 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}/Clean/tmp/",
+        "resolved": "/Clean/tmp/",
+        "source": "68001::var::path"
+      },
+      {
+        "original": "\\{projectFolder}/Clean/",
+        "resolved": "/Clean/",
+        "source": "68001::var::exportPath"
+      },
+      {
+        "original": "\\{path}Catalog.ion",
+        "resolved": "/Clean/tmp/Catalog.ion",
+        "source": "68001 (Edge)"
+      },
+      {
+        "original": "\\{path}Orders.ion",
+        "resolved": "/Clean/tmp/Orders.ion",
+        "source": "68001 (Edge)"
+      },
+      {
+        "original": "\\{path}Suppliers.ion",
+        "resolved": "/Clean/tmp/Suppliers.ion",
+        "source": "68001 (Edge)"
+      },
+      {
+        "original": "\\{exportPath}Items.ion",
+        "resolved": "/Clean/Items.ion",
+        "source": "68001 (Edge)"
+      },
+      {
+        "original": "\\{exportPath}Orders.ion",
+        "resolved": "/Clean/Orders.ion",
+        "source": "68001 (Edge)"
+      },
+      {
+        "original": "\\{exportPath}Suppliers.ion",
+        "resolved": "/Clean/Suppliers.ion",
+        "source": "68001 (Edge)"
+      },
+      {
+        "original": "\\{exportPath}PO.ion",
+        "resolved": "/Clean/PO.ion",
+        "source": "68001 (Edge)"
+      },
+      {
+        "original": "\\{exportPath}Stock.ion",
+        "resolved": "/Clean/Stock.ion",
+        "source": "68001 (Edge)"
+      },
+      {
+        "original": "\\{exportPath}Locations.ion",
+        "resolved": "/Clean/Locations.ion",
+        "source": "68001 (Edge)"
+      },
+      {
+        "original": "\\{exportPath}References.ion",
+        "resolved": "/Clean/References.ion",
+        "source": "68001 (Edge)"
+      },
+      {
+        "original": "\\{exportPath}AutoPartsItems.ion",
+        "resolved": "/Clean/AutoPartsItems.ion",
+        "source": "68001 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}/Clean/",
+        "resolved": "/Clean/",
+        "source": "68022::var::inputPath"
+      },
+      {
+        "original": "\\{inputPath}Items.ion",
+        "resolved": "/Clean/Items.ion",
+        "source": "68022 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}Clean/Orders.ion",
+        "resolved": "Clean/Orders.ion",
+        "source": "68022 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+        "resolved": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+        "source": "68022 (Edge)"
+      },
+      {
+        "original": "\\{inputFolder}/*/*\\{usedIFF}",
+        "resolved": "/Input//*/*\\{usedIFF}",
+        "source": "68004 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}/Clean/",
+        "resolved": "/Clean/",
+        "source": "68021::var::inputPath"
+      },
+      {
+        "original": "\\{testStorage}Clean/Orders.ion",
+        "resolved": "Clean/Orders.ion",
+        "source": "68021 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+        "resolved": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+        "source": "68021 (Edge)"
+      },
+      {
+        "original": "\\{path}SupplierInspectorKPIs.ion",
+        "resolved": "/Clean/Reporting/SupplierInspectorKPIs.ion",
+        "source": "68013 (Edge)"
+      },
+      {
+        "original": "\\{path}SupplierInspectorPOs.ion",
+        "resolved": "/Clean/Reporting/SupplierInspectorPOs.ion",
+        "source": "68013 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}/Clean/",
+        "resolved": "/Clean/",
+        "source": "87608::var::inputPath"
+      },
+      {
+        "original": "\\{testStorage}Clean/Orders.ion",
+        "resolved": "Clean/Orders.ion",
+        "source": "87608 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+        "resolved": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+        "source": "87608 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}/Clean/",
+        "resolved": "/Clean/",
+        "source": "68023::var::inputPath"
+      },
+      {
+        "original": "\\{inputPath}Locations.ion",
+        "resolved": "/Clean/Locations.ion",
+        "source": "68023 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Items.ion",
+        "resolved": "/Clean/Items.ion",
+        "source": "68023 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}Clean/Orders.ion",
+        "resolved": "Clean/Orders.ion",
+        "source": "68023 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+        "resolved": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+        "source": "68023 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}/Clean/",
+        "resolved": "/Clean/",
+        "source": "76705::var::inputPath"
+      },
+      {
+        "original": "\\{inputPath}Items.ion",
+        "resolved": "/Clean/Items.ion",
+        "source": "76705 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}Clean/Orders.ion",
+        "resolved": "Clean/Orders.ion",
+        "source": "76705 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+        "resolved": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+        "source": "76705 (Edge)"
+      },
+      {
+        "original": "\\{exportPath}EconomicParametersCategories.ion",
+        "resolved": "Clean/PurchaseResults/LongTermSimulation/EconomicParametersCategories.ion",
+        "source": "76705 (Edge)"
+      },
+      {
+        "original": "\\{exportPath}TargetsPurchaseList.ion",
+        "resolved": "Clean/PurchaseResults/LongTermSimulation/TargetsPurchaseList.ion",
+        "source": "76705 (Edge)"
+      },
+      {
+        "original": "\\{exportPath}WeeklyPurchasesByRef.ion",
+        "resolved": "Clean/PurchaseResults/LongTermSimulation/WeeklyPurchasesByRef.ion",
+        "source": "76705 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}/Clean/",
+        "resolved": "/Clean/",
+        "source": "67984::var::inputPath"
+      },
+      {
+        "original": "\\{inputPath}Items.ion",
+        "resolved": "/Clean/Items.ion",
+        "source": "67984 (Edge)"
+      },
+      {
+        "original": "\\{exportPath}OverrideItems.ion",
+        "resolved": "Clean/Override/OverrideItems.ion",
+        "source": "67984 (Edge)"
+      },
+      {
+        "original": "\\{exportPath}OverrideLocations.ion",
+        "resolved": "Clean/Override/OverrideLocations.ion",
+        "source": "67984 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}/Clean/",
+        "resolved": "/Clean/",
+        "source": "68019::var::inputPath"
+      },
+      {
+        "original": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+        "resolved": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+        "source": "68019 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Forecast/Periodic/FcItems.ion",
+        "resolved": "/Clean/Forecast/Periodic/FcItems.ion",
+        "source": "68019 (Edge)"
+      },
+      {
+        "original": "\\{exportFile}TestEditable.ion",
+        "resolved": "/Clean/validation/TestEditable.ion",
+        "source": "68019 (Edge)"
+      },
+      {
+        "original": "\\{exportFile}TestEditable.ion",
+        "resolved": "/Clean/validation/TestEditable.ion",
+        "source": "68019 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}/Clean/",
+        "resolved": "/Clean/",
+        "source": "68014::var::inputPath"
+      },
+      {
+        "original": "\\{inputPath}Items.ion",
+        "resolved": "/Clean/Items.ion",
+        "source": "68014 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}Clean/Orders.ion",
+        "resolved": "Clean/Orders.ion",
+        "source": "68014 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+        "resolved": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+        "source": "68014 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}/Clean/",
+        "resolved": "/Clean/",
+        "source": "68020::var::inputPath"
+      },
+      {
+        "original": "\\{inputPath}Items.ion",
+        "resolved": "/Clean/Items.ion",
+        "source": "68020 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}Clean/Orders.ion",
+        "resolved": "Clean/Orders.ion",
+        "source": "68020 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+        "resolved": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+        "source": "68020 (Edge)"
+      },
+      {
+        "original": "\\{inputFolder}Orders.ion",
+        "resolved": "/Clean/Orders.ion",
+        "source": "79365 (Edge)"
+      },
+      {
+        "original": "/\\{inputFolder}Stock.ion",
+        "resolved": "//Clean/Stock.ion",
+        "source": "79365 (Edge)"
+      },
+      {
+        "original": "\\{inputFolder}Forecast/Periodic/WeeklyFc.ion",
+        "resolved": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+        "source": "79365 (Edge)"
+      },
+      {
+        "original": "/\\{inputFolder}PO.ion",
+        "resolved": "//Clean/PO.ion",
+        "source": "79365 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}/Clean/",
+        "resolved": "/Clean/",
+        "source": "68017::var::inputPath"
+      },
+      {
+        "original": "\\{inputPath}Items.ion",
+        "resolved": "/Clean/Items.ion",
+        "source": "68017 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}Clean/Orders.ion",
+        "resolved": "Clean/Orders.ion",
+        "source": "68017 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+        "resolved": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+        "source": "68017 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}/Clean/",
+        "resolved": "/Clean/",
+        "source": "79367::var::inputPath"
+      },
+      {
+        "original": "\\{inputPath}Locations.ion",
+        "resolved": "/Clean/Locations.ion",
+        "source": "79367 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Items.ion",
+        "resolved": "/Clean/Items.ion",
+        "source": "79367 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}Clean/Orders.ion",
+        "resolved": "Clean/Orders.ion",
+        "source": "79367 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+        "resolved": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+        "source": "79367 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}/Clean/",
+        "resolved": "/Clean/",
+        "source": "80985::var::inputPath"
+      },
+      {
+        "original": "\\{inputPath}Locations.ion",
+        "resolved": "/Clean/Locations.ion",
+        "source": "80985 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}Clean/Orders.ion",
+        "resolved": "Clean/Orders.ion",
+        "source": "80985 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+        "resolved": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+        "source": "80985 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}/Clean/",
+        "resolved": "/Clean/",
+        "source": "77988::var::inputPath"
+      },
+      {
+        "original": "\\{inputPath}Items.ion",
+        "resolved": "/Clean/Items.ion",
+        "source": "77988 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}Clean/Orders.ion",
+        "resolved": "Clean/Orders.ion",
+        "source": "77988 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+        "resolved": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+        "source": "77988 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}/Clean/",
+        "resolved": "/Clean/",
+        "source": "87830::var::inputPath"
+      },
+      {
+        "original": "\\{testStorage}Clean/Orders.ion",
+        "resolved": "Clean/Orders.ion",
+        "source": "87830 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+        "resolved": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+        "source": "87830 (Edge)"
+      },
+      {
+        "original": "\\{inputFolder}Items.ion",
+        "resolved": "/Clean/Items.ion",
+        "source": "68011 (Edge)"
+      },
+      {
+        "original": "\\{inputFolder}Orders.ion",
+        "resolved": "/Clean/Orders.ion",
+        "source": "68011 (Edge)"
+      },
+      {
+        "original": "/\\{inputFolder}Stock.ion",
+        "resolved": "//Clean/Stock.ion",
+        "source": "68011 (Edge)"
+      },
+      {
+        "original": "\\{inputFolder}Forecast/Periodic/WeeklyFc.ion",
+        "resolved": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+        "source": "68011 (Edge)"
+      },
+      {
+        "original": "/\\{inputFolder}PO.ion",
+        "resolved": "//Clean/PO.ion",
+        "source": "68011 (Edge)"
+      },
+      {
+        "original": "\\{path}StockInspectorKPIs.ion",
+        "resolved": "/Clean/Reporting/StockInspectorKPIs.ion",
+        "source": "68011 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}/Clean/",
+        "resolved": "/Clean/",
+        "source": "78069::var::inputPath"
+      },
+      {
+        "original": "\\{inputPath}Items.ion",
+        "resolved": "/Clean/Items.ion",
+        "source": "78069 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Items.ion",
+        "resolved": "/Clean/Items.ion",
+        "source": "78069 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+        "resolved": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+        "source": "78069 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Forecast/Periodic/FcItems.ion",
+        "resolved": "/Clean/Forecast/Periodic/FcItems.ion",
+        "source": "78069 (Edge)"
+      },
+      {
+        "original": "\\{exportFile}TestEditable.ion",
+        "resolved": "/Clean/validation/TestEditable.ion",
+        "source": "78069 (Edge)"
+      },
+      {
+        "original": "\\{exportFile}ManualForecasts.ion",
+        "resolved": "/Clean/validation/ManualForecasts.ion",
+        "source": "78069 (Edge)"
+      },
+      {
+        "original": "\\{projectFolder}Background/ItemSim/",
+        "resolved": "Background/ItemSim/",
+        "source": "67982::var::myPath"
+      },
+      {
+        "original": "\\{myPath}\\{itemName}*",
+        "resolved": "Background/ItemSim/ItemToProgram_*",
+        "source": "67982 (Edge)"
+      },
+      {
+        "original": "\\{myPath}\\{categoryName}*",
+        "resolved": "Background/ItemSim/CategoryToProgram*",
+        "source": "67982 (Edge)"
+      },
+      {
+        "original": "\\{projectFolder}Input/Orders/Orders_\\{itText}.ion",
+        "resolved": "Input/Orders/Orders_\\{itText}.ion",
+        "source": "67982 (Edge)"
+      },
+      {
+        "original": "\\{projectFolder}Input/Catalog/Catalog_\\{itText}.ion",
+        "resolved": "Input/Catalog/Catalog_\\{itText}.ion",
+        "source": "67982 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}/Clean/",
+        "resolved": "/Clean/",
+        "source": "78018::var::inputPath"
+      },
+      {
+        "original": "\\{inputPath}Locations.ion",
+        "resolved": "/Clean/Locations.ion",
+        "source": "78018 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Items.ion",
+        "resolved": "/Clean/Items.ion",
+        "source": "78018 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}Clean/Orders.ion",
+        "resolved": "Clean/Orders.ion",
+        "source": "78018 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+        "resolved": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+        "source": "78018 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}/Clean/",
+        "resolved": "/Clean/",
+        "source": "75854::var::inputPath"
+      },
+      {
+        "original": "\\{inputPath}Locations.ion",
+        "resolved": "/Clean/Locations.ion",
+        "source": "75854 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Items.ion",
+        "resolved": "/Clean/Items.ion",
+        "source": "75854 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}Clean/Orders.ion",
+        "resolved": "Clean/Orders.ion",
+        "source": "75854 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+        "resolved": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+        "source": "75854 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}/Clean/",
+        "resolved": "/Clean/",
+        "source": "78023::var::inputPath"
+      },
+      {
+        "original": "\\{inputPath}Items.ion",
+        "resolved": "/Clean/Items.ion",
+        "source": "78023 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}Clean/Orders.ion",
+        "resolved": "Clean/Orders.ion",
+        "source": "78023 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Forecast/Periodic/WeeklyFc.ion",
+        "resolved": "/Clean/Forecast/Periodic/WeeklyFc.ion",
+        "source": "78023 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Catalog.ion",
+        "resolved": "/Clean/tmp/Catalog.ion",
+        "source": "68005 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Orders.ion",
+        "resolved": "/Clean/tmp/Orders.ion",
+        "source": "68005 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Purchaseorders.ion",
+        "resolved": "/Clean/tmp/Purchaseorders.ion",
+        "source": "68005 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Suppliers.ion",
+        "resolved": "/Clean/tmp/Suppliers.ion",
+        "source": "68005 (Edge)"
+      },
+      {
+        "original": "\\{inputPath}Stock.ion",
+        "resolved": "/Clean/tmp/Stock.ion",
+        "source": "68005 (Edge)"
+      },
+      {
+        "original": "\\{projectFolder}Manual/\\{itemName}.ion",
+        "resolved": "Manual/Suppliers_Dashboard.ion",
+        "source": "68018::var::exportFile"
+      },
+      {
+        "original": "\\{projectFolder}Manual/\\{itemName2}.ion",
+        "resolved": "Manual/Location_Dashboard.ion",
+        "source": "68018::var::exportFile"
+      },
+      {
+        "original": "\\{testStorage}/Clean/",
+        "resolved": "/Clean/",
+        "source": "68002::var::inputPath"
+      },
+      {
+        "original": "\\{testStorage}Clean/Items.ion",
+        "resolved": "Clean/Items.ion",
+        "source": "68002 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}Clean/Orders.ion",
+        "resolved": "Clean/Orders.ion",
+        "source": "68002 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}Clean/Parameters/max_date_placeholder.csv",
+        "resolved": "Clean/Parameters/max_date_placeholder.csv",
+        "source": "68002 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}Clean/Forecast/Periodic/WeeklyFc.ion",
+        "resolved": "Clean/Forecast/Periodic/WeeklyFc.ion",
+        "source": "68002 (Edge)"
+      },
+      {
+        "original": "\\{testStorage}Clean/Forecast/Periodic/FcItems.ion",
+        "resolved": "Clean/Forecast/Periodic/FcItems.ion",
+        "source": "68002 (Edge)"
+      }
+    ]
+  }
+}
