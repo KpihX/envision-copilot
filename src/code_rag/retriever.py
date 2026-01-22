@@ -8,11 +8,21 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from .utils import ConfigLoader
-from .reranker import Reranker
+from .rerankers import get_reranker, RERANKERS, DEFAULT_MODELS
 
 logger = logging.getLogger(__name__)
 
 class GraphRetriever:
+    """
+    RAG Retriever with modular reranking support.
+    
+    Supports multiple reranker types configured via config.yaml:
+    - cross-encoder: sentence-transformers cross-encoder (default)
+    - bge: BAAI/bge-reranker (robust for technical terms)
+    - mxbai: mixedbread-ai/mxbai-reranker (best speed/accuracy)
+    - answerai: answerdotai optimized reranker (for Q&A)
+    """
+    
     def __init__(self, config_path: str = "config.yaml"):
         self.config = ConfigLoader.load_config(config_path)
         self.idx_config = self.config.get("indexing", {})
@@ -23,18 +33,31 @@ class GraphRetriever:
         self.chunks = []
         self.bi_encoder = None
         self.reranker = None
-        self._reranker_instance = None
+        self._use_reranker = self.ret_config.get("use_reranker", True)
+        self._use_contextual = self.ret_config.get("contextual_reranking", True)
         
-        if self.ret_config.get("use_reranker", True):
-            self._reranker_instance = Reranker(self.ret_config.get("reranker_name", "cross-encoder/ms-marco-MiniLM-L-6-v2"))
-            self.reranker = self._reranker_instance
+        if self._use_reranker:
+            self._init_reranker()
+
+    def _init_reranker(self):
+        """Initialize the reranker based on config."""
+        reranker_type = self.ret_config.get("reranker_type", "cross-encoder")
+        reranker_name = self.ret_config.get("reranker_name")
+        
+        # If reranker_name looks like a full model path, use it directly
+        if reranker_name and "/" in reranker_name:
+            # Legacy config: full model name specified
+            self.reranker = get_reranker(reranker_type, reranker_name)
+        else:
+            # New config: use type and default model
+            self.reranker = get_reranker(reranker_type, reranker_name)
 
     def set_reranking(self, enabled: bool):
         """Enable or disable reranking at runtime."""
-        if enabled:
-            self._reranker_instance = Reranker(self.ret_config.get("reranker_name", "cross-encoder/ms-marco-MiniLM-L-6-v2"))
-            self.reranker = self._reranker_instance
-        else:
+        self._use_reranker = enabled
+        if enabled and self.reranker is None:
+            self._init_reranker()
+        elif not enabled:
             self.reranker = None
 
     def _ensure_loaded(self):
@@ -106,20 +129,37 @@ class GraphRetriever:
         final_results = []
         
         # 2. Rerank (Precision)
-        if self.reranker:
-            print(f"[RAG] ⚖️ Reranking {len(candidates)} candidates...")
-            # Prepare texts: Context + Content
-            cand_texts = [c["text"] for c in candidates]
+        if self.reranker and self._use_reranker:
+            reranker_type = self.ret_config.get("reranker_type", "cross-encoder")
+            print(f"[RAG] ⚖️ Reranking {len(candidates)} candidates with {reranker_type}...")
             
-            ranked_indices = self.reranker.rank(query_text, cand_texts, top_k=top_k)
+            # Contextual: pass full chunk dicts with metadata
+            # Non-contextual: pass only text strings (like original reranker)
+            if self._use_contextual:
+                ranked_indices = self.reranker.rank(
+                    query_text, 
+                    candidates, 
+                    top_k=top_k,
+                    use_contextual=True
+                )
+            else:
+                # Original behavior: pass just the text strings
+                cand_texts = [c["text"] for c in candidates]
+                ranked_indices = self.reranker.rank(
+                    query_text, 
+                    cand_texts, 
+                    top_k=top_k,
+                    use_contextual=False
+                )
             
             stats["reranked"] = True
+            stats["reranker_type"] = reranker_type
             
             for original_idx_in_candidates, score in ranked_indices:
                 chunk = candidates[original_idx_in_candidates]
                 res = chunk.copy()
                 res["score"] = float(score)
-                res["rank_method"] = "cross_encoder"
+                res["rank_method"] = f"rerank_{reranker_type}"
                 final_results.append(res)
         else:
             print("[RAG] ⚠️ Reranker disabled. Returning raw vector results.")
@@ -127,9 +167,7 @@ class GraphRetriever:
             for i in range(min(len(candidates), top_k)):
                 chunk = candidates[i]
                 res = chunk.copy()
-                res["score"] = float(distances[0][i]) # L2 distance (lower is better usually, but check index type)
-                # IndexFlatL2 returns squared Euclidean distance. 
-                # Converting to similarity/score might be needed for consistency, but raw distance tells relative rank.
+                res["score"] = float(distances[0][i])
                 res["rank_method"] = "dense_l2"
                 final_results.append(res)
         

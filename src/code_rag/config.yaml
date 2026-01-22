@@ -1,7 +1,19 @@
+# Embedding Models Available (all free from Hugging Face):
+# ┌─────────────────────────────────────────┬──────┬──────────┬──────────────┐
+# │ Model                                   │ Dim  │ MTEB (%) │ Speed        │
+# ├─────────────────────────────────────────┼──────┼──────────┼──────────────┤
+# │ sentence-transformers/all-MiniLM-L6-v2  │ 384  │ ~55%     │ Very fast    │
+# │ BAAI/bge-base-en-v1.5                   │ 768  │ ~63%     │ 2x slower    │
+# │ intfloat/e5-base-v2                     │ 768  │ ~62%     │ 2x slower    │
+# │ BAAI/bge-large-en-v1.5                  │ 1024 │ ~65%     │ 4x slower    │
+# └─────────────────────────────────────────┴──────┴──────────┴──────────────┘
+
 indexing:
+  # model_name: "sentence-transformers/all-MiniLM-L6-v2"  # Fast, 384 dim
   model_name: "sentence-transformers/all-MiniLM-L6-v2"
-  chunk_size: 512
-  overlap: 50
+  chunk_size: 350
+  overlap: 5 # Number of lines to keep between chunks
+  max_deps: 5 # Max dependencies to show in header
   block_keywords:
     - "read"
     - "write"
@@ -16,17 +28,127 @@ indexing:
     - "keep"
     - "when"
 
+# Reranker Models Available (all free from Hugging Face):
+# ┌─────────────────────────────────────────────────────┬─────────────┬───────────────────────────┐
+# │ Type         │ Default Model                        │ Description                             │
+# ├──────────────┼──────────────────────────────────────┼─────────────────────────────────────────┤
+# │ cross-encoder│ cross-encoder/ms-marco-MiniLM-L-6-v2 │ Fast general-purpose (default)          │
+# │ bge          │ BAAI/bge-reranker-base               │ Robust for technical/code terms         │
+# │ mxbai        │ mixedbread-ai/mxbai-reranker-base-v1 │ Best speed/accuracy tradeoff            │
+# │ answerai     │ answerdotai/AnswerDotAI-Optimized... │ Optimized for Q&A scenarios             │
+# └──────────────┴──────────────────────────────────────┴─────────────────────────────────────────┘
+
 retrieval:
-  reranker_name: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+  # Reranker type: heuristic, cross-encoder, bge, mxbai, answerai
+  # - heuristic: Fast domain-specific heuristics (no ML model, recommended)
+  # - cross-encoder: MS-MARCO cross-encoder (general purpose)
+  # - bge: BAAI/bge-reranker (robust for technical terms)
+  # - mxbai/answerai: Require HuggingFace authentication
+  reranker_type: "heuristic"
+  # Optional: override default model for ML rerankers
+  # reranker_name: "BAAI/bge-reranker-base"
   top_k_recall: 50
   top_k_final: 5
   use_reranker: true
+  # Use contextual reranking (ML rerankers only)
+  contextual_reranking: false
 
 benchmark:
   questions_file: "src/code_rag/benchmark/questions.json"
   log_file: "data/logs/rag_benchmark.json"
   top_k: 5
   recall_k: 50
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HEURISTIC RERANKER CONFIGURATION
+# Only used when reranker_type: "heuristic"
+# Weights optimized via exhaustive grid search (14641 combos) - Best Gain: +1.6%
+# ══════════════════════════════════════════════════════════════════════════════
+heuristic_reranking:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # MAIN STRATEGY WEIGHTS (optimized via grid search)
+  # These control how much each strategy contributes to the final score.
+  # Final score = base_score + Σ(weight_i × strategy_score_i)
+  # ─────────────────────────────────────────────────────────────────────────────
+  weights:
+    # TTB: Technical Term Boost (Strategy 1)
+    # Purpose: Boost chunks containing exact technical terms from query
+    # (camelCase identifiers, script paths, formulas with =)
+    # Higher value = stronger boost for exact term matches
+    technical_term_boost: 0.7
+
+    # PDS: Pattern Density Score (Strategy 4)
+    # Purpose: Favor chunks containing multiple query words
+    # Higher value = prefer chunks with more keyword coverage
+    pattern_density: 0.4
+
+    # DB: Definition Boost (Strategy 5)
+    # Purpose: Boost chunks that define/declare variables or functions
+    # Set to 0.0 (disabled) because not helpful for this corpus
+    definition_boost: 0.0
+
+    # SDP: Source Diversity Penalty (Strategy 2)
+    # Purpose: Penalize repeated chunks from same source file
+    # Higher value = stronger diversity enforcement
+    diversity_penalty: 0.9
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # TTB SUB-SCORES
+  # Different types of technical terms get different boost amounts.
+  # These are multiplied before normalization.
+  # ─────────────────────────────────────────────────────────────────────────────
+  ttb_scores:
+    # Path match: term starts with "/" (e.g., "/1. utilities/Modules")
+    # Highest boost because paths are very specific identifiers
+    path_match: 0.5
+
+    # Formula match: term contains "=" or "." (e.g., "carryingCost = 0.3")
+    # High boost for variable assignments and object properties
+    formula_match: 0.4
+
+    # Identifier match: camelCase, PascalCase, snake_case terms
+    # Standard boost for code identifiers
+    identifier_match: 0.3
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PDS THRESHOLDS
+  # Pattern Density Score calculation parameters.
+  # density = matched_words / total_query_words
+  # ─────────────────────────────────────────────────────────────────────────────
+  pds_params:
+    # If density exceeds this threshold, give bonus
+    # Purpose: Extra reward for chunks matching >50% of query words
+    density_bonus_threshold: 0.5
+
+    # Bonus added when threshold exceeded
+    density_bonus: 0.2
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # DB SCORES
+  # Definition Boost scoring parameters.
+  # Applied when chunk contains code definitions matching query terms.
+  # ─────────────────────────────────────────────────────────────────────────────
+  db_scores:
+    # Score when a definition (const, table, def) matches a query term
+    definition_match: 0.5
+
+    # Score when chunk is from Modules/Functions folder (typical definition locations)
+    module_location: 0.2
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # SDP PROGRESSIVE PENALTIES
+  # Source Diversity Penalty applied progressively for repeated sources.
+  # penalty = penalty_level × diversity_penalty_weight
+  # ─────────────────────────────────────────────────────────────────────────────
+  sdp_penalties:
+    # 2nd chunk from same source: mild penalty
+    first_repeat: 0.15
+
+    # 3rd chunk from same source: moderate penalty
+    second_repeat: 0.30
+
+    # 4th+ chunk from same source: strong penalty
+    third_plus: 0.45
 
 input:
   network_file: "data/network/network.json"

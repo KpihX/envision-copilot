@@ -10,9 +10,11 @@ class GraphChunker:
     Leverages structural dependencies (Reads, Imports) to enrich embeddings.
     """
     
-    def __init__(self, chunk_size=512, overlap=50, block_keywords=None):
+    def __init__(self, chunk_size=512, overlap=5, max_deps=7, block_keywords=None):
         self.chunk_size = chunk_size
-        self.overlap = overlap
+        self.overlap = overlap  # Number of lines to keep between chunks
+        self.max_deps = max_deps  # Max dependencies to show in header
+        
         # Valid Default for Envision DSL
         if block_keywords is None:
             block_keywords = ["read", "write", "export", "def", "process", "store", "import", "show", "table", "where", "keep", "when"]
@@ -31,10 +33,11 @@ class GraphChunker:
 
         # 1. Build Context Header (The "Graph Awareness")
         context_lines = []
-        name = node.get("name") or node["id"]
+        id = node["id"]
+        name = node.get("name")
         path = node.get("path") or node.get("metadata", {}).get("logical_path")
         
-        context_lines.append(f"[Script: {name} | Path: {path}]")
+        context_lines.append(f"[Script ({id}): {name} | Path: {path}]")
         
         # Add Imports/Reads summary to header
         # Using a set to avoid dupes and keep it concise
@@ -45,11 +48,11 @@ class GraphChunker:
             if etype in ["imports", "reads", "writes", "export"]:
                 deps.add(f"{etype.title()}: {label}")
         
-        # Limit context size to avoid drowning the code
+        # Limit context size using max_deps config
         sorted_deps = sorted(list(deps))
-        if len(sorted_deps) > 5:
-            context_lines.extend([f"[{d}]" for d in sorted_deps[:5]])
-            context_lines.append(f"[... and {len(sorted_deps)-5} more dependencies]")
+        if len(sorted_deps) > self.max_deps:
+            context_lines.extend([f"[{d}]" for d in sorted_deps[:self.max_deps]])
+            context_lines.append(f"[... and {len(sorted_deps)-self.max_deps} more dependencies]")
         else:
             context_lines.extend([f"[{d}]" for d in sorted_deps])
 
@@ -76,9 +79,8 @@ class GraphChunker:
                 if current_chunk:
                     self._commit(chunks, node["id"], path, header, current_chunk, start_line, i)
                     
-                    # Overlap: Keep last N words roughly matching overlap size
-                    # Simplified: Keep last 5 lines
-                    keep = 5
+                    # Overlap: Keep last N lines (from config)
+                    keep = self.overlap
                     current_chunk = current_chunk[-keep:]
                     current_cost = sum(len(l.split()) for l in current_chunk)
                     start_line = max(0, i - keep)

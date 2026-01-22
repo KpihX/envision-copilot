@@ -27,7 +27,8 @@ class GraphIndexer:
         
         self.chunker = GraphChunker(
             chunk_size=self.idx_config.get("chunk_size", 512),
-            overlap=self.idx_config.get("overlap", 50),
+            overlap=self.idx_config.get("overlap", 5),
+            max_deps=self.idx_config.get("max_deps", 7),
             block_keywords=self.idx_config.get("block_keywords")
         )
 
