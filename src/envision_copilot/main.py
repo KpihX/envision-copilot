@@ -1,63 +1,60 @@
-import argparse
 import sys
 import logging
+import typer
+from typing import Optional
+from typing_extensions import Annotated
 from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
 
-# Add current directory to path if needed (though uv handles this usually)
-# from pathlib import Path
-# sys.path.append(str(Path(__file__).parent.parent))
+from envision_copilot.core.main import EnvisionCopilot
 
-from envision_copilot.core.agent import EnvisionCopilot
+# Initialize Typer App
+app = typer.Typer(
+    name="envision-copilot",
+    help="Envision Copilot - The Agentic Brain",
+    rich_markup_mode="rich"
+)
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Envision Copilot - The Agentic Brain",
-        formatter_class=argparse.RawTextHelpFormatter
-    )
+console = Console()
+
+@app.command()
+def start(
+    query: Annotated[
+        Optional[str], 
+        typer.Option("--query", "-q", help="Question to ask the RAG system", metavar="QUESTION")
+    ] = None,
+    interactive: Annotated[
+        bool, 
+        typer.Option("--interactive", "-i", help="Interactive conversation mode (agent can ask clarifications)")
+    ] = False,
+    verbose: Annotated[
+        bool, 
+        typer.Option("--verbose", "-v", help="Show full agent reasoning trace (Tree of Thoughts)")
+    ] = False,
+):
+    """
+    Launch the Envision Copilot Agent.
+    """
     
-    parser.add_argument(
-        "-q", "--query",
-        type=str,
-        metavar="QUESTION",
-        help="Question to ask the RAG system"
-    )
-    
-    parser.add_argument(
-        "-i", "--interactive",
-        action="store_true",
-        help="Interactive conversation mode (agent can ask clarifications)"
-    )
-    
-    parser.add_argument(
-        "-v", "--verbose",
-        action="store_true",
-        help="Show full agent reasoning trace (Tree of Thoughts)"
-    )
-    
-    args = parser.parse_args()
-    
-    console = Console()
-    
-    if not args.query and not args.interactive:
-        parser.print_help()
-        sys.exit(1)
+    if not query and not interactive:
+        console.print("[yellow]Please provide a query (-q) or enable interactive mode (-i).[/yellow]")
+        console.print("Run [bold]uv run copilot --help[/bold] for usage.")
+        raise typer.Exit(code=1)
         
     console.print(Panel("[bold cyan]Envision Copilot[/bold cyan] initialized.", border_style="cyan"))
     
     # Initialize Agent
-    copilot = EnvisionCopilot(verbose=args.verbose, interactive=args.interactive)
+    copilot = EnvisionCopilot(verbose=verbose, interactive=interactive)
     
     # Run
     try:
-        if args.query:
-             
+        if query:
              # Execute
-             result = copilot.run(args.query)
+             result = copilot.run(query)
              
              # Display Final Answer (only in non-verbose mode, verbose shows it during run)
-             if not args.verbose:
+             if not verbose:
                  console.print("\n")
                  console.print(Panel(
                      Markdown(result["answer"]),
@@ -66,26 +63,24 @@ def main():
                      subtitle="Envision Copilot"
                  ))
                  
-                 # Display Appendix
-                 if result.get("appendix"):
-                     import json
-                     appendix_json = json.dumps(result["appendix"], indent=2, ensure_ascii=False)
+                 # Display Appendix (via Encapsulated UI)
+                 if hasattr(copilot, 'memory') and copilot.memory:
                      console.print("\n")
-                     console.print(Panel(
-                         appendix_json,
-                         title="📎 Appendix (References)",
-                         border_style="blue"
-                     ))
+                     console.print(copilot.memory.print(title="📎 Appendix (References)"))
 
     except KeyboardInterrupt:
         console.print("\n[red]Cancelled by User[/red]")
-        sys.exit(0)
+        raise typer.Exit(code=0)
     except Exception as e:
         console.print(f"\n[red]Fatal Error:[/red] {e}")
-        if args.verbose:
+        if verbose:
             import traceback
             traceback.print_exc()
-        sys.exit(1)
+        raise typer.Exit(code=1)
+
+def main():
+    """Entry point for project.scripts"""
+    app()
 
 if __name__ == "__main__":
-    main()
+    app()

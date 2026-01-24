@@ -14,7 +14,6 @@ from .utils import ConfigLoader
 from .tools.structural import StructuralTools
 from .tools.semantic import SemanticTools
 from .tools.read_code import CodeReader
-from .tools.grep import GrepTools
 
 # Define State (Restored from old2/agent.py)
 class AgentState(TypedDict):
@@ -37,27 +36,12 @@ class EnvisionAgent:
         self.structural = StructuralTools(config_path)
         self.semantic = SemanticTools(config_path)
         self.reader = CodeReader(config_path)
-        self.grep = GrepTools(config_path)
         
-        # Helper for boosted search parsing "query | term1, term2"
-        def boosted_search_wrapper(arg):
-            if "|" in arg:
-                parts = arg.split("|")
-                q = parts[0].strip()
-                terms = [t.strip() for t in parts[1].split(",")]
-                return self.semantic.search(q, terms=terms)
-            return self.semantic.search(arg)
-
         # Tool Map (Manual Dispatch)
         self.tool_map = {
             "scan_network_context": self.structural.scan_network_context,
             "find_producers": self.structural.find_producers,
-            # Search flavors
-            "search_code": self.semantic.search, 
-            "search_horizon": lambda x: self.semantic.search(x, horizon=True),
-            "search_boosted": boosted_search_wrapper,
-            # Investigation
-            "grep_search": lambda x: self.grep.grep_search([s.strip() for s in x.split(",")]),
+            "search_code": self.semantic.search_code,
             "read_code": self.reader.read_code
         }
         

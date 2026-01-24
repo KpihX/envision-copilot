@@ -1,92 +1,125 @@
-from typing import List, Dict, Any, Union
+from typing import List, Dict, Any
 import json
+import uuid
+from dataclasses import dataclass, field
+from envision_copilot.utils.utils import smart_truncate
 
-class FactStore:
+from rich.table import Table
+from rich import box
+from rich.markdown import Markdown
+from rich.panel import Panel
+
+@dataclass
+class MemoryItem:
     """
-    Stores verified facts extracted by tools to prevent hallucination.
+    Represents a single unit of memory (observation/fact).
+    """
+    id: str
+    tool_name: str
+    tool_args: Dict[str, Any]
+    compact_view: str  # Optimized for LLM Context
+    full_content: Any  # Full raw data for Appendix
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "tool": self.tool_name,
+            "args": self.tool_args,
+            "compact": self.compact_view,
+            "content": self.full_content
+        }
+
+class Memory:
+    """
+    Interactive Memory System.
+    The LLM explicitly decides what to KEEP and what to DISCARD at each step.
     """
     def __init__(self, config: Dict[str, Any] = None):
-        self.facts: List[Any] = []
-        self._seen_refs = set()
         self.config = config or {}
-        
-    def add_fact(self, fact: Union[str, Dict, List]):
-        """
-        Adds a fact while attempting to deduplicate references.
-        """
-        if isinstance(fact, list):
-            for item in fact:
-                self.add_fact(item)
-            return
+        self.items: List[MemoryItem] = []
+        self._history_archive: List[MemoryItem] = [] # To keep track even if discarded from working memory
 
-        # Deduplication logic for Structured References
-        if isinstance(fact, dict) and "source_script" in fact and "target_file" in fact:
-            key = f"{fact['source_script']}|{fact.get('relationship', 'ref')}|{fact['target_file']}"
-            if key in self._seen_refs:
-                return
-            self._seen_refs.add(key)
-        
-        # Deduplication for simple strings
-        if isinstance(fact, str):
-            key = fact.strip()
-            if key in self._seen_refs:
-                return
-            self._seen_refs.add(key)
-
-        self.facts.append(fact)
-
-    def _smart_truncate(self, obj: Any, max_len: int = 100) -> Any:
-        """Recursively truncates long strings in dictionaries or lists."""
-        if isinstance(obj, str):
-            if len(obj) > max_len:
-                half = max_len // 2
-                return f"{obj[:half]} ...[+{len(obj)-max_len} chars]... {obj[-half:]}"
-            return obj
-        elif isinstance(obj, dict):
-            return {k: self._smart_truncate(v, max_len) for k, v in obj.items()}
-        elif isinstance(obj, list):
-            return [self._smart_truncate(i, max_len) for i in obj]
-        return obj
-
-    def render_memory_appendix(self) -> str:
+    def add_observation(self, tool_name: str, tool_args: Dict, result: Any, compact_view: str = None) -> MemoryItem:
         """
-        Returns a formatted JSON block of all facts with smart truncation.
-        Used for the final transparent appendix.
+        Adds a new observation to the memory.
         """
-        if not self.facts:
-            return "No facts recorded."
-        
-        # Get truncation limit from config
-        limit = self.config.get("presentation", {}).get("max_string_len", 100)
-        
-        # Create a deep copy with truncation for display
-        clean_facts = self._smart_truncate(self.facts, max_len=limit)
-        return json.dumps(clean_facts, indent=2, ensure_ascii=False)
+        # Auto-generate compact view if not provided
+        if compact_view is None:
+            limit = self.config.get("presentation", {}).get("max_output_lines", 100)
+            compact_data = {
+                "tool": tool_name,
+                "args": tool_args,
+                "result": smart_truncate(result, max_lines=limit)
+            }
+            compact_view = json.dumps(compact_data, ensure_ascii=False)
 
-    def get_facts_text(self) -> str:
+        item = MemoryItem(
+            id=str(uuid.uuid4()), # Short ID for LLM usage
+            tool_name=tool_name,
+            tool_args=tool_args,
+            compact_view=compact_view,
+            full_content=result
+        )
+        self.items.append(item)
+        self._history_archive.append(item)
+        return item
+
+    def remove_by_indices(self, indices: List[int]):
         """
-        Returns a compressed representation for LLM Context (Not the UI).
+        Remove items at specific indices (0-based) from active memory.
         """
-        if not self.facts:
-             return ""
+        # Sort indices descending to avoid shifting issues
+        for idx in sorted(indices, reverse=True):
+            if 0 <= idx < len(self.items):
+                self.items.pop(idx)
+
+    def update_memory(self, keep_ids: List[str]):
+        """
+        Updates the working memory by keeping ONLY the specified IDs.
+        (Legacy method, kept for compatibility if needed)
+        """
+        cleaned_ids = [k.strip() for k in keep_ids]
+        self.items = [item for item in self.items if item.id in cleaned_ids]
+
+    def __str__(self) -> str:
+        """
+        Returns the formatted string for the LLM Context with INDICES.
+        """
+        if not self.items:
+            return "No active memory."
+
+        buffer = ["\n### 🧠 ACTIVE MEMORY (Facts you decided to keep):"]
+        for i, item in enumerate(self.items):
+            buffer.append(f"[{i}] (ID: {item.id}) {item.compact_view}")
         
-        buffer = ["\n### OBSERVED FACTS (Non-Negotiable Truths):"]
-        
-        for f in self.facts:
-            # Format nicely for LLM comprehension
-            if isinstance(f, dict):
-                if "source_script" in f:
-                     buffer.append(f"- [Graph] {f['source_script']} {f.get('relationship','->')} {f['target_file']}")
-                elif "score" in f:
-                     # RAG Result - Key info only
-                     content_preview = f.get('content', '')[:100].replace('\n', ' ')
-                     buffer.append(f"- [RAG] {f.get('source_id')} (Score: {f.get('score', 0):.2f}): {content_preview}...")
-                else:
-                     buffer.append(f"- {json.dumps(f)}")
-            else:
-                buffer.append(f"- {str(f)}")
-                
         return "\n".join(buffer)
 
-    def get_facts_json(self) -> List[Any]:
-        return self.facts
+    def print(self, title: str = None) -> Panel:
+        """
+        Returns a Rich Panel containing a formatted JSON view of the memory.
+        Used for both standard UI and Appendix.
+        """
+        display_title = title or "💾 Active Memory"
+        
+        if not self.items:
+            return Panel("No items in memory.", title=display_title, border_style="bold cyan")
+
+        # Build structure with FULL CONTENT (not compact)
+        struct = []
+        for item in self.items:
+            struct.append({
+                "id": item.id,
+                "tool": item.tool_name,
+                "args": item.tool_args,
+                "content": item.full_content 
+            })
+            
+        # Serialize to JSON
+        json_str = json.dumps(struct, indent=2, ensure_ascii=False)
+        
+        # Apply Smart Truncation on the JSON string directly
+        limit = self.config.get("presentation", {}).get("max_output_lines", 500)
+        truncated_json = smart_truncate(json_str, max_lines=limit)
+        
+        return Panel(Markdown(f"```json\n{truncated_json}\n```"), title=display_title, border_style="blue")

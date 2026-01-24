@@ -3,17 +3,20 @@ from typing import Optional, Dict, Any
 from langchain_mistralai import ChatMistralAI
 from dotenv import load_dotenv
 
-from .interface import LLM
+from .base import LLM
 
 class MistralLLM(LLM):
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any] = None, model_name: str = None):
+        config = config or {}
         super().__init__(config)
         
         # Load env from package or current dir
         load_dotenv(override=True)
         
-        provider_config = config.get("providers", {}).get("mistral", {})
-        self._model_name = provider_config.get("model_name", "mistral-large-latest")
+        # Priority: Arg > Config Agent > Config Root > Provider Config > Default
+        self._model_name = model_name or \
+                           config.get("llm_model") or \
+                           config.get("providers", {}).get("mistral", {}).get("model_name", "mistral-large-latest")
         
         api_key = os.getenv("MISTRAL_API_KEY")
         if not api_key:

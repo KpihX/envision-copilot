@@ -3,15 +3,18 @@ from typing import Optional, Dict, Any
 from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
 
-from .interface import LLM
+from .base import LLM
 
 class GeminiLLM(LLM):
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any] = None, model_name: str = None):
+        config = config or {}
         super().__init__(config)
         load_dotenv(override=True)
         
-        provider_config = config.get("providers", {}).get("gemini", {})
-        self._model_name = provider_config.get("model_name", "gemini-1.5-pro-latest")
+        # Priority: Arg > Config Agent > Config Root > Provider Config > Default
+        self._model_name = model_name or \
+                           config.get("llm_model") or \
+                           config.get("providers", {}).get("gemini", {}).get("model_name", "gemini-1.5-pro-latest")
         
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:

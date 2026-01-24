@@ -1,90 +1,181 @@
-from typing import List, Dict, Optional, Literal
+from typing import List, Dict, Optional, Any
 import uuid
 import json
+from enum import Enum
+from dataclasses import dataclass, field
+from envision_copilot.utils.utils import smart_truncate
+from rich.panel import Panel
+from rich.tree import Tree
+from rich import box
 
-NodeType = Literal["root", "plan", "action"]
-NodeStatus = Literal["pending", "active", "done", "failed"]
+class NodeStatus(str, Enum):
+    PENDING = "pending"
+    ACTIVE = "active"
+    DONE = "done"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
 
+@dataclass
 class Node:
-    def __init__(self, goal: str, parent: Optional['Node'] = None, node_type: NodeType = "plan"):
-        self.id = str(uuid.uuid4())[:8]
-        self.goal = goal
-        self.parent = parent
-        self.children: List['Node'] = []
-        self.status: NodeStatus = "pending"
-        self.type = node_type
-        self.reasoning = ""
-        self.result = ""
-        self.tool_call: Optional[Dict] = None
+    goal: str
+    id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
+    status: NodeStatus = NodeStatus.PENDING
+    
+    # Execution details
+    tool_name: str = ""
+    tool_args: Dict = field(default_factory=dict)
+    reasoning: str = ""
+    result: str = ""
 
     def to_dict(self):
         return {
             "id": self.id,
-            "type": self.type,
             "goal": self.goal,
             "status": self.status,
-            "reasoning": self.reasoning,
-            "tool_call": self.tool_call,
-            "children": [c.to_dict() for c in self.children]
+            "tool": self.tool_name,
+            "args": self.tool_args,
+            "reasoning": self.reasoning
         }
 
-class TreePlanner:
+class Planner:
     """
-    Manages the 'Tree of Thoughts'.
+    Linearized BFS Planner.
+    Manages execution in 'Layers' (Depth).
+    History is a list of layers (List[List[Node]]).
     """
-    def __init__(self, root_goal: str):
-        self.root = Node("Init", node_type="root")
-        self.root.status = "active"
-        self.current_node = self.root
-
-    def add_subtask(self, parent_node: Node, goal: str) -> Node:
-        child = Node(goal, parent=parent_node, node_type="plan")
-        child.status = "active"  # Immediately focus the new subtask
-        parent_node.children.append(child)
-        return child
-
-    def get_active_leaf(self) -> Node:
-        """
-        DFS to find the deepest 'active' node or activate the next 'pending' node.
-        """
-        current = self.root
+    def __init__(self, root_goal: str, config: Dict[str, Any] = None):
+        self.config = config or {}
+        self.max_depth = self.config.get("agent", {}).get("constraints", {}).get("max_depth", 5)
+        self.max_branches = self.config.get("agent", {}).get("constraints", {}).get("max_branches", 2)
         
-        while True:
-            # 1. Check for an already active child to descend
-            active_children = [c for c in current.children if c.status == "active"]
-            if active_children:
-                current = active_children[0]
-                continue
-            
-            # 2. If no active child, check for a pending child to start
-            pending_children = [c for c in current.children if c.status == "pending"]
-            if pending_children:
-                child = pending_children[0]
-                child.status = "active"
-                return child
-            
-            # 3. No active or pending children -> This node is the leaf
-            return current
-
-    def get_plan_text(self) -> str:
-        """
-        Returns an indented text representation of the tree for the LLM.
-        """
-        buffer = ["\n### CURRENT PLAN (Tree):"]
+        # History of layers. layers[0] is depth 0.
+        self.layers: List[List[Node]] = []
+        self.current_depth = 0
         
-        def _recurse(node: Node, depth: int):
-            indent = "  " * depth
-            icon = "⏳"
-            if node.status == "done": icon = "✅"
-            elif node.status == "failed": icon = "❌"
-            elif node.status == "active": icon = "👉"
+        # Initialize with root goal
+        root = Node(goal=root_goal)
+        root.status = NodeStatus.DONE # Root is the prompt itself, technically done/starting point.
+        self.layers.append([root])
+
+    def propose_next_layer(self, layer_proposals: List[Dict]) -> List[Node]:
+        """
+        Creates the next layer of nodes based on LLM suggestions.
+        Input: List of dicts {goal, tool, args}
+        Respects max_branches.
+        """
+        if self.current_depth >= self.max_depth:
+            return []
+
+        # Enforce max branches limit
+        effective_proposals = layer_proposals[:self.max_branches]
+        
+        new_layer = []
+        for prop in effective_proposals:
+            node = Node(
+                goal=prop.get("goal", "Unknown Goal"),
+                tool_name=prop.get("tool", ""),
+                tool_args=prop.get("args", {})
+            )
+            new_layer.append(node)
             
-            buffer.append(f"{indent}{icon} {node.type.upper()}: {node.goal}")
-            if node.reasoning:
-                buffer.append(f"{indent}  (Reason: {node.reasoning[:100]}...)")
+        if new_layer:
+            self.layers.append(new_layer)
+            self.current_depth += 1
+            
+        return new_layer
+
+    def get_current_layer(self) -> List[Node]:
+        """Returns the nodes in the current deepest layer."""
+        if not self.layers:
+            return []
+        return self.layers[-1]
+
+    def get_next_pending_node(self) -> Optional[Node]:
+        """
+        Returns the first PENDING node in the current layer.
+        """
+        current_layer = self.get_current_layer()
+        for node in current_layer:
+            if node.status == NodeStatus.PENDING:
+                node.status = NodeStatus.ACTIVE
+                return node
+        return None
+
+    def is_layer_complete(self) -> bool:
+        """Checks if all nodes in the current layer are terminal (DONE/FAILED/CANCELLED)."""
+        current_layer = self.get_current_layer()
+        if not current_layer:
+            return True
+        return all(node.status in [NodeStatus.DONE, NodeStatus.FAILED, NodeStatus.CANCELLED] for node in current_layer)
+
+    def mark_done(self, node: Node, reasoning: str = ""):
+        node.status = NodeStatus.DONE
+        node.reasoning = reasoning
+
+    def mark_failed(self, node: Node, reasoning: str = ""):
+        node.status = NodeStatus.FAILED
+        node.reasoning = reasoning
+        
+    def mark_cancelled(self, node: Node, reasoning: str = ""):
+        node.status = NodeStatus.CANCELLED
+        node.reasoning = reasoning
+
+    def __str__(self) -> str:
+        """
+        Returns a text representation for LLM context.
+        Includes depth tracking: i/max_depth
+        """
+        limit = self.config.get("presentation", {}).get("max_output_lines", 100)
+        
+        buffer = [f"\n### 🗺️ EXPLORATION HISTORY (Depth: {self.current_depth}/{self.max_depth}):"]
+        
+        for i, layer in enumerate(self.layers):
+            if i == 0: continue # Skip init layer usually
+            
+            buffer.append(f"\n**Layer {i}:**")
+            for node in layer:
+                icon = "⏳"
+                if node.status == NodeStatus.DONE: icon = "✅"
+                elif node.status == NodeStatus.FAILED: icon = "❌"
+                elif node.status == NodeStatus.CANCELLED: icon = "🚫"
+                elif node.status == NodeStatus.ACTIVE: icon = "👉"
                 
-            for child in node.children:
-                _recurse(child, depth + 1)
-
-        _recurse(self.root, 0)
+                buffer.append(f"  {icon} [{node.id}] {node.goal}")
+                if node.tool_name:
+                    buffer.append(f"     [Tool: {node.tool_name}]")
+                if node.reasoning:
+                    # Use smart_truncate for reasoning
+                    truncated_reasoning = smart_truncate(node.reasoning, max_lines=limit)
+                    if isinstance(truncated_reasoning, str):
+                        buffer.append(f"     (Reason: {truncated_reasoning})")
+        
         return "\n".join(buffer)
+
+    def print(self) -> Panel:
+        """Returns a Rich Panel containing the visual tree of the plan for UI."""
+        root = Tree(f"[bold gold1]🧭 Exploration Plan (Depth {self.current_depth}/{self.max_depth})[/bold gold1]")
+        
+        for i, layer in enumerate(self.layers):
+            if i == 0: continue # Skip root prompt layer
+            
+            layer_branch = root.add(f"[bold]Layer {i}[/bold]")
+            for node in layer:
+                status_icon = "⏳"
+                style = "dim"
+                if node.status == NodeStatus.DONE: 
+                    status_icon = "✅"
+                    style = "green"
+                elif node.status == NodeStatus.FAILED:
+                    status_icon = "❌"
+                    style = "red"
+                elif node.status == NodeStatus.ACTIVE:
+                    status_icon = "👉"
+                    style = "bold cyan"
+                
+                label = f"{status_icon} {node.goal}"
+                if node.tool_name:
+                    label += f" [dim]({node.tool_name})[/dim]"
+                
+                layer_branch.add(f"[{style}]{label}[/{style}]")
+                
+        return Panel(root, border_style="gold1", title="Plan Status")

@@ -1,92 +1,165 @@
-# Tool Definitions for LLM Function Calling
+# =============================================================================
+# Tool Definitions for LLM Function Calling and Dynamic Prompting
+# Central Source of Truth for Tools
+# =============================================================================
 
-TOOLS_SCHEMA = [
+TOOLS = [
     {
         "name": "semantic_search",
-        "description": "Searches the codebase for concepts, business logic, or definitions using semantic search (RAG). Use this to find 'Where is X defined?' or 'How does Y work?'.",
+        "description": "Searches the codebase for concepts, logic, or definitions using semantic search (RAG) with Graph-Aware chunking.",
+        "documentation": """
+    **Purpose**: Semantic code search with oriented reranking (RAG).
+    
+    **Index Details (Graph-Aware Chunking)**:
+    Every chunk is enriched with its graph context. 
+    Example: `[Script: SalesAnalysis] [Imports: GlobalParams] [Reads: Items.ion]`.
+    Searching "Items.ion consumer" naturally finds scripts that read it.
+    
+    **Parameters**:
+    - `query`: Natural language question (MUST BE IN ENGLISH). Reformulate if needed.
+    - `keywords`: Envision keywords to boost (def, show, when, by...). Use when looking for a TYPE of construct.
+    - `terms`: Specific technical terms (variable names, function names...) to heavily boost. **VERIFY with grep_search first!**
+    - `top_k`: Number of results (default 5).
+        """,
         "parameters": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "The natural language query describing what you are looking for."
+                    "description": "Natural language query (English preferred)."
+                },
+                "top_k": {
+                    "type": "integer",
+                    "description": "Number of results (default 5).",
+                    "default": 5
+                },
+                "keywords": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Envision DSL keywords to boost (def, show, when, table...)."
+                },
+                "terms": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Specific technical terms to heavily boost."
                 }
             },
             "required": ["query"]
-        }
+        },
+        "examples": [
+            {"query": "stock calculation logic", "keywords": ["def", "when"], "terms": ["StockCalc"]}
+        ]
     },
     {
         "name": "structural_explorer",
-        "description": "Explores the dependency graph. Use this to find what a file uses (Imports/Reads) or what uses it.",
+        "description": "Explores the dependency graph (imports, reads, writes, defines).",
+        "documentation": """
+    **Purpose**: Explore the Dependency Graph (Nodes/Edges).
+    
+    **Node Types**:
+    - `script`: Envision code file (ID e.g. "68010")
+    - `file`: Data file .ion/.csv (Path e.g. "/Clean/Items.ion")
+    - `table`: Symbol "script::table::Name"
+    - `function`: Symbol "script::func::Name"
+    
+    **Edge Types**: `imports`, `reads`, `writes`, `defines`, `export`.
+    
+    **Actions**:
+    - `stats`: Global graph statistics.
+    - `neighbors`: Get connections. Returns rich metadata:
+      - Docs: structure (///), business (//'), user ('""')
+      - Symbols: defined variables/functions/tables
+    
+    **Directions**: `incoming` (used by), `outgoing` (uses), `all`.
+        """,
         "parameters": {
             "type": "object",
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["neighbors", "stats"],
-                    "description": "'neighbors': get dependencies. 'stats': get global graph counts."
+                    "enum": ["stats", "nodes", "edges", "neighbors"],
+                    "description": "Action to perform."
                 },
                 "node_id": {
                     "type": "string",
-                    "description": "The Node ID (usually Script Path or Variable Name) to explore. Required for 'neighbors' action."
+                    "description": "Node ID for 'neighbors' action (script ID or file path)."
+                },
+                "type": {
+                    "type": "string",
+                    "description": "Filter by node/edge type."
+                },
+                "relation_type": {
+                    "type": "string",
+                    "description": "Filter neighbors by edge type."
+                },
+                "direction": {
+                    "type": "string",
+                    "enum": ["incoming", "outgoing", "all"],
+                    "description": "Direction for neighbors (default: all)."
                 }
             },
             "required": ["action"]
-        }
+        },
+        "examples": [
+            {"action": "neighbors", "node_id": "68010"},
+            {"action": "neighbors", "node_id": "/Clean/Items.ion", "direction": "incoming"}
+        ]
     },
     {
-        "name": "read_code_section",
-        "description": "Reads a specific section of a file. Use this ONLY when you have a specific file path and line numbers from previous tool outputs.",
+        "name": "read_file",
+        "description": "Reads a specific section of a script file (.nvn).",
+        "documentation": """
+    **Purpose**: Read code section from a script.
+    
+    **IMPORTANT**:
+    - **NO LINE LIMIT** - request any range.
+    - **ONLY for .nvn scripts** - NOT for .ion data files.
+    - **Expand window**: If RAG says lines 40-50, read 20-80 for context.
+    - **Metadata included** at top (symbols, imports).
+        """,
         "parameters": {
             "type": "object",
             "properties": {
-                "file_path": {
+                "path": {
                     "type": "string",
-                    "description": "Absolute or relative path to the file."
+                    "description": "Path to the script (ID, logical path, or physical path)."
                 },
                 "start_line": {
                     "type": "integer",
-                    "description": "Start line number (1-indexed)."
+                    "description": "Start line (1-indexed). Use 1 if unsure.",
+                    "default": 1
                 },
                 "end_line": {
                     "type": "integer",
-                    "description": "End line number."
+                    "description": "End line.",
+                    "default": 100
                 }
             },
-            "required": ["file_path", "start_line", "end_line"]
-        }
+            "required": ["path"]
+        },
+        "examples": [
+            {"path": "/3. Inspectors/2 - Sales Analysis", "start_line": 1, "end_line": 100}
+        ]
     },
     {
-        "name": "manage_plan",
-        "description": "Updates the Tree of Thoughts plan. Use this to add sub-tasks or mark the current task as done/failed.",
+        "name": "grep_search",
+        "description": "Regex search across all scripts to verify terms.",
+        "documentation": """
+    **Purpose**: Verify if a term exists before using in RAG (semantic_search terms).
+    **Returns**: Scripts containing pattern + occurrence count.
+        """,
         "parameters": {
             "type": "object",
             "properties": {
-                "action": {
+                "pattern": {
                     "type": "string",
-                    "enum": ["add_subtask", "mark_done", "mark_failed"],
-                    "description": "The action to perform on the current plan node."
-                },
-                "description": {
-                    "type": "string",
-                    "description": "Description of the new subtask (required for add_subtask) or reasoning for completion."
+                    "description": "Regex pattern to search (case-insensitive)."
                 }
             },
-            "required": ["action"]
-        }
-    },
-    {
-        "name": "ask_user",
-        "description": "Asks the user for clarification. Use this when the goal is ambiguous or you need human input to proceed.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "question": {
-                    "type": "string",
-                    "description": "The question to ask the user."
-                }
-            },
-            "required": ["question"]
-        }
+            "required": ["pattern"]
+        },
+        "examples": [
+            {"pattern": "StockEvol"}
+        ]
     }
 ]

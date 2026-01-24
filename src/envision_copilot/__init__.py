@@ -1,3 +1,3 @@
-from .core.agent import EnvisionCopilot
+from .core.main import EnvisionCopilot
 
 __all__ = ["EnvisionCopilot"]
