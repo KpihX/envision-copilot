@@ -89,14 +89,14 @@ class SemanticSearch:
         if isinstance(self.result, str):
             return self.result
         
-        limit = self.config.get("presentation", {}).get("max_output_lines", 100)
+        limit = self.config.get("presentation", {}).get("max_lines", 100)
         
         buffer = [f"\n### 🔍 Semantic Search Results:"]
         buffer.append(f"Query: {self.result.get('query', 'N/A')}")
         buffer.append(f"Found: {self.result.get('stats', {}).get('displayed_count', 0)} results")
         
         for i, res in enumerate(self.result.get("results", []), 1):  
-            buffer.append(f"\n**Result {i}** (score: {res.get('score', 0):.2f})")
+            buffer.append(f"\n**Match {i}** (score: {res.get('score', 0):.2f})")
             buffer.append(f"  Source: {res.get('source', 'N/A')} (lines {res.get('lines', 'N/A')})")
             content = smart_truncate(res.get('content', ''), max_lines=limit)
             buffer.append(f"  Content: {content}")
@@ -113,7 +113,7 @@ class SemanticSearch:
             from rich.text import Text
             return Panel(Text(self.result, style="red"), title="🔍 Semantic Error", border_style="red")
             
-        limit = self.config.get("presentation", {}).get("max_output_lines", 100)
+        limit = self.config.get("presentation", {}).get("max_lines", 100)
         
         stats = self.result.get("stats", {})
         query = self.result.get("query", "N/A")

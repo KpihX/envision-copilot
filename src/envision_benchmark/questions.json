@@ -109,16 +109,13 @@
         },
         {
             "id": 6,
-            "question": "Combien de scripts font mention de /Clean/Forecast/Periodic/FcItems.ion ?",
+            "question": "Combien de scripts écrivent dans /Clean/Forecast/Periodic/FcItems.ion ?",
             "deterministic": true,
             "answers": [
-                4
+                1
             ],
             "appendix": [
-                "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
-                "/3. Inspectors/1 - Item Inspector",
-                "/4. Optimization workflow/03.b. Forecasting",
-                "/4. Optimization workflow/French/03 Forecasting"
+                "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff"
             ]
         },
         {

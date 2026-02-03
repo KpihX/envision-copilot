@@ -1,378 +1,234 @@
-import argparse
-import sys
+#!/usr/bin/env python3
+"""
+Envision Network CLI
+====================
+
+Command-line interface for testing the Envision Graph API.
+Displays raw API responses with Rich formatting - no post-processing.
+
+What you see is exactly what the API returns.
+
+Usage:
+    uv run network -b, --build                 # Build the graph
+    uv run network -s, --stats                 # Show statistics  
+    uv run network -t, --tree /path            # Explore folder hierarchy
+    uv run network -r, --read 67982            # Read node content
+    uv run network -g, --grep "pattern"        # Search patterns in code
+    uv run network -n, --node 67982            # Get node metadata
+    uv run network -q, --search "query"        # Search by name/path
+    uv run network -x, --neighbors 67982       # Explore connections
+    uv run network -N, --nodes                 # List all nodes
+    uv run network -E, --edges                 # List all edges
+
+Author: Envision Copilot Team
+"""
+
 import json
-from pathlib import Path
+from typing import Optional, List
+
+import typer
 from rich.console import Console
 from rich.panel import Panel
-from rich.table import Table
 from rich.syntax import Syntax
-from rich.tree import Tree
+from rich.markdown import Markdown
 
 from envision_preprocess.api import EnvisionGraphAPI
 
+# Initialize
 console = Console()
+app = typer.Typer(
+    name="network",
+    help="Envision Network CLI - Test the Graph API with beautiful output.",
+    add_completion=False,
+    rich_markup_mode="rich",
+)
+
+
+def render_json(data: dict, title: str = "API Response"):
+    """Render JSON with Rich syntax highlighting."""
+    json_str = json.dumps(data, indent=2, ensure_ascii=False)
+    console.print(Panel(
+        Syntax(json_str, "json", theme="monokai", word_wrap=True),
+        title=f"[bold cyan]{title}[/bold cyan]",
+        border_style="cyan",
+        padding=(1, 2),
+    ))
+
+
+def get_api() -> EnvisionGraphAPI:
+    """Get API instance with error handling."""
+    try:
+        return EnvisionGraphAPI()
+    except Exception as e:
+        console.print(f"[red]❌ Failed to initialize API:[/red] {e}")
+        raise typer.Exit(1)
+
+
+# =============================================================================
+# Main Callback with Short Flags
+# =============================================================================
+
+@app.callback(invoke_without_command=True)
+def main(
+    ctx: typer.Context,
+    # Commands as flags
+    build: bool = typer.Option(False, "-b", "--build", help="Build the dependency graph"),
+    stats: bool = typer.Option(False, "-s", "--stats", help="Show network statistics"),
+    tree: Optional[str] = typer.Option(None, "-t", "--tree", help="Explore folder hierarchy at PATH"),
+    read: Optional[str] = typer.Option(None, "-r", "--read", help="Read node content by NODE_ID"),
+    grep: Optional[str] = typer.Option(None, "-g", "--grep", help="Search PATTERN in code"),
+    node: Optional[str] = typer.Option(None, "-n", "--node", help="Get node metadata by NODE_ID"),
+    search: Optional[str] = typer.Option(None, "-q", "--search", help="Search nodes by QUERY"),
+    neighbors: Optional[str] = typer.Option(None, "-x", "--neighbors", help="Explore connections of NODE_ID"),
+    nodes: bool = typer.Option(False, "-N", "--nodes", help="List all nodes"),
+    edges: bool = typer.Option(False, "-E", "--edges", help="List all edges"),
+    # Options for tree
+    domain: str = typer.Option("scripts", "-d", "--domain", 
+                               help="Domain for --tree: scripts, data, or both"),
+    depth: int = typer.Option(1, "-D", "--depth", 
+                              help="Max depth for --tree (0 = unlimited)"),
+    # Options for grep/search/nodes/edges
+    types: Optional[str] = typer.Option(None, "--types", 
+                                        help="Node types filter (comma-separated)"),
+    top_k: int = typer.Option(20, "-k", "--top-k", 
+                              help="Max results for --search"),
+    # Options for neighbors
+    direction: str = typer.Option("all", "--direction", 
+                                  help="Direction for --neighbors: incoming, outgoing, all, siblings"),
+    relation: Optional[str] = typer.Option(None, "--relation", 
+                                           help="Edge type filter for --neighbors"),
+    # Options for read
+    start_line: Optional[int] = typer.Option(None, "--start", help="Start line for --read"),
+    end_line: Optional[int] = typer.Option(None, "--end", help="End line for --read"),
+):
+    """
+    Envision Network CLI - Test the Graph API.
+    
+    All commands display raw API JSON responses with Rich formatting.
+    What you see is exactly what the API returns.
+    """
+    # Parse types list
+    type_list = [t.strip() for t in types.split(",")] if types else None
+    
+    api = get_api()
+    
+    try:
+        if build:
+            console.print("[dim]Building graph...[/dim]")
+            result = api.build()
+            render_json(result, "build()")
+        
+        elif stats:
+            result = api.get_stats()
+            render_json(result, "get_stats()")
+        
+        elif tree is not None:
+            max_depth = depth if depth > 0 else None
+            result = api.get_tree(tree, domain=domain, max_depth=max_depth)
+            render_json(result, f"get_tree({tree!r}, domain={domain!r}, max_depth={max_depth})")
+        
+        elif read is not None:
+            result = api.read(read, start_line, end_line)
+            render_json(result, f"read({read!r}, start_line={start_line}, end_line={end_line})")
+        
+        elif grep is not None:
+            result = api.grep(grep, node_types=type_list)
+            render_json(result, f"grep({grep!r}, node_types={type_list})")
+        
+        elif node is not None:
+            result = api.get_node(node)
+            render_json(result, f"get_node({node!r})")
+        
+        elif search is not None:
+            result = api.search(search, node_types=type_list, top_k=top_k)
+            render_json(result, f"search({search!r}, node_types={type_list}, top_k={top_k})")
+        
+        elif neighbors is not None:
+            result = api.get_neighbors(neighbors, direction=direction, relation_type=relation)
+            render_json(result, f"get_neighbors({neighbors!r}, direction={direction!r}, relation_type={relation!r})")
+        
+        elif nodes:
+            node_type = type_list[0] if type_list else None
+            result = api.get_nodes(node_type)
+            render_json(result, f"get_nodes(node_type={node_type!r})")
+        
+        elif edges:
+            edge_type = type_list[0] if type_list else None
+            result = api.get_edges(edge_type)
+            render_json(result, f"get_edges(relation_type={edge_type!r})")
+        
+        else:
+            # No command - show help
+            console.print(Markdown("""
+# Envision Network CLI
+
+Test the Graph API with beautiful JSON output.  
+**What you see is exactly what the API returns.**
+
+## Quick Start
+
+```bash
+uv run network --build          # Build the graph first
+uv run network --stats          # See what's in the graph
+uv run network --tree           # Explore folder structure
+uv run network --read 67982     # Read a script
+```
+
+## Commands
+
+| Short | Long          | Description                      |
+|-------|---------------|----------------------------------|
+| `-b`  | `--build`     | Build the dependency graph       |
+| `-s`  | `--stats`     | Show network statistics          |
+| `-t`  | `--tree`      | Explore folder hierarchy         |
+| `-r`  | `--read`      | Read node content                |
+| `-g`  | `--grep`      | Search patterns in code          |
+| `-n`  | `--node`      | Get node metadata                |
+| `-q`  | `--search`    | Search by name/path/id           |
+| `-x`  | `--neighbors` | Explore node connections         |
+| `-N`  | `--nodes`     | List all nodes                   |
+| `-E`  | `--edges`     | List all edges                   |
+
+## Options
+
+| Short | Long          | For             | Description              |
+|-------|---------------|-----------------|--------------------------|
+| `-d`  | `--domain`    | `--tree`        | scripts, data, or both   |
+| `-D`  | `--depth`     | `--tree`        | Max depth (0=unlimited)  |
+|       | `--types`     | grep/search/nodes/edges | Node types (comma-sep) |
+|       | `--direction` | `--neighbors`   | incoming/outgoing/all/siblings |
+|       | `--relation`  | `--neighbors`   | Edge type filter         |
+|       | `--start/end` | `--read`        | Line range               |
+| `-k`  | `--top-k`     | `--search`      | Max results              |
+
+## Examples
+
+```bash
+uv run network -t /                        # Tree at root
+uv run network -t /Clean -d data -D 2      # Data tree, depth 2
+uv run network -r 67982                    # Read script
+uv run network -r 67982 --start 1 --end 50 # Lines 1-50
+uv run network -g "table Items"            # Grep pattern
+uv run network -x 67982 --direction outgoing  # Outgoing edges only
+uv run network -N --types script           # List only scripts
+uv run network -E --types reads            # List only read edges
+```
+
+Use `uv run network --help` for full options.
+"""))
+    
+    except FileNotFoundError:
+        console.print("[yellow]⚠️ No data. Run `uv run network --build` first.[/yellow]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]❌ Error:[/red] {e}")
+        raise typer.Exit(1)
+
 
 def main():
-    parser = argparse.ArgumentParser(description="Envision Network Builder CLI")
-    parser.add_argument("--build", "-b", action="store_true", help="Build the network from scripts.")
-    parser.add_argument("--stats", "-s", action="store_true", help="Show network statistics.")
-    parser.add_argument("--type", "-tn", type=str, help="Filter stats by Node Type (e.g. 'function').")
-    parser.add_argument("--edge-type", "-te", type=str, help="Filter stats by Edge Type (e.g. 'reads').")
-    parser.add_argument("--examples-count", "-n", type=int, default=3, help="Number of examples to show.")
-    parser.add_argument("--query", "-q", type=str, help="Inspect a specific node ID or search for it.")
-    
-    # ... (rest of args) ...
-    parser.add_argument("--relation", "-r", type=str, help="Filter relationships by Edge Type (e.g. 'imports', 'reads') when querying.")
-    parser.add_argument("--find", "-f", action="store_true", help="Broad search for nodes matching the query (displayed as list).")
-    
-    # New Inspection Flags
-    parser.add_argument("--globs", "-g", action="store_true", help="List all resolved glob patterns")
-    parser.add_argument("--cascades", "-c", action="store_true", help="List all resolved placeholder cascades")
-    
-    args = parser.parse_args()
-    api = EnvisionGraphAPI()
-    config = api.config 
-    snippet_lines = config.get("output", {}).get("snippet_lines", 10)
+    """Entry point for the CLI."""
+    app()
 
-    # Helper: Standard Label Formatter
-    def format_label(nid: str, node: dict, full_details=False) -> str:
-        """
-        Returns: 
-        - Default: ID (Name) or ID (Path) if Name/Path != ID.
-        - Full: ID (Name) [Type]  (used for headers)
-        """
-        name = node.get("name")
-        path = node.get("path")
-        
-        # Priority: Path > Name > ID
-        # Scripts usually have Path. Files have Path. Functions have Name.
-        # User wants "ID (Name)" generically.
-        # If Path is present, usage of Path as "Name" is preferred for Script/File.
-        effective_name = path if path else name
-        
-        if effective_name and effective_name != nid:
-            base = f"{nid} ({effective_name})"
-        else:
-            base = nid
-            
-        if full_details:
-            return f"{base} [{node['type']}]"
-        return base
-
-    # Helper: Snippet Formatter
-    def print_snippet(content: str):
-        lines = content.splitlines()
-        if len(lines) > (snippet_lines * 2):
-            head = "\n".join(lines[:snippet_lines])
-            tail = "\n".join(lines[-snippet_lines:])
-            snippet = f"{head}\n\n[... {len(lines) - snippet_lines*2} lines hidden ...]\n\n{tail}"
-            title = f"Content Snippet (First {snippet_lines} & Last {snippet_lines} lines)"
-        else:
-            snippet = "\n".join(lines)
-            title = f"Content ({len(lines)} lines)"
-        console.print(Panel(Syntax(snippet, "python", theme="monokai", word_wrap=True), title=title, border_style="dim"))
-
-    # ... (Inspection Block maintained) ...
-    # --- INSPECTION ---
-    if args.globs or args.cascades:
-        try:
-            stats = api.get_stats()
-        except:
-            console.print("[yellow]No data. Run --build first.[/yellow]")
-            return
-
-        if args.globs:
-            resolutions = stats.get("resolutions", {}).get("globs", [])
-            if not resolutions:
-                console.print("[yellow]No resolved glob patterns found.[/yellow]")
-            else:
-                table = Table(title="Resolved Glob Patterns", title_style="bold magenta", box=None)
-                table.add_column("Pattern", style="cyan")
-                table.add_column("Matches", style="green")
-                table.add_column("Count", justify="right")
-                
-                for item in resolutions:
-                    matches_str = "\n".join([f"- {m}" for m in item["matches"]])
-                    table.add_row(item["pattern"], matches_str, str(item["count"]))
-                
-                console.print(Panel(table, title="✅ Resolved Globs", border_style="green"))
-
-            # Unresolved Globs (Patterns still present in the graph)
-            unresolved = [nid for nid in api._graph_cache["nodes"] if '*' in nid]
-            if unresolved:
-                u_table = Table(title="⚠️ Unresolved Globs (No matching files found)", title_style="bold yellow", box=None)
-                u_table.add_column("Pattern Node ID", style="red")
-                u_table.add_column("Reason", style="dim")
-                
-                for nid in unresolved:
-                    u_table.add_row(nid, "No concrete file node matched this pattern in the current build.")
-                    
-                console.print(Panel(u_table, title="Unresolved Globs", border_style="yellow"))
-            else:
-                console.print("[dim]No unresolved glob patterns remaining.[/dim]")
-
-        if args.cascades:
-            resolutions = stats.get("resolutions", {}).get("placeholders", [])
-            if not resolutions:
-                console.print("[yellow]No resolved placeholder cascades found.[/yellow]")
-            else:
-                table = Table(title="Resolved Placeholder Cascades", title_style="bold magenta", box=None)
-                table.add_column("Source", style="dim")
-                table.add_column("Original", style="red")
-                table.add_column("Resolved", style="green")
-                
-                for item in resolutions:
-                    table.add_row(item["source"], item["original"], item["resolved"])
-                    
-                console.print(Panel(table, title="Cascades Detail", border_style="green"))
-        return
-
-    # --- BUILD ---
-    if args.build:
-        try:
-            stats = api.build_graph()
-            console.print(f"[green]Build Complete.[/green] Nodes: {stats.get('node_count')}, Edges: {stats.get('edge_count')}")
-        except Exception as e:
-             console.print(f"[red]Build Failed:[/red] {e}")
-             sys.exit(1)
-
-    # --- STATS ---
-    if args.stats:
-        try:
-            stats = api.get_stats()
-        except FileNotFoundError:
-            console.print("[yellow]No data. Run --build first.[/yellow]")
-            return
-
-        # 1. Edge Type Stats
-        if args.edge_type:
-             target_type = args.edge_type.lower()
-             console.print(f"[bold magenta]Statistics for Edge Type: {target_type}[/bold magenta]")
-             
-             edges = api.get_edges(target_type)
-             console.print(f"Total Edges: {len(edges)}")
-             
-             if not edges:
-                 console.print("[dim]No edges found of this type.[/dim]")
-             else:
-                 count = 0
-                 for edge in edges:
-                     if count >= args.examples_count: break
-                     # Resolve Source/Target Labels for Context
-                     s_node = api.get_node(edge["source"])
-                     t_node = api.get_node(edge["target"])
-                     
-                     s_label = format_label(edge["source"], s_node) if s_node else edge["source"]
-                     t_label = format_label(edge["target"], t_node) if t_node else edge["target"]
-                     
-                     console.print(f"Example {count+1}: {s_label} --[{target_type}]--> {t_label}")
-                     if edge.get("metadata"):
-                         console.print(f"   Metadata: {edge['metadata']}")
-                     count += 1
-                     
-        # 2. Node Type Stats
-        elif args.type:
-            target_type = args.type.lower()
-            console.print(f"[bold cyan]Statistics for Type: {target_type}[/bold cyan]")
-            
-            nodes_of_type = {k: v for k, v in api._graph_cache["nodes"].items() if v["type"] == target_type}
-            console.print(f"Total Nodes: {len(nodes_of_type)}")
-            
-            if not nodes_of_type:
-                console.print("[dim]No nodes found of this type.[/dim]")
-            else:
-                count = 0
-                for nid, node in nodes_of_type.items():
-                    if count >= args.examples_count: break
-                    
-                    # Ensure Name/Path is clearly visible in the title
-                    title_label = format_label(nid, node)
-                    p = Panel(json.dumps(node, indent=2), title=f"Example {count+1}: {title_label}", border_style="green")
-                    console.print(p)
-                    
-                    if node.get("metadata", {}).get("symbols"):
-                        syms = node["metadata"]["symbols"]
-                        s_text = []
-                        for k, v in syms.items():
-                            if v: s_text.append(f"{k}: {len(v)}")
-                        if s_text:
-                            console.print(f"   Symbols: {', '.join(s_text)}")
-                        
-                    if "content" in node and node["content"]:
-                        print_snippet(node["content"])
-                        
-                    count += 1
-        
-        # 3. General Stats
-        else:
-            # Grid
-            grid = Table.grid(expand=True)
-            grid.add_column()
-            grid.add_column(justify="right")
-            grid.add_row("[bold]Nodes[/bold]", str(stats.get("node_count", 0)))
-            grid.add_row("[bold]Edges[/bold]", str(stats.get("edge_count", 0)))
-            grid.add_row("[bold]Files[/bold]", str(stats.get("source_files", 0)))
-            
-            res = stats.get("resolutions", {})
-            grid.add_row("[bold]Resolved Globs[/bold]", f"{len(res.get('globs', []))} patterns")
-            grid.add_row("[bold]Resolved Cascades[/bold]", f"{len(res.get('placeholders', []))} instances")
-            grid.add_row("[bold]Generated[/bold]", stats.get("generated_at", "N/A"))
-            console.print(Panel(grid, title="Network Statistics", border_style="cyan"))
-            
-            # Nodes Table
-            n_table = Table(title="Nodes by Type", box=None, expand=True)
-            n_table.add_column("Type", style="bold cyan")
-            n_table.add_column("Count", justify="right")
-            n_table.add_column(f"Examples (Top {args.examples_count})", style="dim")
-            
-            nodes_by_type = stats.get("nodes_by_type", {})
-            for k in sorted(nodes_by_type.keys()):
-                v = nodes_by_type[k]
-                examples = []
-                c = 0
-                for nid, n in api._graph_cache["nodes"].items():
-                    if n["type"] == k:
-                        label = format_label(nid, n)
-                        if len(label) > 100: label = label[:97] + "..."
-                        examples.append(label)
-                        c += 1
-                        if c >= args.examples_count: break
-                n_table.add_row(k, str(v), "\n".join(examples))
-            console.print(Panel(n_table, title="Nodes Structure", border_style="blue"))
-            
-            # Edges Table
-            e_table = Table(title="Edges by Type", box=None, expand=True)
-            e_table.add_column("Type", style="bold magenta")
-            e_table.add_column("Count", justify="right")
-            e_table.add_column("Description", style="italic")
-            descriptions = {
-                "reads": "Script reads a File/Table", "writes": "Script writes a File",
-                "export": "Script exports a Schema/File", "imports": "Script imports another Script",
-                "defines": "Script defines Function/Var/Table", "uses": "General usage",
-            }
-            edges_by_type = stats.get("edges_by_type", {})
-            for k in sorted(edges_by_type.keys()):
-                e_table.add_row(k, str(edges_by_type[k]), descriptions.get(k, ""))
-            console.print(Panel(e_table, title="Edges Structure", border_style="magenta"))
-
-    # --- QUERY ---
-    if args.query:
-        try:
-             # FIND MODE
-             if args.find:
-                 matches = api.search_nodes(args.query)
-                 if matches:
-                     console.print(f"[green]Found {len(matches)} matches for '{args.query}':[/green]")
-                     for m in matches[:20]: # Limit display
-                         label = m.get("path") or m.get("name") or m["id"]
-                         if label != m["id"]: label = f"{label} ({m['id']})"
-                         console.print(f" - [{m['type']}] {label}")
-                     if len(matches) > 20: console.print(f"... and {len(matches)-20} more.")
-                 else:
-                     console.print(f"[red]No matches found for '{args.query}'.[/red]")
-                 return
-
-             # EXACT/RESOLVE MODE
-             node_id = api.resolve_node_id(args.query)
-             
-             if not node_id:
-                 # Standard fuzzy suggestion fallback
-                 matches = api.search_nodes(args.query)
-                 if matches:
-                     console.print(f"[yellow]Exact match not found. Did you mean one of these {len(matches)}?[/yellow]")
-                     for m in matches[:10]:
-                         label = m.get("path") or m.get("name") or m["id"]
-                         console.print(f" - {label} ({m['id']})")
-                     return
-                 else:
-                     console.print(f"[red]Node '{args.query}' not found.[/red]")
-                     return
-
-             # Node Found
-             node = api.get_node(node_id)
-             
-             # Show JSON Structure (User Request)
-             console.print(Panel(json.dumps(node, indent=2), title=f"JSON Structure: {node_id}", border_style="dim"))
-
-             # Tree Header: ID (Name) [Type]
-             header_label = format_label(node_id, node, full_details=True)
-             tree = Tree(f"[bold green]{header_label}[/bold green]")
-             
-             # Metadata
-             if "metadata" in node:
-                meta = node["metadata"]
-                meta_node = tree.add("Metadata")
-                if "docs" in meta:
-                    docs = meta["docs"]
-                    doc_node = meta_node.add("Documentation")
-                    for dtype, lines in docs.items():
-                        if lines: doc_node.add(f"[bold]{dtype}[/bold]: {len(lines)} items")
-                for k, v in meta.items():
-                    if k == "symbols":
-                         # Symbols Visualizer
-                        sym_node = meta_node.add("Symbols")
-                        for cat, items in v.items():
-                            if items:
-                                cat_node = sym_node.add(f"[bold]{cat}[/bold]")
-                                # Sort by count desc
-                                sorted_items = sorted(items.items(), key=lambda x: x[1], reverse=True)
-                                # Show top 10
-                                for key, count in sorted_items[:10]:
-                                    cat_node.add(f"{key}: [cyan]{count}[/cyan]")
-                                if len(sorted_items) > 10:
-                                    cat_node.add(f"[dim]... and {len(sorted_items) - 10} more[/dim]")
-                    elif k != "docs": 
-                        meta_node.add(f"{k}: {v}")
-            
-             # Relationships via API
-             neighbors = api.get_neighbors(node_id, relation_type=args.relation)
-             
-             rels_title = "Relationships"
-             if args.relation: rels_title += f" (Filter: [bold magenta]{args.relation}[/bold magenta])"
-             rels = tree.add(rels_title)
-             
-             # Outgoing
-             outgoing = neighbors["outgoing"]
-             if outgoing:
-                 out_node = rels.add(f"Outgoing ({len(outgoing)})")
-                 for item in outgoing:
-                     count_str = f" [b]x{item['count']}[/b]" if item['count'] > 1 else ""
-                     # Clean Format: ID (Name) - Using target_path preference for scripts/files if available
-                     t_node = {"name": item.get("target_name"), "path": item.get("target_path"), "type": item.get("target_type")}
-                     display = format_label(item["target_id"], t_node)
-                     edge_type = f"[[bold cyan]{item['edge_type']}[/bold cyan]]"
-                     
-                     out_node.add(f"-----> {edge_type} {display}{count_str}")
-             elif args.relation:
-                 rels.add(f"[dim]No outgoing '{args.relation}' edges[/dim]")
-                 
-             # Incoming
-             incoming = neighbors["incoming"]
-             if incoming:
-                 in_node = rels.add(f"Incoming ({len(incoming)})")
-                 for item in incoming:
-                     count_str = f" [b]x{item['count']}[/b]" if item['count'] > 1 else ""
-                     # Clean Format: ID (Name)
-                     s_node = {"name": item.get("source_name"), "path": item.get("source_path"), "type": item.get("source_type")}
-                     display = format_label(item["source_id"], s_node)
-                     edge_type = f"[[bold cyan]{item['edge_type']}[/bold cyan]]"
-                     
-                     in_node.add(f"<----- {edge_type} {display}{count_str}")
-             elif args.relation:
-                 rels.add(f"[dim]No incoming '{args.relation}' edges[/dim]")
-
-             console.print(tree)
-
-             if "content" in node and node["content"]:
-                print_snippet(node["content"])
-
-
-        except Exception as e:
-            console.print(f"[red]Error querying graph:[/red] {e}")
-            import traceback; traceback.print_exc()
-
-    if not (args.build or args.stats or args.query or args.globs or args.cascades):
-        parser.print_help()
 
 if __name__ == "__main__":
     main()

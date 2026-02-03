@@ -6,20 +6,19 @@
 TOOLS = [
     {
         "name": "semantic_search",
-        "description": "Searches the codebase for concepts, logic, or definitions using semantic search (RAG) with Graph-Aware chunking.",
+        "description": "Searches for concepts/logic (RAG). Use ONLY for ambiguous/conceptual questions. NOT for file paths, deterministic questions.",
         "documentation": """
-    **Purpose**: Semantic code search with oriented reranking (RAG).
+    **Purpose**: Semantic code search for concepts (e.g., "How is safety stock calculated?").
     
-    **Index Details (Graph-Aware Chunking)**:
-    Every chunk is enriched with its graph context. 
-    Example: `[Script: SalesAnalysis] [Imports: GlobalParams] [Reads: Items.ion]`.
-    Searching "Items.ion consumer" naturally finds scripts that read it.
-    
-    **Parameters**:
-    - `query`: Natural language question (MUST BE IN ENGLISH). Reformulate if needed.
-    - `keywords`: Envision keywords to boost (def, show, when, by...). Use when looking for a TYPE of construct.
-    - `terms`: Specific technical terms (variable names, function names...) to heavily boost. **VERIFY with grep_search first!**
-    - `top_k`: Number of results (default 5).
+    **Usage (JSON Argument)**:
+    ```json
+    {
+      "query": "how is safety stock calculated?",
+      "keywords": ["def", "when"],  // Optional: Envision keywords to boost
+      "terms": ["Stock", "Safety"], // Optional: Technical terms to boost
+      "top_k": 5
+    }
+    ```
         """,
         "parameters": {
             "type": "object",
@@ -52,45 +51,67 @@ TOOLS = [
     },
     {
         "name": "structural_explorer",
-        "description": "Explores the dependency graph (imports, reads, writes, defines).",
+        "description": "PRIMARY tool for structural queries (Dependencies, reads, writes, imports, defines, File Paths).",
         "documentation": """
     **Purpose**: Explore the Dependency Graph (Nodes/Edges).
     
-    **Node Types**:
-    - `script`: Envision code file (ID e.g. "68010")
-    - `file`: Data file .ion/.csv (Path e.g. "/Clean/Items.ion")
-    - `table`: Symbol "script::table::Name"
-    - `function`: Symbol "script::func::Name"
+    **Node Types**: `script` (Envision files), `file` (Data .ion), `table (script::table::Name)`, `function (script::func::Name)`.
+    **Edge Types**: `imports` (Modules), `reads` (Data), `writes` (Data), `defines`, `export`.
     
-    **Edge Types**: `imports`, `reads`, `writes`, `defines`, `export`.
+    **WHEN TO USE**: 
+    - **Global Analysis**: "Which modules are used?" -> `action="edges", type="imports"`
+    - **Global Analysis**: "Which files are read?" -> `action="edges", type="reads"`
+    - **Type Listing**: "List all scripts" -> `action="nodes", type="script"`
+    - **Dependency**: "Who reads Items.ion?" -> `action="neighbors", node_id="...", relation_type="reads"`
     
-    **Actions**:
-    - `stats`: Global graph statistics.
-    - `neighbors`: Get connections. Returns rich metadata:
-      - Docs: structure (///), business (//'), user ('""')
-      - Symbols: defined variables/functions/tables
+    **CRITICAL**: 
+    - IF searching for "Modules" or "Imports", use `action="edges", type="imports"`. 
+    - **DO NOT** use `nodes` type="script" to find imports. The graph ALREADY has them as edges.
+    - **DO NOT** list all scripts to find imports. It is slow and unnecessary.
     
-    **Directions**: `incoming` (used by), `outgoing` (uses), `all`.
+    **Usage (JSON Argument)**:
+    ```json
+    {
+      "action": "neighbors",   // OR: "stats", "nodes", "edges", "search_node", "get_node"
+      "node_id": "68010",      // Required for neighbors/get_node
+      "direction": "incoming", // Optional (neighbors) incoming/outgoing/all
+      "type": "script",        // Required for nodes (filter) ; to use just to check if a node exists having its ID or name
+      "relation_type": "reads"/"writes"/"imports"/"defines"/"export" // Required for edges (general filter) or neighbors ; you can use it to find all edges of a specific type for example
+    }
+    ```
+    
+    **Actions Details**:
+    - `nodes`: List ALL nodes of a specific `type` (e.g. "script").
+    - `edges`: List ALL global relations of a specific `relation_type` (e.g. "imports").
+    - `neighbors`: Find dependencies relative to a `node_id` (e.g., "incoming" + "reads" = Who reads me?)
+    - `search_node`: **FUZZY STRING MATCH** on Name/Path. 
+      - Use ONLY if you know part of the name (e.g. "Items").
+    - `get_node`: Get details of a known Node ID.
         """,
         "parameters": {
             "type": "object",
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["stats", "nodes", "edges", "neighbors"],
+                    "enum": ["stats", "nodes", "edges", "neighbors", "search_node", "get_node"],
                     "description": "Action to perform."
                 },
                 "node_id": {
                     "type": "string",
-                    "description": "Node ID for 'neighbors' action (script ID or file path)."
+                    "description": "Node ID (for 'neighbors', 'get_node')."
+                },
+                "query": {
+                    "type": "string",
+                    "description": "Search query (for 'search_node'). Matches Name or Path."
                 },
                 "type": {
                     "type": "string",
-                    "description": "Filter by node/edge type."
+                    "description": "Filter by node type (e.g. 'script', 'file')."
                 },
                 "relation_type": {
                     "type": "string",
-                    "description": "Filter neighbors by edge type."
+                    "enum": ["reads", "writes", "imports", "defines", "export"],
+                    "description": "Filter by edge type (e.g. 'imports')."
                 },
                 "direction": {
                     "type": "string",
@@ -101,28 +122,32 @@ TOOLS = [
             "required": ["action"]
         },
         "examples": [
-            {"action": "neighbors", "node_id": "68010"},
-            {"action": "neighbors", "node_id": "/Clean/Items.ion", "direction": "incoming"}
+            {"action": "edges", "relation_type": "imports"},
+            {"action": "nodes", "type": "script"},
+            {"action": "neighbors", "node_id": "/Clean/Items.ion", "relation_type": "reads", "direction": "incoming"}
         ]
     },
     {
         "name": "read_file",
-        "description": "Reads a specific section of a script file (.nvn).",
+        "description": "Reads a specific section of a script file (.nvn) using its ID.",
         "documentation": """
-    **Purpose**: Read code section from a script.
+    **Purpose**: Read code section from a script using its Graph ID.
     
-    **IMPORTANT**:
-    - **NO LINE LIMIT** - request any range.
-    - **ONLY for .nvn scripts** - NOT for .ion data files.
-    - **Expand window**: If RAG says lines 40-50, read 20-80 for context.
-    - **Metadata included** at top (symbols, imports).
+    **Usage (JSON Argument)**:
+    ```json
+    {
+      "script_id": "68010",   // REQUIRED. Found via structural_explorer.
+      "start_line": 1,
+      "end_line": 100         // Use -1 for end of file
+    }
+    ```
         """,
         "parameters": {
             "type": "object",
             "properties": {
-                "path": {
+                "script_id": {
                     "type": "string",
-                    "description": "Path to the script (ID, logical path, or physical path)."
+                    "description": "Script ID (Found in structural_explorer results). e.g. '68010'."
                 },
                 "start_line": {
                     "type": "integer",
@@ -131,22 +156,32 @@ TOOLS = [
                 },
                 "end_line": {
                     "type": "integer",
-                    "description": "End line.",
+                    "description": "End line (Use -1 or large number for end).",
                     "default": 100
                 }
             },
-            "required": ["path"]
+            "required": ["script_id"]
         },
         "examples": [
-            {"path": "/3. Inspectors/2 - Sales Analysis", "start_line": 1, "end_line": 100}
+            {"script_id": "68010", "start_line": 1, "end_line": 50}
         ]
     },
     {
         "name": "grep_search",
-        "description": "Regex search across all scripts to verify terms.",
+        "description": "FALLBACK: Regex search across all scripts.",
         "documentation": """
-    **Purpose**: Verify if a term exists before using in RAG (semantic_search terms).
-    **Returns**: Scripts containing pattern + occurrence count.
+    **Purpose**: Text/Pattern Search in files.
+    
+    **WHEN TO USE**:
+    - **FALLBACK ONLY**: Use this ONLY if `structural_explorer` yielded NO RESULTS or if the graph lookup failed.
+    - Useful for searching literal strings inside code content when graph metadata is insufficient.
+    
+    **Usage (JSON Argument)**:
+    ```json
+    {
+      "pattern": "StockEvol.*"  // Regex pattern (case-insensitive)
+    }
+    ```
         """,
         "parameters": {
             "type": "object",

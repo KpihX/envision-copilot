@@ -15,6 +15,7 @@ class CopilotState(TypedDict):
     # 3. Execution State
     current_node_id: Optional[str]
     last_layer_results: List[Dict]  # Results from tools in the last layer
+    plan_thought: Optional[str]     # The final reasoning/thought logic from the Thinker phase
     
     # 4. Control Flow
     should_stop: bool           # Signal to stop thinking/acting

@@ -8,8 +8,8 @@ class StarterAgent(BaseAgent):
     Agent responsible for initial triage and translation.
     Decides if the workflow should proceed to Thinker or stop.
     """
-    def __init__(self, config: Dict[str, Any], llm: Any, console: Console, prompt_loader: Any, verbose: bool = False):
-        super().__init__(config, llm, console, prompt_loader, verbose=verbose)
+    def __init__(self, config: Dict[str, Any], llm: Any, console: Console, prompt_loader: Any, verbose: bool = False, debug: bool = False):
+        super().__init__(config, llm, console, prompt_loader, verbose=verbose, debug=debug)
         self.prompt_loader = prompt_loader
 
     def run(self, state: CopilotState) -> Dict:

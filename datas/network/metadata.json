@@ -1,21 +1,22 @@
 {
-  "generated_at": "2026-01-22T19:42:14.413293",
+  "generated_at": "2026-02-03T23:14:45.697268",
   "source_files": 60,
-  "node_count": 443,
-  "edge_count": 699,
+  "node_count": 296,
+  "edge_count": 773,
   "nodes_by_type": {
     "script": 60,
-    "file": 74,
+    "data_file": 73,
     "table": 96,
-    "var": 196,
-    "function": 17
+    "function": 17,
+    "folder": 50
   },
   "edges_by_type": {
     "imports": 55,
     "reads": 270,
-    "defines": 309,
+    "defines": 113,
     "writes": 63,
-    "export": 2
+    "contains": 181,
+    "sibling": 91
   },
   "resolutions": {
     "globs": [

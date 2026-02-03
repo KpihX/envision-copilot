@@ -8,83 +8,20 @@ from rich.panel import Panel
 from rich.tree import Tree
 from rich.table import Table
 from rich import box
+from rich.markdown import Markdown
 
-from rich.panel import Panel
-from rich.tree import Tree
-from rich.table import Table
-from rich import box
-
-class StructuralSearch:
+class StructuralResults:
     """
-    Wrapper around EnvisionGraphAPI to provide tool-friendly output.
-    Acts as both Runner and Result Container.
+    Handles presentation logic for Structural Search results (String & Rich UI).
     """
-    def __init__(self, config: Dict[str, Any] = None, result: Any = None):
-        self.config = config or {}
-        self.max_output = self.config.get("presentation", {}).get("max_output", 30)
+    def __init__(self, result: Any, config: Dict[str, Any]):
         self.result = result
-        try:
-             if result is None:
-                 self.api = EnvisionGraphAPI()
-                 if not self.api.net_path.exists():
-                     logging.warning(f"Graph not found at {self.api.net_path}. Structural tools might fail.")
-             else:
-                 self.api = None
-        except Exception as e:
-            logging.error(f"Failed to initialize StructuralSearch: {e}")
-            self.api = None
+        self.config = config or {}
+        self.max_items = self.config.get("presentation", {}).get("max_items", 20)
+        self.max_lines = self.config.get("presentation", {}).get("max_lines", 50)
 
-    def explore(self, action: str = "stats", node_id: str = None, **kwargs) -> 'StructuralSearch':
-        """
-        Explores the graph structure.
-        Returns a NEW instance of StructuralSearch containing the result.
-        """
-        if not self.api:
-            return StructuralSearch(self.config, result="Error: Graph API not initialized (Run 'uv run network --build' first).")
-
-        if action == "stats":
-            return StructuralSearch(self.config, result=self.api.get_stats())
-
-        if action == "nodes":
-            node_type = kwargs.get("type")
-            nodes = self.api.get_nodes(node_type=node_type)
-            simplified = []
-            for n in nodes:
-                simplified.append({
-                    "id": n.get("id", "unknown"),
-                    "name": n.get("name"), 
-                    "path": n.get("path"),
-                    "type": n.get("type")
-                })
-            
-            limit = self.config.get("tools", {}).get("structural", {}).get("limit", 50)
-            if len(simplified) > limit:
-                data = {
-                    "total_count": len(simplified),
-                    "showing_first": limit,
-                    "nodes": simplified[:limit],
-                    "warning": "ResultSet truncated. Use more specific filters."
-                }
-                return StructuralSearch(self.config, result=data)
-            return StructuralSearch(self.config, result=simplified)
-            
-        if action == "edges":
-            edge_type = kwargs.get("type")
-            return StructuralSearch(self.config, result=self.api.get_edges(edge_type=edge_type))
-
-        if action == "neighbors":
-            if not node_id:
-                return StructuralSearch(self.config, result="Error: node_id is required for neighbors action.")
-            
-            try:
-                result = self.api.get_neighbors(node_id, **kwargs)
-                if result is None:
-                    return StructuralSearch(self.config, result=f"Error: Node '{node_id}' not found in graph.")
-                return StructuralSearch(self.config, result=result)
-            except Exception as e:
-                return StructuralSearch(self.config, result=f"Error exploring neighbors: {e}")
-
-        return StructuralSearch(self.config, result=f"Error: Unknown action '{action}'")
+    def to_dict(self):
+        return self.result if isinstance(self.result, (dict, list)) else {"error": self.result}
 
     def __str__(self) -> str:
         """Format result for LLM context."""
@@ -94,67 +31,145 @@ class StructuralSearch:
         if isinstance(self.result, str):
             return self.result
         
-        buffer = ["\n### 🕸️ Structural Exploration Results:"]
-        
-        result = self.result
-        if isinstance(result, dict) and "total_count" in result:
-            buffer.append(f"Total: {result['total_count']} (showing first {result['showing_first']})")
-            buffer.append(f"⚠️ {result.get('warning', '')}")
-            nodes = result.get("nodes", [])
-            for node in nodes[:self.max_output]:
-                buffer.append(f"  [{node.get('id')}] {node.get('name')} ({node.get('type')})")
-        
-        elif isinstance(result, list):
-            nodes = result
-            buffer.append(f"Found: {len(nodes)} nodes")
-            for node in nodes[:self.max_output]:
-                buffer.append(f"  [{node.get('id')}] {node.get('name')} ({node.get('type')})")
-                
-        elif isinstance(result, dict) and "node_count" in result:  # Stats
-            buffer.append(f"Graph Stats:")
-            for key, val in result.items():
-                buffer.append(f"  {key}: {val}")
-
-        else:
-            # Neighbors or other dict
-            limit = self.config.get("presentation", {}).get("max_output_lines", 100)
-            return json.dumps(smart_truncate(result, max_lines=limit), indent=2, ensure_ascii=False)
-        
-        return "\n".join(buffer)
+        # Generic JSON Dump with Truncation
+        truncated = smart_truncate(self.result, max_lines=self.max_lines, max_items=self.max_items)
+        return json.dumps(truncated, indent=2, ensure_ascii=False) if isinstance(truncated, (dict, list)) else str(truncated)
 
     def print(self) -> Panel:
         """Format result for Rich UI."""
         if self.result is None:
-             return "StructuralSearch Tool (Ready)"
+             return Panel("StructuralSearch Tool (Ready)", title="🕸️ Structural", border_style="dim")
 
         if isinstance(self.result, str):
-            from rich.text import Text
-            return Panel(Text(self.result, style="red"), title="🕸️ Structural Error", border_style="red")
+             # Try to parse if it looks like JSON string? No, assume error message or plain text.
+             return Panel(self.result, title="🕸️ Structural Message", border_style="cyan")
             
-        result = self.result
-
-        if isinstance(result, dict) and "node_count" in result: # Stats
-            # Stats Table
-            table = Table(show_header=False, box=box.SIMPLE)
-            for k, v in result.items():
-                table.add_row(str(k), str(v))
-            return Panel(table, title="🕸️ Graph Statistics", border_style="cyan")
-            
-        # Nodes List (List or Paginated Dict)
-        nodes = []
-        if isinstance(result, list): nodes = result
-        elif isinstance(result, dict) and "nodes" in result: nodes = result["nodes"]
+        # Generic JSON Dump with Truncation wrapped in Markdown
+        truncated = smart_truncate(self.result, max_lines=self.max_lines, max_items=self.max_items)
+        truncated_json = json.dumps(truncated, indent=2, ensure_ascii=False) if isinstance(truncated, (dict, list)) else str(truncated)
         
-        if nodes:
-            tree = Tree(f"🕸️ [bold]Structural Nodes ({len(nodes)})[/bold]")
-            for n in nodes[:self.max_output]:
-                tree.add(f"[{n.get('id')}] [bold]{n.get('name')}[/bold] [dim]({n.get('type')})[/dim]")
-            if len(nodes) > self.max_output:
-                tree.add(f"[italic]... +{len(nodes)-self.max_output} more[/italic]")
-            return Panel(tree, title="🕸️ Nodes", border_style="cyan")
-            
-        # Fallback (Full print as requested)
-        return Panel(str(self.result), title="🕸️ Structural Result", border_style="cyan")
+        return Panel(Markdown(f"```json\n{truncated_json}\n```"), title="🕸️ Structural Result", border_style="cyan")
 
+
+class StructuralSearch:
+    """
+    Wrapper around EnvisionGraphAPI to provide tool-friendly output.
+    Delegates Actions -> API -> Returns StructuralResults.
+    """
+    def __init__(self, api = None, config: Dict[str, Any] = None, result: Any = None):
+        self.config = config or {}
+        # Result can be passed in constructor (for result container usage) or generated
+        self.result = result 
+        
+        try:
+            if api:
+                self.api = api
+            # Lazy init API only if we rely on this instance to RUN commands AND api was not provided
+            elif result is None:
+                self.api = EnvisionGraphAPI()
+                if not self.api.net_path.exists():
+                    logging.warning(f"Graph not found at {self.api.net_path}. Structural tools might fail.")
+            else:
+                self.api = None
+        except Exception as e:
+             logging.error(f"Failed to initialize StructuralSearch: {e}")
+             self.api = None
+
+    def explore(self, action: str = "stats", node_id: str = None, **kwargs) -> StructuralResults:
+        """
+        Main entry point for tool actions.
+        """
+        if not self.api:
+            return StructuralResults("Error: Graph API not initialized.", self.config)
+
+        # 1. stats
+        if action == "stats":
+            return StructuralResults(self.api.get_stats(), self.config)
+
+        # 2. nodes
+        if action == "nodes":
+            node_type = kwargs.get("type")
+            data = self.api.get_nodes(node_type=node_type) 
+            # API returns {stats:..., nodes:[...]}
+            
+            # Apply Limit Logic Here ? Or keep it raw?
+            # Existing logic capped output for UI/LLM. 
+            # Let's keep raw data in 'result' but Presentation will truncate.
+            # However, if the list is HUGE (10k nodes), passing it around is expensive.
+            # Let's truncate the list IN THE RESULT object itself for performance?
+            # Or rely on API to paginate? API doesn't paginate yet.
+            # Let's simple truncate list in memory here.
+            
+            limit = self.config.get("tools", {}).get("structural", {}).get("limit", 50)
+            nodes = data.get("nodes", [])
+            if len(nodes) > limit:
+                data["nodes"] = nodes[:limit]
+                data["warning"] = f"ResultSet truncated (showing {limit}/{len(nodes)}). Use filters."
+                
+            return StructuralResults(data, self.config)
+
+        # 3. edges
+        if action == "edges":
+            # Map 'type' or 'relation_type' to edge_type
+            edge_type = kwargs.get("type") or kwargs.get("relation_type")
+            return StructuralResults(self.api.get_edges(edge_type=edge_type), self.config)
+
+        # 4. neighbors
+        if action == "neighbors":
+            if not node_id:
+                return StructuralResults("Error: node_id is required for neighbors action.", self.config)
+            try:
+                result = self.api.get_neighbors(node_id, **kwargs)
+                if result is None:
+                    return StructuralResults(f"Error: Node '{node_id}' not found.", self.config)
+                return StructuralResults(result, self.config)
+            except Exception as e:
+                return StructuralResults(f"Error exploring neighbors: {e}", self.config)
+
+        # 5. [NEW] search_node
+        if action == "search_node":
+            query = kwargs.get("query")
+            if not query:
+                return StructuralResults("Error: query is required for search_node action.", self.config)
+            
+            data = self.api.search_nodes(query)
+            # data = {stats:..., matches:[...]}
+            return StructuralResults(data, self.config)
+
+        # 6. [NEW] get_node
+        if action == "get_node":
+            if not node_id:
+                 return StructuralResults("Error: node_id is required for get_node action.", self.config)
+            
+            node = self.api.get_node(node_id)
+            if not node:
+                return StructuralResults(f"Error: Node '{node_id}' not found via get_node.", self.config)
+            
+            # Smart Truncate Content if it's a script
+            if node.get("type") == "script" and "content" in node:
+                # We do NOT want to flood the context with full script
+                # Rely on smart_truncate util when creating StructuralResults?
+                # The user asked: "if node=script; the content will be truncated using smart_truncate"
+                # Let's do it explicitly here or rely on result formatting.
+                # StructuralResults.__str__ calls smart_truncate, but let's be safe.
+                # Actually, modifying the 'node' dict in place might be misleading if we returned it to code.
+                # But here we return a Result object for viewing.
+                pass # StructuralResults will handle truncation via smart_truncate(max_lines)
+
+            return StructuralResults(node, self.config)
+
+        return StructuralResults(f"Error: Unknown action '{action}'", self.config)
+
+    # Proxy methods for backward compatibility if needed (e.g. if code calls tooling.to_dict())
+    # But strictly speaking, the tools usually return the object and the system calls to_dict or str.
     def to_dict(self):
-        return self.result if isinstance(self.result, (dict, list)) else {"error": self.result}
+         # If self was init with result (legacy container usage)
+         if self.result is not None:
+             return StructuralResults(self.result, self.config).to_dict()
+         return {}
+    
+    def __str__(self):
+        if self.result is not None:
+             return str(StructuralResults(self.result, self.config))
+        return "StructuralSearch Tool (Runner)"
+

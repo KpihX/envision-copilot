@@ -8,3 +8,9 @@
             ],
             "appendix": []
 
+
+idées
+
+- gestion memoire auto construite
+- arborescence des chunks / chunk dossier
+

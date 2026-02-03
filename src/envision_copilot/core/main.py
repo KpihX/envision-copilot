@@ -12,6 +12,8 @@ from envision_copilot.core.memory import Memory
 from envision_copilot.core.planner import Planner, NodeStatus
 from envision_copilot.core.state import CopilotState
 
+from envision_preprocess.api import EnvisionGraphAPI
+
 from envision_copilot.tools.structural_search import StructuralSearch
 from envision_copilot.tools.semantic_search import SemanticSearch
 from envision_copilot.tools.code_reader import CodeReader
@@ -34,18 +36,21 @@ class ErrorResult:
 
 # --- The Brain ---
 class EnvisionCopilot:
-    def __init__(self, config_path: str = "config.yaml", verbose: bool = False, interactive: bool = False):
+    def __init__(self, config_path: str = "config.yaml", verbose: bool = False, debug: bool = False):
         self.config = ConfigLoader.load_config(config_path)
-        self.verbose = verbose
-        self.interactive = interactive
+        self.verbose = verbose or self.config.get("presentation", {}).get("verbose", False)
+        self.debug = debug or self.config.get("presentation", {}).get("debug", False)
         self.console = Console()
         
         self.prompts = PromptLoader(self.config)
         
         # Tools
-        self.structural = StructuralSearch(self.config)
+        # Init shared API once
+        self.api = EnvisionGraphAPI()
+        
+        self.structural = StructuralSearch(api=self.api, config=self.config)
         self.semantic = SemanticSearch(self.config)
-        self.code_reader = CodeReader(config=self.config)
+        self.code_reader = CodeReader(api=self.api, config=self.config)
         self.grep = Grep(self.config)
         
         # Tool Mapping (Centralized)
@@ -60,9 +65,9 @@ class EnvisionCopilot:
         self.llm = get_llm(config=self.config)
         
         # Agents Intialization (Service Pattern)
-        self.starter_agent = StarterAgent(self.config, self.llm, self.console, self.prompts, verbose=self.verbose)
-        self.thinker_agent = ThinkerAgent(self.config, self.llm, self.console, self.prompts, verbose=self.verbose)
-        self.synthesizer_agent = SynthesizerAgent(self.config, self.llm, self.console, self.prompts, verbose=self.verbose)
+        self.starter_agent = StarterAgent(self.config, self.llm, self.console, self.prompts, verbose=self.verbose, debug=self.debug)
+        self.thinker_agent = ThinkerAgent(self.config, self.llm, self.console, self.prompts, verbose=self.verbose, debug=self.debug)
+        self.synthesizer_agent = SynthesizerAgent(self.config, self.llm, self.console, self.prompts, verbose=self.verbose, debug=self.debug)
         
         self.workflow = self._build_graph()
 
@@ -106,7 +111,7 @@ class EnvisionCopilot:
         # We run this BEFORE initializing Memory/Planner/Workflow to save resources
         # and avoid "empty" appendixes for greetings.
         
-        if self.verbose:
+        if self.verbose or self.debug:
              self.console.print(Panel("Analyzing User Request...", title="🚦 Starter Agent", border_style="yellow"))
 
         initial_state: CopilotState = {
@@ -181,25 +186,66 @@ class EnvisionCopilot:
         add_result_indices = response_json.get("add_result_indices", [])
         last_results = state.get("last_layer_results", [])
         
-        for idx in add_result_indices:
+        # Normalize to Map: { int_idx: [chunk_list] }
+        # Legacy support: List[int] -> { i: [0] } (Keep All)
+        selection_map = {}
+        if isinstance(add_result_indices, list):
+            for idx in add_result_indices:
+                selection_map[int(idx)] = [0] # Default: Keep All (Chunk 0 = Full Result logic if not chunkable)
+        elif isinstance(add_result_indices, dict):
+            for k, v in add_result_indices.items():
+                try:
+                    selection_map[int(k)] = v # v is List[int] of chunks
+                except ValueError:
+                    continue # Skip invalid keys
+
+        for idx, chunk_indices in selection_map.items():
             if 0 <= idx < len(last_results):
                 result_entry = last_results[idx]
                 tool_name = result_entry.get("tool", "unknown")
                 raw_result = result_entry.get("result", "")
                 
-                # Generate compact view using the Result Object's str()
-                # raw_result is now the Result Object
+                # Check if tool supports Granular Memory (e.g. Semantic Search)
+                # SemanticSearch.search returns list of chunks? 
+                # Let's check raw_result structure. SemanticSearch returns list of dicts usuallly?
+                # Actually semantic.search returns List[Dict].
+                
+                final_stored_result = raw_result # Default
                 compact_view = str(raw_result)
+                
+                # Granular Logic for Semantic Search
+                if tool_name == "semantic_search" and isinstance(raw_result, list):
+                    # Filter only requested chunks
+                    filtered_chunks = []
+                    # Logic: If [0] is in list and user meant "All", or if specific chunks requested
+                    # But prompt says [0] = All for standard tools. For Semantic, it means chunk 0.
+                    # Wait, if user wants ALL chunks from semantic search, they list all indices or we need a specific flag (-1?)
+                    # For now, let's assume specific indices mean specific chunks.
+                    
+                    for chunk_idx in chunk_indices:
+                        if 0 <= chunk_idx < len(raw_result):
+                            filtered_chunks.append(raw_result[chunk_idx])
+                            
+                    if filtered_chunks:
+                        final_stored_result = filtered_chunks
+                        compact_view = json.dumps(final_stored_result, indent=2, ensure_ascii=False)
+                    else:
+                        # Fallback if indices invalid: Store nothing or All? Store Nothing to be safe (garbage in, garbage out)
+                        continue 
+                
+                # For standard objects (CodeReader, Structural), raw_result is usually an Object or Dict
+                # Chunk indices [0] just means "Add this object".
+                # If they passed specific indices for a non-list result, we ignore indices and add object.
 
                 self.memory.add_observation(
                     tool_name=tool_name,
                     tool_args=result_entry.get("args", {}),
-                    result=raw_result.to_dict() if hasattr(raw_result, 'to_dict') else str(raw_result), # Store raw data
+                    result=final_stored_result.to_dict() if hasattr(final_stored_result, 'to_dict') else final_stored_result, # Store raw data
                     compact_view=compact_view
                 )
         
         # RICH UI: Display updated memory
-        if self.verbose:
+        if self.verbose or self.debug:
             self.console.print(self.memory.print())
 
         # Check stop conditions
@@ -208,19 +254,27 @@ class EnvisionCopilot:
         
         if at_max_depth or llm_wants_stop:
             stop_reason = "max_depth" if at_max_depth else "llm_decision"
-            if self.verbose:
+            if self.verbose or self.debug:
                 self.console.print(f"[yellow]🛑 Stopping: {stop_reason}[/yellow]")
-            return {"should_stop": True, "stop_reason": stop_reason, "last_layer_results": []}
+            return {
+                "should_stop": True, 
+                "stop_reason": stop_reason, 
+                "last_layer_results": [],
+                "plan_thought": response_json.get("thought_process", "") # Capture final thought
+            }
 
         # Propose new layer
         new_steps = response_json.get("next_steps", [])
         if new_steps:
             self.planner.propose_next_layer(new_steps)
-            if self.verbose:
+            if self.verbose or self.debug:
                 # RICH UI: Display updated plan
                 self.console.print(self.planner.print())
         
-        return {"last_layer_results": []}  # Reset for new layer
+        return {
+            "last_layer_results": [], # Reset for new layer
+            "plan_thought": response_json.get("thought_process", "") # Capture thought for this step
+        }
 
     def act_node(self, state: CopilotState) -> Dict:
         """Act Phase: Execute Tools."""
@@ -230,10 +284,18 @@ class EnvisionCopilot:
 
         state["current_node_id"] = node.id
         
-        # Execute Tool
-        if self.verbose:
+        if self.verbose or self.debug:
+            # Formatter Tool Execution Log using Markdown
+            args_fmt = json.dumps(node.tool_args, ensure_ascii=False, indent=2)
+            md_content = f"""
+**Tool**: `{node.tool_name}`
+**Args**: 
+```json
+{args_fmt}
+```
+"""
             self.console.print(Panel(
-                f"**Tool:** `{node.tool_name}`\n**Args:** `{json.dumps(node.tool_args, ensure_ascii=False)}`", 
+                Markdown(md_content), 
                 title=f"🚀 Executing [{node.id}]: {node.goal}", 
                 border_style="magenta"
             ))
@@ -254,7 +316,7 @@ class EnvisionCopilot:
         self.planner.mark_done(node, reasoning="Executed")
         
         # Display result
-        if self.verbose:
+        if self.verbose or self.debug:
             self._display_tool_result(node.tool_name, result_raw)
 
         return {"last_layer_results": state["last_layer_results"]}
@@ -268,17 +330,22 @@ class EnvisionCopilot:
         updates = self.synthesizer_agent.run(
             state, 
             appendix=appendix, 
-            max_depth=self.planner.max_depth
+            max_depth=self.planner.max_depth,
+            original_question=state.get("original_question"),
+            reformulated_question=state.get("question"), # This is the reformulated one
+            plan_thought=state.get("plan_thought") # Inject Thinker's logic
         )
         return updates
-
+    
     # --- Decisions (Edges) ---
     
     def decide_after_thinker(self, state: CopilotState) -> str:
         if state.get("should_stop"):
             return "synthesizer"
-        if self.planner.get_next_pending_node():
+        
+        if self.planner.has_pending_nodes():
             return "act"
+            
         return "synthesizer" # Fallback
 
     def decide_after_act(self, state: CopilotState) -> str:
@@ -295,8 +362,10 @@ class EnvisionCopilot:
             if name == "structural_explorer": 
                 return self.structural.explore(**args)
             if name == "read_file":
+                 # Map arguments correctly to CodeReader.read_section signature
+                 # (script_id, start_line, end_line)
                  return self.code_reader.read_section(
-                    file_path=args.get("path") or args.get("file_path"),
+                    script_id=args.get("script_id") or args.get("path") or args.get("file_path"),
                     start_line=args.get("start_line", 1),
                     end_line=args.get("end_line", 100)
                 )

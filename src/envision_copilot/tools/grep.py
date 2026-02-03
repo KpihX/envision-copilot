@@ -9,11 +9,6 @@ from rich.tree import Tree
 from rich.table import Table
 from rich import box
 
-from rich.panel import Panel
-from rich.tree import Tree
-from rich.table import Table
-from rich import box
-
 class Grep:
     """
     Wrapper around EnvisionGraphAPI to provide Grep/Search capabilities.
@@ -22,6 +17,8 @@ class Grep:
     def __init__(self, config: Dict[str, Any] = None, result: Any = None):
         self.config = config or {}
         self.result = result
+        self.max_lines = self.config.get("presentation", {}).get("max_lines", 50)
+        self.max_items = self.config.get("presentation", {}).get("max_items", 20)
         try:
              # Lazy init or shared usage?
              # If result is None, we are a runner
@@ -56,19 +53,9 @@ class Grep:
         if isinstance(self.result, str):
             return self.result
         
-        limit = self.config.get("presentation", {}).get("max_output_lines", 100)
-        buffer = ["\n### 🔎 Grep Search Results:"]
-        
-        patterns = self.result.get("patterns", {})
-        for pattern, data in patterns.items():
-            total = data.get("total", 0)
-            files = data.get("files", [])
-            buffer.append(f"\nPattern: '{pattern}' → {total} occurrences in {len(files)} files")
-            
-            for file_info in files[:10]:  # Top 10 files
-                buffer.append(f"  {file_info.get('file', 'N/A')}: {file_info.get('count', 0)} matches")
-        
-        return "\n".join(buffer)
+        # Generic Smart Truncation
+        truncated = smart_truncate(self.result, max_lines=self.max_lines, max_items=self.max_items)
+        return json.dumps(truncated, indent=2, ensure_ascii=False) if isinstance(truncated, (dict, list)) else str(truncated)
 
     def print(self) -> Panel:
         """Format result for Rich UI display."""
@@ -83,19 +70,24 @@ class Grep:
         patterns = self.result.get("patterns", {})
         root = Tree("🔎 [bold]Grep Search[/bold]")
         
-        # Get configured max output
-        max_output = self.config.get("presentation", {}).get("max_output", 30)
-
+        # We manually build the tree here which is nice, but let's respect truncation limits
+        # on the number of files shown.
+        
         for pattern, data in patterns.items():
             total = data.get("total", 0)
             branch = root.add(f"'{pattern}' ({total} matches)")
             
             files = data.get("files", [])
-            for file_info in files[:max_output]: # Limit UI listing
-                branch.add(f"{file_info.get('file')} [dim]({file_info.get('count')})[/dim]")
+            # Truncate file list if needed
+            visible_files = files[:self.max_items]
             
-            if len(files) > max_output:
-                branch.add(f"[italic dim]... +{len(files)-max_output} more files[/italic dim]")
+            for file_info in visible_files: 
+                f_name = file_info.get('file')
+                count = file_info.get('count')
+                branch.add(f"{f_name} [dim]({count})[/dim]")
+            
+            if len(files) > self.max_items:
+                branch.add(f"[italic dim]... +{len(files)-self.max_items} more files[/italic dim]")
                 
         return Panel(root, title="🔎 Grep Results", border_style="blue")
     

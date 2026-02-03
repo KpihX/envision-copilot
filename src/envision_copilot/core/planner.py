@@ -1,5 +1,4 @@
 from typing import List, Dict, Optional, Any
-import uuid
 import json
 from enum import Enum
 from dataclasses import dataclass, field
@@ -18,7 +17,7 @@ class NodeStatus(str, Enum):
 @dataclass
 class Node:
     goal: str
-    id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
+    id: str = "0"
     status: NodeStatus = NodeStatus.PENDING
     
     # Execution details
@@ -26,6 +25,7 @@ class Node:
     tool_args: Dict = field(default_factory=dict)
     reasoning: str = ""
     result: str = ""
+    depth: int = 0
 
     def to_dict(self):
         return {
@@ -52,10 +52,21 @@ class Planner:
         self.layers: List[List[Node]] = []
         self.current_depth = 0
         
-        # Initialize with root goal
-        root = Node(goal=root_goal)
-        root.status = NodeStatus.DONE # Root is the prompt itself, technically done/starting point.
-        self.layers.append([root])
+        # Simple Integer ID Counter
+        self._node_counter = 0
+        self.root: Node = Node(
+            id=str(self._node_counter),
+            goal="ROOT GOAL",
+            tool_name="ROOT",
+            tool_args={},
+            result="INIT",
+            depth=0
+        )
+        self._node_counter += 1
+        
+        # Linear tracking of the plan order
+        self.nodes_sequence: List[Node] = [self.root]
+        self.layers.append([self.root])
 
     def propose_next_layer(self, layer_proposals: List[Dict]) -> List[Node]:
         """
@@ -72,10 +83,12 @@ class Planner:
         new_layer = []
         for prop in effective_proposals:
             node = Node(
+                id=str(self._node_counter),
                 goal=prop.get("goal", "Unknown Goal"),
                 tool_name=prop.get("tool", ""),
                 tool_args=prop.get("args", {})
             )
+            self._node_counter += 1
             new_layer.append(node)
             
         if new_layer:
@@ -101,6 +114,14 @@ class Planner:
                 return node
         return None
 
+    def has_pending_nodes(self) -> bool:
+        """Checks if there are any PENDING nodes in the current layer without modifying them."""
+        current_layer = self.get_current_layer()
+        for node in current_layer:
+            if node.status == NodeStatus.PENDING:
+                return True
+        return False
+
     def is_layer_complete(self) -> bool:
         """Checks if all nodes in the current layer are terminal (DONE/FAILED/CANCELLED)."""
         current_layer = self.get_current_layer()
@@ -125,7 +146,7 @@ class Planner:
         Returns a text representation for LLM context.
         Includes depth tracking: i/max_depth
         """
-        limit = self.config.get("presentation", {}).get("max_output_lines", 100)
+        limit = self.config.get("presentation", {}).get("max_lines", 100)
         
         buffer = [f"\n### 🗺️ EXPLORATION HISTORY (Depth: {self.current_depth}/{self.max_depth}):"]
         
@@ -145,7 +166,9 @@ class Planner:
                     buffer.append(f"     [Tool: {node.tool_name}]")
                 if node.reasoning:
                     # Use smart_truncate for reasoning
-                    truncated_reasoning = smart_truncate(node.reasoning, max_lines=limit)
+                    limit = self.config.get("presentation", {}).get("max_lines", 100)
+                    list_limit = self.config.get("presentation", {}).get("max_items", 20)
+                    truncated_reasoning = smart_truncate(node.reasoning, max_lines=limit, max_items=list_limit)
                     if isinstance(truncated_reasoning, str):
                         buffer.append(f"     (Reason: {truncated_reasoning})")
         

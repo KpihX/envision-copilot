@@ -1,8 +1,16 @@
 parsing:
   script_dir: "scripts"
   script_ext: "nvn"
+  data_extensions: ["ion"]
   mapping_file: "src/envision_preprocess/mapping.txt"
   recursion_limit: 10
+  normalize_brackets: true    # Normalize [ 1 ], [1], [  1  ] to [ X ] format
+
+search:
+  top_k: 20                   # Default limit for search results
+
+grep:
+  default_node_types: ["script", "function"]
 
 output:
   network_file: "datas/network/network.json"

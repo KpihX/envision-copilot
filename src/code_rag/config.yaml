@@ -61,7 +61,7 @@ retrieval:
   # - cross-encoder: MS-MARCO cross-encoder (general purpose)
   # - bge: BAAI/bge-reranker (robust for technical terms)
   # - mxbai/answerai: Require HuggingFace authentication
-  reranker_type: "oriented"
+  reranker_type: "heuristic"
   # Optional: override default model for ML rerankers
   # reranker_name: "BAAI/bge-reranker-base"
   top_k_recall: 50

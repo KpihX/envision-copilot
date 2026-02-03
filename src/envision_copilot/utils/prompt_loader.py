@@ -22,7 +22,8 @@ class PromptLoader:
         return template.format(
             identity=self.generic.get("identity", ""),
             envision_doc=self.generic.get("envision_doc", ""),
-            user_input=user_input
+            user_input=user_input,
+            guidelines=self.generic.get("guidelines", "")
         )
 
     def get_think_prompt(self, question, memory, history, last_results, current_depth: int = 0) -> str:
@@ -48,10 +49,11 @@ class PromptLoader:
             max_branches=max_branches,
             history=history,
             memory=memory,
-            last_results=last_results
+            last_results=last_results,
+            guidelines=self.generic.get("guidelines", "")
         )
 
-    def get_synthesizer_prompt(self, appendix: str, max_depth: int, user_language: str, stop_reason: str) -> str:
+    def get_synthesizer_prompt(self, appendix: str, max_depth: int, user_language: str, stop_reason: str, original_question: str, reformulated_question: str, plan_thought: str) -> str:
         """Assembles: Identity + Envision Doc + Synthesizer (Unified)."""
         synthesizer_template = self.agents.get("synthesizer", "")
         
@@ -61,7 +63,11 @@ class PromptLoader:
             appendix=appendix,
             max_depth=max_depth,
             user_language=user_language,
-            stop_reason=stop_reason
+            stop_reason=stop_reason,
+            original_question=original_question,
+            reformulated_question=reformulated_question,
+            plan_thought=plan_thought,
+            guidelines=self.generic.get("guidelines", "")
         )
 
     def _generate_tools_doc(self) -> str:

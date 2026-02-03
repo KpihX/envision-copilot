@@ -21,55 +21,65 @@ class CodeReader:
         self.config = config or {}
         self.result = result
 
-    def read_section(self, file_path: str, start_line: Union[int, str] = 1, end_line: Union[int, str] = 100) -> 'CodeReader':
+    def read_section(self, script_id: str, start_line: Union[int, str] = 1, end_line: Union[int, str] = 100) -> 'CodeReader':
         """
-        Reads a specific range of lines from a file or graph node.
-        NO TRUNCATION: Returns the full requested range.
-        Returns a NEW instance of CodeReader containing the result.
+        Reads a specific range of lines from a script using its Graph ID.
+        Requires EnvisionGraphAPI to resolve ID to Content/Path.
         """
-        path = Path(file_path)
-        content_str = None
-        source_desc = str(path)
-        script_metadata = {}
+        if not self.api:
+            return CodeReader(self.api, self.config, result={"error": "Graph API not initialized. Cannot parse script_id."})
 
-        # 1. Try resolving via Network API (Priority for DSL paths)
-        if self.api:
-             matches = self.api.search_nodes(file_path)
-             if matches:
-                 best = matches[0]
-                 if "content" in best and best["content"]:
-                     content_str = best["content"]
-                     source_desc = f"Graph Node: {best.get('id')} ({best.get('path')})"
-                     
-                     # Extract metadata (keywords, defined symbols)
-                     script_metadata = {
-                         "id": best.get("id"),
-                         "path": best.get("path"),
-                         "type": best.get("type"),
-                         "defined_symbols": best.get("defined_symbols", []),
-                         "imports": best.get("imports", []),
-                         "keywords": best.get("keywords", [])
-                     }
-                 elif "path" in best and Path(best["path"]).exists():
-                     path = Path(best["path"])
+        if not script_id:
+            return CodeReader(self.api, self.config, result={"error": "Missing 'script_id'."})
 
-        # 2. Try Physical File (Absolute or Relative)
-        if not content_str:
-            if not path.exists():
-                path = Path.cwd() / file_path
-                
-            if path.exists():
-                try:
-                    with open(path, 'r', encoding='utf-8') as f:
-                        content_str = f.read()
-                    source_desc = str(path)
-                except Exception as e:
-                    return CodeReader(self.api, self.config, result={"error": f"Failed to read file: {e}"})
-
-        if not content_str:
-             return CodeReader(self.api, self.config, result={"error": f"File/Node not found: {file_path}"})
+        # 1. Fetch Node
+        node = self.api.get_node(script_id)
+        if not node:
+             # Fallback: Try searching loosely (e.g. if user passed a path instead of ID)
+             search_result = self.api.search_nodes(script_id)
+             matches_list = search_result.get("matches", [])
              
-        # 3. Extract range (NO TRUNCATION)
+             if matches_list:
+                 # Ambiguous match: Return list of candidates
+                 candidates = [f"- {m.get('id')} ({m.get('path')})" for m in matches_list]
+                 candidates_str = "\n".join(candidates)
+                 return CodeReader(self.api, self.config, result={
+                     "error": f"Node '{script_id}' not found exactly. Did you mean one of these?\n{candidates_str}"
+                 })
+             else:
+                 return CodeReader(self.api, self.config, result={"error": f"Script ID '{script_id}' not found in Graph (and no approximate match)."})
+
+        content_str = None
+        source_desc = f"Node [{script_id}]"
+        script_metadata = {
+             "id": node.get("id"),
+             "path": node.get("path"),
+             "type": node.get("type"),
+             "defined_symbols": node.get("defined_symbols", []),
+             "imports": node.get("imports", []),
+             "keywords": node.get("keywords", [])
+        }
+
+        # 2. Get Content (Graph Cache or Disk)
+        if node.get("content"):
+            content_str = node["content"]
+            source_desc += " (from Graph)"
+        elif node.get("path"):
+            # Fallback to disk using path from GRAPH (trusted)
+            fpath = Path(node["path"])
+            if fpath.exists():
+                try:
+                     with open(fpath, 'r', encoding='utf-8') as f:
+                         content_str = f.read()
+                     source_desc += f" (from Disk: {fpath.name})"
+                except Exception as e:
+                     return CodeReader(self.api, self.config, result={"error": f"Failed to read file for node '{script_id}': {e}"})
+            else:
+                 return CodeReader(self.api, self.config, result={"error": f"File path for node '{script_id}' does not exist: {fpath}"})
+        else:
+             return CodeReader(self.api, self.config, result={"error": f"Node '{script_id}' has no content and no valid path."})
+
+        # 3. Extract Range
         lines = content_str.splitlines()
         total_lines = len(lines)
         
@@ -77,10 +87,7 @@ class CodeReader:
         start_val = start_line
         if isinstance(start_val, str):
             s = str(start_val).lower().strip()
-            if s in ["start", "begin", "first"]:
-                start_val = 1
-            elif s in ["end", "last"]:
-                start_val = total_lines
+            if s in ["start", "begin", "first"]: start_val = 1
             else:
                 try: start_val = int(s)
                 except: start_val = 1
@@ -89,10 +96,7 @@ class CodeReader:
         end_val = end_line
         if isinstance(end_val, str):
             s = str(end_val).lower().strip()
-            if s in ["end", "last", "finish"]:
-                end_val = total_lines
-            elif s in ["start", "begin"]:
-                end_val = 1
+            if s in ["end", "last", "finish"]: end_val = total_lines
             else:
                 try: end_val = int(s)
                 except: end_val = total_lines
@@ -112,7 +116,7 @@ class CodeReader:
             "content": content,
             "extracted_lines": end - start + 1,
             "file_total_lines": total_lines,
-            "metadata": script_metadata  # Include script metadata
+            "metadata": script_metadata
         }
         return CodeReader(self.api, self.config, result=result_data)
 
@@ -132,15 +136,15 @@ class CodeReader:
         metadata = self.result.get("metadata", {})
         if metadata:
             # Get configured max output
-            max_output = self.config.get("presentation", {}).get("max_output", 30)
+            max_items = self.config.get("presentation", {}).get("max_items", 30)
             
             buffer.append(f"\n**Script Metadata:**")
             if metadata.get("defined_symbols"):
-                buffer.append(f"  Defined Symbols: {', '.join(metadata['defined_symbols'][:max_output])}")
+                buffer.append(f"  Defined Symbols: {', '.join(metadata['defined_symbols'][:max_items])}")
             if metadata.get("keywords"):
-                buffer.append(f"  Keywords: {', '.join(metadata['keywords'][:max_output])}")
+                buffer.append(f"  Keywords: {', '.join(metadata['keywords'][:max_items])}")
             if metadata.get("imports"):
-                buffer.append(f"  Imports: {', '.join(metadata['imports'][:max_output])}")
+                buffer.append(f"  Imports: {', '.join(metadata['imports'][:max_items])}")
         
         buffer.append(f"\n```envision")
         buffer.append(self.result.get('content', ''))  # NO TRUNCATION
@@ -158,8 +162,9 @@ class CodeReader:
             from rich.text import Text
             return Panel(Text(self.result["error"], style="red"), title="📄 Code Reader Error", border_style="red")
         
-        limit = self.config.get("presentation", {}).get("max_output_lines", 100)
-        content_preview = smart_truncate(self.result.get("content", ""), max_lines=limit)
+        limit = self.config.get("presentation", {}).get("max_lines", 100)
+        list_limit = self.config.get("presentation", {}).get("max_items", 20)
+        content_preview = smart_truncate(self.result.get("content", ""), max_lines=limit, max_items=list_limit)
         
         # Syntax Highlighting
         syntax = Syntax(content_preview, "envision", theme="monokai", line_numbers=True, start_line=int(self.result.get("range", "1-1").split("-")[0]))
