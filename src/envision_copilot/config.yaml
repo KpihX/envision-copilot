@@ -6,20 +6,28 @@
 # Agent Configuration
 # -----------------------------------------------------------------------------
 agent:
+  # Provider LLM à utiliser (voir llms/config.yaml pour options)
+  # Valeurs: qwen, mistral, gemini, groq, ollama
   llm_type: "qwen"
-  llm_model: "qwen2.5-coder:latest"
+  
+  # Modèle spécifique (laisser vide = default du provider)
+  # qwen: qwen3-30b-a3b (default), qwen3-max, qwen3-235b-a22b
+  # mistral: mistral-large-latest (default)
+  # gemini: gemini-2.0-flash (default), gemini-2.5-pro
+  llm_model: "qwen3-max"
+  
   constraints:
-    max_depth: 7
-    max_branches: 2
-    recursion_limit: 50 # Max steps in LangGraph to prevent infinite loops
-    retry_limit: 2 # Max retries for LLM format errors
+    max_depth: 10          # Profondeur max de recherche dans le graphe
+    max_branches: 2        # Branches parallèles max par nœud
+    recursion_limit: 50    # Steps max LangGraph (anti-boucle infinie)
+    retry_limit: 2         # Retries max pour erreurs de format JSON
 
 # -----------------------------------------------------------------------------
 # Presentation & Truncation
 # -----------------------------------------------------------------------------
 presentation:
-  max_lines: 100
-  max_items: 20 # Default limit for lists (files, nodes, etc.) to avoid UI flooding
+  max_lines: 200
+  max_items: 30 # Default limit for lists (files, nodes, etc.) to avoid UI flooding
   debug: true # If true, displays raw prompt context before LLM call
 
 # -----------------------------------------------------------------------------
@@ -152,6 +160,9 @@ prompts:
       - **Depth**: {current_depth}/{max_depth} layers
       - **Branches**: Max {max_branches} parallel tasks per layer
 
+      ### PREVIOUS REASONING:
+      {last_thought_process}
+
       ### PLAN HISTORY:
       {history}
 
@@ -175,31 +186,72 @@ prompts:
          - **Internal Monologue (Thoughts)**: ALWAYS in ENGLISH.
          - **Tool Arguments (Queries)**: ALWAYS in ENGLISH.
          - **Final Answer**: SAME LANGUAGE as the user's initial question.
-      4. **Memory Management**:
-         - **remove_indices**: List of memory items (indices) to DELETE if no longer needed.
-         - **add_result_indices**: Dictionary mapping the **Last Layer Result Index** (string "0", "1", "2"...) -> List of Match/Chunk Indices (integers).
-           - The Key "0" refers to the FIRST result in the "Last Layer Results" list, "1" to the SECOND, etc.
-           - If the tool at index "i" is **NOT** `semantic_search` (e.g. `read_file`, `structural_explorer`), use value `[0]` to keep the full result.
-           - If the tool at index "i" **IS** `semantic_search`, use `[0, 2]` to keep only **Match #0** and **Match #2**.
-           - Example: `add_result_indices: {{"0": [0], "1": [2, 4]}}` (Keep full result 0, and Match 2 & 4 of result 1).
-      5. **CRITICAL - MEMORY PERSISTENCE**: The 'Final Answer' is generated EXCLUSIVELY from your ACTIVE MEMORY. The context you see now (Last Layer Results) will DISAPPEAR. If you see the answer in Last Layer Results, you **MUST** add it to Memory (via `add_result_indices`) BEFORE setting `should_stop: true`. If you stop with empty memory, you fail.
+      5. **Memory Management (CRITICAL)**:
+         - `add_result_indices`: Dict mapping **Tool Result Index** → List of Chunk Indices.
+         - **Key = Tool Index**: "0" = first tool in LAST LAYER RESULTS, "1" = second tool, etc.
+           - If only 1 tool ran (e.g., `rag`), only "0" exists!
+         - **Value = Chunk Indices**: For `rag` results, `[1, 2]` keeps chunks #1 and #2 from that tool's output.
+           - For non-RAG tools, use `[0]` to keep the full result.
+         - **Example**: If `rag` ran once and returned 5 chunks, use `{{"0": [1, 3]}}` to keep chunks 1 and 3.
+         - **WARNING**: Don't confuse "Result 1" (chunk inside RAG output) with "Tool 1" (second tool executed).
+      6. **CRITICAL - MEMORY PERSISTENCE**: The 'Final Answer' is generated EXCLUSIVELY from your ACTIVE MEMORY. The context you see now (Last Layer Results) will DISAPPEAR. If you see the answer in Last Layer Results, you **MUST** add it to Memory (via `add_result_indices`) BEFORE setting `should_stop: true`. If you stop with empty memory, you fail.
+
+      ### ERROR RECOVERY:
+      On **Error**: NEVER retry same args. Adapt: path failed → use node_id; node not found → `graph.search` first. After 2 failures, switch tool (try `rag`/`grep`).
+
+      ### MEMORY HYGIENE:
+      Prune aggressively. Keep ONLY: answers, key IDs, relevant snippets. Remove large trees after noting IDs. Keep only pertinent memory elts.
+
+      ### COMPLETENESS CHECK (before `should_stop: true`):
+      Re-read question: "{question}". Stop ONLY if you are confident answer is complete. If "all X" asked → did you find ALL? If 1 example found but more may exist → keep searching.
+      
+      ### STOPPING RULE (CRITICAL - READ CAREFULLY):
+      **DO NOT STOP without concrete evidence.** Before setting `should_stop: true`, ask yourself:
+      
+      **Strategy Checklist** - Have I tried BOTH exploration approaches?
+      
+      1. **STRUCTURAL approach (graph-first)**: Navigate the codebase structure
+         - [ ] Explored folder hierarchy with `graph.tree`?
+         - [ ] Found relevant scripts and read them with `reader`?
+         - [ ] Traced dependencies with `graph.neighbors`?
+         - [ ] Searched script names with `graph.search`?
+      
+      2. **SEMANTIC approach (rag-first)**: Search by meaning/keywords
+         - [ ] Tried `rag` with the original question terms?
+         - [ ] Tried `rag` with synonyms and reformulations?
+         - [ ] Used `grep` for exact patterns/constants?
+      
+      **If both strategies failed and you still have depth budget ({current_depth}/{max_depth}):**
+      
+      3. **CREATIVE EXPLORATION** - Don't give up! Be bold and curious:
+         - Reformulate your question: ask yourself "What sub-questions could lead to the answer?"
+         - Try RAG queries you haven't tried: synonyms, related concepts, domain terms
+         - Example: "schedule refresh" → try "sunday", "weekly", "sequence", "automatic", "cron", "trigger"
+         - Think laterally: where ELSE could this info hide? Comments? Module names? Constants?
+      
+      4. **LAST RESORT** - If nothing worked:
+         - Look for documentation: README, docs/, comments at script top
+         - Browse unexplored folders in the tree
+         - Read global config/parameters modules entirely
+      
+      **MINDSET**: Be curious, not cautious. Dare to explore unexpected paths. 
+      "I couldn't find it" with remaining budget = you didn't try hard enough.
+      Only stop when you have **concrete findings** OR truly exhausted all strategies.
 
       ### OUTPUT FORMAT (JSON):
       {{
-         "thought_process": "Your step-by-step reasoning in ENGLISH... Explain why you are choosing these steps or why you are stopping.",
-         "memory_remove_indices": [0, 2], // Remove items at these indices from ACTIVE MEMORY
-         "add_result_indices": {{"0": [0]}},       // Add items from LAST LAYER RESULTS
+         "thought_process": "Your step-by-step reasoning in ENGLISH...",
+         "memory_remove_indices": [0, 2],
+         "add_result_indices": {{"0": [1, 2]}},  // Tool 0 (rag), keep chunks 1 and 2
          "should_stop": false,
-         "next_steps": [
-            {{"goal": "Description of what this step achieves", "tool": "tool_name", "args": {{...}}}}
-         ]
+         "next_steps": [{{"goal": "...", "tool": "tool_name", "args": {{...}}}}]
       }}
 
-      OR if stopping:
+      OR if stopping (MUST add to memory first!):
       {{
          "thought_process": "Reasoning for stopping...",
          "memory_remove_indices": [],
-         "add_result_indices": [0, 1],
+         "add_result_indices": {{"0": [0, 1]}},  // Keep chunks 0 and 1 from tool 0
          "should_stop": true
       }}
 

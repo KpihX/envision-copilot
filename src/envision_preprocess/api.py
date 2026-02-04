@@ -11,8 +11,9 @@ Provides 4 domains of functionality:
 3. **Content**: Read file contents and search with grep
 4. **Graph Exploration**: Node lookup, semantic search, neighbor discovery
 
-All methods return structured data with stats first, then data.
-No truncation is applied at API level (smart_truncate is applied by tools).
+All methods support two modes via config.api.mode:
+- "full": Complete data with all metadata (for debugging/benchmarks)
+- "lite": Minimal data with stats preserved (for LLM token efficiency)
 
 Author: Envision Copilot Team
 """
@@ -35,6 +36,7 @@ logger = logging.getLogger(__name__)
 DirectionType = Literal["incoming", "outgoing", "all", "siblings"]
 TreeDomainType = Literal["scripts", "data", "both"]
 NodeTypeFilter = Optional[List[str]]
+ApiMode = Literal["full", "lite"]
 
 
 class EnvisionGraphAPI:
@@ -61,6 +63,10 @@ class EnvisionGraphAPI:
     **Build Domain:**
     - build(): Rebuild the graph from source
     
+    **Modes:**
+    - "full": Complete data with all metadata
+    - "lite": Minimal data optimized for LLM token efficiency
+    
     Example:
         >>> api = EnvisionGraphAPI()
         >>> stats = api.get_stats()
@@ -82,9 +88,17 @@ class EnvisionGraphAPI:
         self.output_config = self.config.get("output", {})
         self.search_config = self.config.get("search", {})
         self.grep_config = self.config.get("grep", {})
+        self.api_config = self.config.get("api", {})
         
         self.meta_path = Path(self.output_config.get("metadata_file", "data/network/metadata.json"))
         self.net_path = Path(self.output_config.get("network_file", "data/network/network.json"))
+        
+        self._graph_cache: Optional[Dict[str, Any]] = None
+        self._stats_cache: Optional[Dict[str, Any]] = None
+    
+    def _get_mode(self) -> ApiMode:
+        """Get API mode from config (full or lite)."""
+        return self.api_config.get("mode", "lite")
         
         self._graph_cache: Optional[Dict[str, Any]] = None
         self._stats_cache: Optional[Dict[str, Any]] = None
@@ -407,88 +421,73 @@ class EnvisionGraphAPI:
         """
         Get hierarchical folder structure starting from a path.
         
-        The graph has TWO separate folder trees:
-        - "scripts": folders containing script files (.nvn) - includes execution_order
-        - "data": folders containing data files (.ion, .csv, etc.)
-        
-        Use domain="both" to get both trees at once (for overview).
+        Mode is determined by config.api.mode ("full" or "lite").
         
         Args:
             path: Folder path to start from (default: "/" for root)
             domain: Which folder tree - "scripts", "data", or "both"
             max_depth: Maximum depth to traverse (default: 1 = immediate children only)
-                       Use None for unlimited depth (full tree)
             
-        Returns:
+        Returns (full mode):
             {
-                "stats": {
-                    "folder_count": 5,
-                    "file_count": 12,
-                    "total": 17,
-                    "depth_max": 4  // actual max depth in tree
-                },
+                "stats": {"folder_count": 5, "file_count": 12, "total": 17, "depth_max": 4},
                 "domain": "scripts",
                 "path": "/1. utilities",
                 "children": [
-                    {
-                        "id": "folder::scripts::/1. utilities/Modules",
-                        "name": "1. Modules",
-                        "type": "folder",
-                        "path": "/1. utilities/Modules",
-                        "execution_order": 1,  // folder order in scripts domain
-                        "child_count": 8,
-                        "children": [...]  // if max_depth > 1 or None
-                    },
-                    {
-                        "id": "67982",
-                        "name": "1 - Populate tables",
-                        "type": "script",
-                        "path": "/1. utilities/1. populating dataset/1 - Populate tables",
-                        "execution_order": 1  // script execution order in folder
-                    }
+                    {"id": "...", "name": "...", "type": "folder", "path": "...", "execution_order": 1, "child_count": 8, "children": [...]},
+                    {"id": "67982", "name": "...", "type": "script", "path": "...", "execution_order": 1}
                 ]
             }
             
-            For domain="both", returns:
+        Returns (lite mode):
             {
-                "stats": {...},
-                "trees": {
-                    "scripts": {"path": "/", "children": [...]},
-                    "data": {"path": "/", "children": [...]}
-                }
-            }
-            
-        Error (if path not found):
-            {
-                "stats": {"error": true},
-                "error": "Folder not found in scripts domain: /invalid/path"
+                "stats": {"folder_count": 5, "file_count": 12},
+                "id": "folder::scripts::/1. utilities",
+                "folders": [
+                    {"stats": {"folder_count": 2, "file_count": 4}, "id": "folder::scripts::/1. utilities/Modules", "folders": [...], "files": [{"id": "67992"}]}
+                ],
+                "files": [{"id": "67982"}]
             }
         """
+        if self._get_mode() == "lite":
+            return self._get_tree_lite(path, domain, max_depth)
+        return self._get_tree_full(path, domain, max_depth)
+    
+    def _get_tree_full(self, path: str = "/", domain: TreeDomainType = "scripts", max_depth: Optional[int] = 1) -> Dict[str, Any]:
+        """Full version of get_tree - returns complete data with all metadata."""
         self._load_data()
         
-        # Handle "both" domain - return both trees
+        # Handle "both" domain
         if domain == "both":
-            scripts_tree = self._get_tree_for_domain(path, "scripts", max_depth)
-            data_tree = self._get_tree_for_domain(path, "data", max_depth)
-            
+            scripts_tree = self._get_tree_for_domain_full(path, "scripts", max_depth)
+            data_tree = self._get_tree_for_domain_full(path, "data", max_depth)
             return {
-                "stats": {
-                    "scripts": scripts_tree["stats"],
-                    "data": data_tree["stats"]
-                },
-                "trees": {
-                    "scripts": scripts_tree,
-                    "data": data_tree
-                }
+                "stats": {"scripts": scripts_tree["stats"], "data": data_tree["stats"]},
+                "trees": {"scripts": scripts_tree, "data": data_tree}
             }
         
-        return self._get_tree_for_domain(path, domain, max_depth)
+        return self._get_tree_for_domain_full(path, domain, max_depth)
     
-    def _get_tree_for_domain(self, path: str, domain: str, max_depth: Optional[int] = 1, current_depth: int = 0) -> Dict[str, Any]:
+    def _get_tree_lite(self, path: str = "/", domain: TreeDomainType = "scripts", max_depth: Optional[int] = 1) -> Dict[str, Any]:
+        """Lite version of get_tree - minimal data, IDs and names."""
+        self._load_data()
+        
+        # Handle "both" domain - no duplicate stats at top level
+        if domain == "both":
+            scripts_tree = self._get_tree_for_domain_lite(path, "scripts", max_depth)
+            data_tree = self._get_tree_for_domain_lite(path, "data", max_depth)
+            return {
+                "scripts": scripts_tree,
+                "data": data_tree
+            }
+        
+        return self._get_tree_for_domain_lite(path, domain, max_depth)
+    
+    def _get_tree_for_domain_full(self, path: str, domain: str, max_depth: Optional[int] = 1, current_depth: int = 0) -> Dict[str, Any]:
         """
         Get tree for a specific domain (scripts or data).
         
-        Internal helper for get_tree().
+        Internal helper for get_tree() - FULL version.
         
         Args:
             path: Folder path to start from
@@ -561,7 +560,7 @@ class EnvisionGraphAPI:
                 should_recurse = (max_depth is None) or (current_depth + 1 < max_depth)
                 if should_recurse and child_count > 0:
                     child_path = child_node.get("path")
-                    subtree = self._get_tree_for_domain(child_path, domain, max_depth, current_depth + 1)
+                    subtree = self._get_tree_for_domain_full(child_path, domain, max_depth, current_depth + 1)
                     if "children" in subtree:
                         child_info["children"] = subtree["children"]
                         # Accumulate nested counts
@@ -608,6 +607,88 @@ class EnvisionGraphAPI:
         }
         
         return result
+    
+    def _get_tree_for_domain_lite(self, path: str, domain: str, max_depth: Optional[int] = 1, current_depth: int = 0) -> Dict[str, Any]:
+        """
+        Internal helper for get_tree() - LITE version.
+        
+        Returns minimal data: stats + id only (path is in the id).
+        """
+        # Normalize path
+        path = path.rstrip('/')
+        if not path:
+            path = '/'
+        
+        folder_id = f"folder::{domain}::{path}"
+        
+        # Check folder exists
+        if folder_id not in self._graph_cache["nodes"] and path != '/':
+            return {
+                "stats": {"error": True},
+                "error": f"Folder not found in {domain} domain: {path}"
+            }
+        
+        # Find all children via CONTAINS edges
+        folders = []
+        files = []
+        total_folder_count = 0
+        total_file_count = 0
+        
+        for edge in self._graph_cache["edges"]:
+            if edge["type"] != EdgeType.CONTAINS.value:
+                continue
+            if edge["source"] != folder_id:
+                continue
+                
+            child_id = edge["target"]
+            child_node = self._graph_cache["nodes"].get(child_id)
+            
+            if not child_node:
+                continue
+            
+            child_type = child_node.get("type")
+            
+            if child_type == NodeType.FOLDER.value:
+                total_folder_count += 1
+                
+                # Count direct children
+                child_count = sum(
+                    1 for e in self._graph_cache["edges"]
+                    if e["source"] == child_id and e["type"] == EdgeType.CONTAINS.value
+                )
+                
+                # Recurse if depth allows
+                should_recurse = (max_depth is None) or (current_depth + 1 < max_depth)
+                if should_recurse and child_count > 0:
+                    child_path = child_node.get("path")
+                    subtree = self._get_tree_for_domain_lite(child_path, domain, max_depth, current_depth + 1)
+                    # Accumulate counts
+                    total_folder_count += subtree["stats"].get("folder_count", 0)
+                    total_file_count += subtree["stats"].get("file_count", 0)
+                    folders.append(subtree)
+                else:
+                    # Leaf folder - just id
+                    folders.append({
+                        "stats": {"folder_count": 0, "file_count": child_count},
+                        "id": child_id,
+                        "folders": [],
+                        "files": []
+                    })
+                    
+            elif child_type in (NodeType.SCRIPT.value, NodeType.DATA_FILE.value):
+                total_file_count += 1
+                files.append({"id": child_id, "name": child_node.get("name")})
+        
+        # Sort folders by path, files by id
+        folders.sort(key=lambda x: x.get("id", ""))
+        files.sort(key=lambda x: x.get("id", ""))
+        
+        return {
+            "stats": {"folder_count": total_folder_count, "file_count": total_file_count},
+            "id": folder_id,
+            "folders": folders,
+            "files": files
+        }
 
     # =========================================================================
     # Content Domain
@@ -623,10 +704,10 @@ class EnvisionGraphAPI:
         
         Args:
             node_id: ID of the node to read (e.g., "68010", "67992::func::StockEvol")
-            start_line: Optional 1-indexed start line (inclusive)
-            end_line: Optional 1-indexed end line (inclusive, None = end of file)
+            start_line: Optional 1-indexed start line (inclusive). None = from beginning.
+            end_line: Optional 1-indexed end line (inclusive). None = to end of file.
             
-        Returns:
+        Returns (full mode):
             {
                 "stats": {
                     "lines_total": 234,
@@ -642,6 +723,13 @@ class EnvisionGraphAPI:
                     "metadata": {...}
                 }
             }
+            
+        Returns (lite mode):
+            {
+                "id": "68010",
+                "name": "2 - Sales Analysis",
+                "content": "/// input: /clean/\n..."
+            }
         
         Error (if node not found or no content):
             {
@@ -649,6 +737,14 @@ class EnvisionGraphAPI:
                 "error": "Node '/Clean/Items.ion' (data_file) has no readable content."
             }
         """
+        mode = self._get_mode()
+        if mode == "lite":
+            return self._read_lite(node_id, start_line, end_line)
+        return self._read_full(node_id, start_line, end_line)
+    
+    def _read_full(self, node_id: str, start_line: Optional[int] = None, 
+                   end_line: Optional[int] = None) -> Dict[str, Any]:
+        """Full mode read - returns complete node information with stats."""
         self._load_data()
         
         node = self._graph_cache["nodes"].get(node_id)
@@ -700,6 +796,37 @@ class EnvisionGraphAPI:
             "node": node_info
         }
     
+    def _read_lite(self, node_id: str, start_line: Optional[int] = None, 
+                   end_line: Optional[int] = None) -> Dict[str, Any]:
+        """Lite mode read - returns only id, name, content (no stats, type, path, metadata)."""
+        self._load_data()
+        
+        node = self._graph_cache["nodes"].get(node_id)
+        if not node:
+            return {
+                "error": f"Node not found: {node_id}"
+            }
+            
+        content = node.get("content")
+        if content is None:
+            return {
+                "error": f"Node '{node_id}' ({node.get('type')}) has no readable content."
+            }
+        
+        lines = content.splitlines()
+        total_lines = len(lines)
+        
+        # Apply line range: None start = beginning, None end = end of file
+        s = (start_line or 1) - 1  # Convert to 0-indexed, default to 0
+        e = end_line if end_line is not None else total_lines
+        lines = lines[s:e]
+        
+        return {
+            "id": node_id,
+            "name": node.get("name"),
+            "content": "\n".join(lines)
+        }
+    
     def grep(self, pattern: str, node_types: Optional[List[str]] = None) -> Dict[str, Any]:
         """
         Search for regex pattern across node contents.
@@ -711,7 +838,7 @@ class EnvisionGraphAPI:
             pattern: Regex pattern (case-insensitive)
             node_types: Filter by node types (default: ["script"])
             
-        Returns:
+        Returns (full mode):
             {
                 "stats": {
                     "pattern": "StockEvol",
@@ -725,13 +852,15 @@ class EnvisionGraphAPI:
                         "node_path": "/3. Inspectors/2 - Sales Analysis",
                         "match_count": 3,
                         "lines": [12, 45, 89],
-                        "previews": [
-                            {"line": 12, "text": "Items.Stock = StockEvol(horizon, 7)"},
-                            {"line": 45, "text": "  result = StockEvol(Items, 30)"},
-                            {"line": 89, "text": "// using StockEvol function"}
-                        ]
+                        "previews": [...]
                     }
                 ]
+            }
+            
+        Returns (lite mode):
+            {
+                "stats": {"pattern": "...", "total_matches": 15, "nodes_with_matches": 4},
+                "results": [{"id": "68010", "name": "...", "previews": [...]}]
             }
         
         Error (if invalid regex):
@@ -740,6 +869,13 @@ class EnvisionGraphAPI:
                 "error": "Invalid regex pattern: ..."
             }
         """
+        mode = self._get_mode()
+        if mode == "lite":
+            return self._grep_lite(pattern, node_types)
+        return self._grep_full(pattern, node_types)
+    
+    def _grep_full(self, pattern: str, node_types: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Full mode grep - returns complete match information."""
         self._load_data()
         
         # Default node_types to just "script"
@@ -802,6 +938,66 @@ class EnvisionGraphAPI:
             },
             "results": results
         }
+    
+    def _grep_lite(self, pattern: str, node_types: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Lite mode grep - returns minimal match information (id, name, previews only)."""
+        self._load_data()
+        
+        # Default node_types to just "script"
+        if node_types is None:
+            node_types = ["script"]
+        
+        # Compile pattern
+        try:
+            regex = re.compile(pattern, re.IGNORECASE)
+        except re.error as e:
+            return {
+                "stats": {"error": True},
+                "error": f"Invalid regex pattern: {e}"
+            }
+        
+        results = []
+        total_matches = 0
+        
+        # Search nodes
+        for nid, node in self._graph_cache["nodes"].items():
+            if node.get("type") not in node_types:
+                continue
+                
+            content = node.get("content")
+            if not content:
+                continue
+                
+            lines = content.splitlines()
+            
+            # Find all matches with line numbers
+            previews = []
+            for i, line in enumerate(lines, 1):
+                if regex.search(line):
+                    previews.append({"line": i, "text": line.strip()})
+            
+            if not previews:
+                continue
+            
+            total_matches += len(previews)
+            
+            results.append({
+                "id": nid,
+                "name": node.get("name"),
+                "previews": previews
+            })
+        
+        # Sort by number of matches descending
+        results.sort(key=lambda x: len(x["previews"]), reverse=True)
+        
+        return {
+            "stats": {
+                "pattern": pattern,
+                "total_matches": total_matches,
+                "nodes_with_matches": len(results)
+            },
+            "results": results
+        }
 
     # =========================================================================
     # Graph Exploration Domain
@@ -817,11 +1013,14 @@ class EnvisionGraphAPI:
         Args:
             node_id: Exact node ID
             
-        Returns:
+        Returns (full mode):
             {
                 "stats": {"found": true},
                 "node": {<node data without content>}
             }
+            
+        Returns (lite mode):
+            Node data directly without wrapper (full metadata access).
             
         Error:
             {
@@ -841,6 +1040,11 @@ class EnvisionGraphAPI:
         # Return node without content (use read() for that)
         node_info = {k: v for k, v in node.items() if k != "content"}
         
+        mode = self._get_mode()
+        if mode == "lite":
+            # Lite mode: return node directly without wrapper
+            return node_info
+        
         return {
             "stats": {"found": True},
             "node": node_info
@@ -859,7 +1063,7 @@ class EnvisionGraphAPI:
             node_types: Filter by node types (default: all types)
             top_k: Maximum number of results (default from config)
             
-        Returns:
+        Returns (full mode):
             Dict with search results:
             {
                 "stats": {
@@ -878,7 +1082,21 @@ class EnvisionGraphAPI:
                     ...
                 ]
             }
+            
+        Returns (lite mode):
+            {
+                "stats": {"query": "...", "total_matches": 8, "by_type": {...}},
+                "matches": [{"id": "67982", "name": "DataLoader", "type": "script"}]
+            }
         """
+        mode = self._get_mode()
+        if mode == "lite":
+            return self._search_lite(query, node_types, top_k)
+        return self._search_full(query, node_types, top_k)
+    
+    def _search_full(self, query: str, node_types: Optional[List[str]] = None,
+                     top_k: Optional[int] = None) -> Dict[str, Any]:
+        """Full mode search - returns complete match information."""
         self._load_data()
         
         if top_k is None:
@@ -931,6 +1149,59 @@ class EnvisionGraphAPI:
             "matches": matches
         }
     
+    def _search_lite(self, query: str, node_types: Optional[List[str]] = None,
+                     top_k: Optional[int] = None) -> Dict[str, Any]:
+        """Lite mode search - returns minimal match information (id, name, type only)."""
+        self._load_data()
+        
+        if top_k is None:
+            top_k = self.search_config.get("top_k", 20)
+            
+        q = query.lower()
+        matches = []
+        
+        for nid, node in self._graph_cache["nodes"].items():
+            # Filter by type
+            if node_types and node.get("type") not in node_types:
+                continue
+            
+            match_field = None
+            
+            # Check ID
+            if q in nid.lower():
+                match_field = "id"
+            # Check name
+            elif node.get("name") and q in node["name"].lower():
+                match_field = "name"
+            # Check path
+            elif node.get("path") and q in node["path"].lower():
+                match_field = "path"
+                
+            if match_field:
+                matches.append({
+                    "id": nid,
+                    "name": node.get("name"),
+                    "type": node.get("type")
+                })
+        
+        # Compute stats by type
+        by_type = {}
+        for m in matches:
+            t = m["type"]
+            by_type[t] = by_type.get(t, 0) + 1
+        
+        # Apply top_k limit
+        matches = matches[:top_k]
+        
+        return {
+            "stats": {
+                "query": query,
+                "total_matches": len(matches),
+                "by_type": by_type
+            },
+            "matches": matches
+        }
+    
     def get_neighbors(self, node_id: str, 
                       direction: DirectionType = "all",
                       relation_type: Optional[str] = None) -> Dict[str, Any]:
@@ -950,7 +1221,7 @@ class EnvisionGraphAPI:
             relation_type: Filter by edge type (e.g., "reads", "imports")
                 Note: When direction="siblings", relation_type is automatically "sibling"
                 
-        Returns:
+        Returns (full mode):
             {
                 "stats": {
                     "incoming": {"total": 5, "by_type": {"imports": 3, "reads": 2}},
@@ -962,12 +1233,31 @@ class EnvisionGraphAPI:
                 "siblings": [...]  // only if direction="siblings" or "all"
             }
             
+        Returns (lite mode):
+            {
+                "stats": {"incoming": 5, "outgoing": 12, "siblings": 3},  // only requested directions
+                "reads": [{"id": "...", "name": "..."}],       // outgoing reads
+                "read_by": [{"id": "...", "name": "..."}],     // incoming reads
+                "imports": [...], "imported_by": [...],
+                "writes": [...], "written_by": [...],
+                "siblings": [{"id": "...", "name": "..."}]
+            }
+            
         Error:
             {
                 "stats": {"error": true},
                 "error": "Node not found: ..."
             }
         """
+        mode = self._get_mode()
+        if mode == "lite":
+            return self._get_neighbors_lite(node_id, direction, relation_type)
+        return self._get_neighbors_full(node_id, direction, relation_type)
+    
+    def _get_neighbors_full(self, node_id: str, 
+                            direction: DirectionType = "all",
+                            relation_type: Optional[str] = None) -> Dict[str, Any]:
+        """Full mode get_neighbors - returns complete neighbor information."""
         self._load_data()
         
         # Validate node exists
@@ -1083,6 +1373,161 @@ class EnvisionGraphAPI:
         if direction in ["siblings", "all"]:
             response["siblings"] = result["siblings"]
             response["stats"]["siblings"] = {"total": len(result["siblings"])}
+        
+        if relation_type:
+            response["stats"]["filter"] = relation_type
+            
+        return response
+    
+    def _get_neighbors_lite(self, node_id: str, 
+                            direction: DirectionType = "all",
+                            relation_type: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Lite mode get_neighbors - groups by relation type with minimal node info.
+        
+        Returns neighbors grouped by semantic relation:
+        - reads/read_by, imports/imported_by, writes/written_by, siblings
+        """
+        self._load_data()
+        
+        # Validate node exists
+        if node_id not in self._graph_cache["nodes"]:
+            return {
+                "stats": {"error": True},
+                "error": f"Node not found: {node_id}"
+            }
+        
+        # Validate direction/relation_type combo
+        if direction == "siblings" and relation_type and relation_type != EdgeType.SIBLING.value:
+            return {
+                "stats": {"error": True},
+                "error": f"Invalid combination: direction='siblings' requires relation_type='sibling' or None, got '{relation_type}'"
+            }
+        
+        # Force sibling relation_type when direction is siblings
+        if direction == "siblings":
+            relation_type = EdgeType.SIBLING.value
+        
+        # Collect neighbors by semantic relation type
+        # Outgoing: reads, imports, writes
+        # Incoming: read_by, imported_by, written_by
+        grouped: Dict[str, List[Dict[str, str]]] = {
+            "reads": [],
+            "read_by": [],
+            "imports": [],
+            "imported_by": [],
+            "writes": [],
+            "written_by": [],
+            "siblings": []
+        }
+        
+        incoming_count = 0
+        outgoing_count = 0
+        siblings_count = 0
+        
+        for edge in self._graph_cache["edges"]:
+            # Filter by type if requested
+            if relation_type and edge["type"] != relation_type:
+                continue
+            
+            edge_type = edge["type"]
+            is_sibling = edge_type == EdgeType.SIBLING.value
+            
+            # Handle sibling edges (undirected)
+            if is_sibling:
+                other_id = None
+                if edge["source"] == node_id:
+                    other_id = edge["target"]
+                elif edge["target"] == node_id:
+                    other_id = edge["source"]
+                    
+                if other_id:
+                    other_node = self._graph_cache["nodes"].get(other_id, {})
+                    
+                    # Skip folders
+                    if other_node.get("type") == NodeType.FOLDER.value:
+                        continue
+                    
+                    grouped["siblings"].append({
+                        "id": other_id,
+                        "name": other_node.get("name")
+                    })
+                    siblings_count += 1
+            else:
+                # Regular directed edges
+                # Outgoing: this node is source
+                if edge["source"] == node_id:
+                    target_node = self._graph_cache["nodes"].get(edge["target"], {})
+                    
+                    # Skip folders
+                    if target_node.get("type") == NodeType.FOLDER.value:
+                        continue
+                    
+                    node_info = {
+                        "id": edge["target"],
+                        "name": target_node.get("name")
+                    }
+                    
+                    # Map edge type to semantic group
+                    if edge_type == EdgeType.READS.value:
+                        grouped["reads"].append(node_info)
+                    elif edge_type == EdgeType.IMPORTS.value:
+                        grouped["imports"].append(node_info)
+                    elif edge_type == EdgeType.WRITES.value:
+                        grouped["writes"].append(node_info)
+                    
+                    outgoing_count += 1
+                    
+                # Incoming: this node is target
+                if edge["target"] == node_id:
+                    source_node = self._graph_cache["nodes"].get(edge["source"], {})
+                    
+                    # Skip folders
+                    if source_node.get("type") == NodeType.FOLDER.value:
+                        continue
+                    
+                    node_info = {
+                        "id": edge["source"],
+                        "name": source_node.get("name")
+                    }
+                    
+                    # Map edge type to "_by" semantic group
+                    if edge_type == EdgeType.READS.value:
+                        grouped["read_by"].append(node_info)
+                    elif edge_type == EdgeType.IMPORTS.value:
+                        grouped["imported_by"].append(node_info)
+                    elif edge_type == EdgeType.WRITES.value:
+                        grouped["written_by"].append(node_info)
+                    
+                    incoming_count += 1
+        
+        # Build response based on direction
+        response: Dict[str, Any] = {"stats": {}}
+        
+        if direction in ["incoming", "all"]:
+            response["stats"]["incoming"] = incoming_count
+            # Add non-empty incoming groups
+            if grouped["read_by"]:
+                response["read_by"] = grouped["read_by"]
+            if grouped["imported_by"]:
+                response["imported_by"] = grouped["imported_by"]
+            if grouped["written_by"]:
+                response["written_by"] = grouped["written_by"]
+            
+        if direction in ["outgoing", "all"]:
+            response["stats"]["outgoing"] = outgoing_count
+            # Add non-empty outgoing groups
+            if grouped["reads"]:
+                response["reads"] = grouped["reads"]
+            if grouped["imports"]:
+                response["imports"] = grouped["imports"]
+            if grouped["writes"]:
+                response["writes"] = grouped["writes"]
+        
+        if direction in ["siblings", "all"]:
+            response["stats"]["siblings"] = siblings_count
+            if grouped["siblings"]:
+                response["siblings"] = grouped["siblings"]
         
         if relation_type:
             response["stats"]["filter"] = relation_type

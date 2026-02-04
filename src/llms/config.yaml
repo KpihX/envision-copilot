@@ -1,15 +1,55 @@
+# =============================================================================
+# LLMs - Configuration des Providers
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Defaults - Paramètres par défaut pour tous les providers
+# -----------------------------------------------------------------------------
 defaults:
+  # Provider par défaut à utiliser
+  # Valeurs possibles: mistral, gemini, groq, qwen, ollama
   model: "mistral"
+  
+  # Température de génération (0.0 = déterministe, 1.0 = créatif)
   temperature: 0.0
+  
+  # Limite de tokens en sortie
   max_tokens: 4096
 
+# -----------------------------------------------------------------------------
+# Providers - Configuration spécifique par provider
+# -----------------------------------------------------------------------------
 providers:
+  # Qwen (Alibaba Cloud) - Bon pour multilingue
+  # API Key: DASHSCOPE_API_KEY
+  qwen:
+    # Modèles: qwen-turbo (rapide), qwen-plus (équilibré), qwen-max (puissant)
+    model_name: "qwen-plus"
+    # Régions: singapore, us, china
+    region: "singapore"
+
+  # Ollama - Modèles locaux (self-hosted)
+  # Pas d'API key nécessaire
+  ollama:
+    # Tout modèle disponible sur Ollama
+    model_name: "qwen2.5-coder:latest"
+    base_url: "http://localhost:11434"
+
+  # Mistral AI - Recommandé pour code
+  # API Key: MISTRAL_API_KEY
   mistral:
+    # Modèles: mistral-small-latest, mistral-medium-latest, mistral-large-latest, codestral-latest
     model_name: "mistral-large-latest"
     api_base: "https://api.mistral.ai/v1"
 
+  # Google Gemini - Long context (1M tokens)
+  # API Key: GOOGLE_API_KEY
   gemini:
+    # Modèles: gemini-1.5-flash (rapide), gemini-1.5-pro (puissant), gemini-2.0-flash-exp
     model_name: "gemini-1.5-pro-latest"
 
+  # Groq - Très rapide (hardware optimisé)
+  # API Key: GROQ_API_KEY
   groq:
+    # Modèles: llama3-8b-8192, llama3-70b-8192, mixtral-8x7b-32768
     model_name: "llama3-70b-8192"

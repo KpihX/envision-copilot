@@ -1,3 +1,6 @@
+- pb contextualisation des réponses
+    - ex : pourquoi tous les dimanches ? on trouve une freq quotidienne
+
 - Pas de 2015 dans les scripts mais juste "formstartDate = if startDate == date(2001,01,01) then today() - 365 * 15"
             
             "id": 31,

@@ -30,6 +30,7 @@ class ThinkerAgent(BaseAgent):
         memory_text = str(memory)
         plan_text = str(planner)
         results_text = result_formatter(last_results)
+        last_thought = state.get("last_thought_process", "")
         
         # Construct Prompt
         sys_prompt = self.prompt_loader.get_think_prompt(
@@ -37,7 +38,8 @@ class ThinkerAgent(BaseAgent):
             memory=memory_text,
             history=plan_text, 
             last_results=results_text,
-            current_depth=planner.current_depth
+            current_depth=planner.current_depth,
+            last_thought_process=last_thought
         )
         
         # Query LLM

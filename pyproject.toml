@@ -14,6 +14,7 @@ dependencies = [
     "langchain-mistralai>=0.1.0",
     "langchain-google-genai>=0.0.1",
     "langchain-groq>=0.0.1",
+    "langchain-ollama>=0.1.0",
     "sentence-transformers>=2.2.0",
     "faiss-cpu>=1.7.0",
     "networkx>=3.0",
@@ -22,6 +23,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "numpy>=1.24.0",
     "typer>=0.21.1",
+    "openai>=2.16.0",
 ]
 
 [project.scripts]

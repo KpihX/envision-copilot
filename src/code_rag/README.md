@@ -1,132 +1,154 @@
-# Envision Code RAG
+# Code RAG (`src/code_rag`)
 
-**The Semantic Memory of the System.**
+**La mémoire sémantique du système.**
 
-This module builds a **Graph-Aware Vector Index** of the Envision codebase, enabling the Copilot to retrieve relevant code snippets not just by keyword, but by *meaning* and *structural relationship*.
-
-It features a pilotable retrieval engine that allows the Agent to "focus" the search on specific symbols (functions, variables) identified via the Mini-Map.
+Ce module construit un **index vectoriel enrichi par le graphe** de la codebase Envision, permettant au Copilot de retrouver du code pertinent non pas seulement par mots-clés, mais par *sens* et *relations structurelles*.
 
 ---
 
-## 💡 Why? The Evolution
+## 🚀 Quick Start
 
-### The Problem
-Standard RAG pipelines treat code as flat text. They blindly chunk files, losing critical structural information.
-*   *Query*: "Where is the `IsTopItem` logic?"
-*   *Naive RAG*: Might find a comment mentioning `IsTopItem`, but miss the actual function definition if it's in a file named differently or hidden in a generic `utils.py`.
-*   *Result*: The LLM hallucinates or says "I don't know".
-
-### The Solution: Graph-Aware & Oriented
-We shifted to a **Graph-Aware** architecture that leverages the dependency graph (Envision Network) to enrich chunks, combined with an **Oriented Reranker** driven by symbol extraction.
-*   **Contextual**: Every chunk knows who imports it and what it consumes.
-*   **Modular**: We separated the *Vector Engine* (Storage) from the *Reranking Strategy* (Precision).
-*   **Pilotable**: The Agent can instruct the Reranker to find specific keys ("Find StockEvol").
-
----
-
-## 🏗️ Architecture
-
-### 1. Vector Engines (`vector_engines/`)
-The foundational storage layer. Uses a **Factory Pattern**.
-*   **Role**: Handles Embedding (Indexing) and Dense Retrieval (Recall).
-*   **Implementation**: `sentence-transformers` engine (FAISS + SentenceBERT).
-
-### 2. Graph-Aware Chunking (`chunker.py`)
-Before embedding, code is **Enriched**.
-```text
-[Script: PathSchemas | Node: /1. utilities/PathSchemas]
-[Imports: Global.ion]   <-- Graph Context
-```
-Searching for "Items.ion consumer" naturally finds this script.
-
-### 3. Modular Rerankers (`rerankers/`)
-Retrieval is a two-stage process: **Recall** (Broad) -> **Rerank** (Precise).
-We support diverse strategies:
-
-| Type            | Strategy              | Best For...                               |
-| :-------------- | :-------------------- | :---------------------------------------- |
-| **`oriented`**  | **Guided Heuristics** | **Copilot Usage** (Targets specific keys) |
-| `heuristic`     | Domain-Specific Rules | Code Search (Passive)                     |
-| `bge`           | Deep Learning (BAAI)  | Technical Documentation & Concepts        |
-| `cross-encoder` | MS-MARCO              | General Purpose Q&A                       |
-
-#### 🧠 Spotlight: The Oriented Reranker
-Designed for Agentic workflows. It extends the `HeuristicReranker` to allow surgical retrieval.
-1.  **Inherits Heuristic Intelligence**: Uses all TTB, PDS, and Diversity logic.
-2.  **Targeted Boosting**: Heavily boosts chunks containing injected `keywords` (concepts) or `terms` (symbols).
-    *   *Agent*: "I see 'StockEvol' in the query. Reranker, boost 'StockEvol'!"
-    *   *Reranker*: *Boosts chunks containing the function definition.*
-
----
-
-## 🚀 Usage
-
-### 1. Indexing (Build the Memory)
-The CLI uses the factory to load the configured engine and build the index.
 ```bash
+# 1. Construire l'index (après avoir généré le network)
 uv run index --build
-```
-*   *Input*: `datas/network/network.json`
-*   *Output*: `datas/code_rag/index/`
 
-### 2. Querying (Test it)
-```bash
+# 2. Tester une requête
 uv run index -q "Where are best sellers calculated?"
-uv run index -q "IsTopItem" --no-rerank      # Raw vector search
+
+# 3. Requête sans reranking (debug)
+uv run index -q "IsTopItem" --no-rerank
 ```
 
-### 3. Benchmarking (`benchmark/`)
-We don't guess; we measure.
+---
+
+## 📋 CLI Reference
+
+```
+uv run index [OPTIONS]
+
+Options:
+  --build               Construire l'index vectoriel
+  -q, --query TEXT      Rechercher dans l'index
+  --no-rerank           Désactiver le reranking (résultats bruts)
+  -k, --top-k INT       Nombre de résultats (défaut: 10)
+  -v, --verbose         Afficher les détails des chunks
+```
+
+### Benchmark RAG
+
 ```bash
-uv run rag-benchmark            # Run full suite
-uv run rag-benchmark -t 50      # Check top-50 recall
+# Évaluer la qualité du retrieval
+uv run rag-benchmark
+
+# Vérifier le recall top-50
+uv run rag-benchmark -t 50
 ```
 
 ---
 
 ## ⚙️ Configuration (`config.yaml`)
 
-Everything is configurable. No hardcoding.
-
 ```yaml
 indexing:
+  chunker_type: "graph"           # Chunking enrichi par le graphe
   engine_type: "sentence-transformers"
   engine_name: "sentence-transformers/all-MiniLM-L6-v2"
-  chunker_type: "graph"
+  chunk_size: 350                 # Tokens max par chunk
+  overlap: 5                      # Lignes de contexte entre chunks
 
 retrieval:
-  # The Precision Layer
-  reranker_type: "oriented"  # Recommended for Copilot
+  reranker_type: "oriented"       # Recommandé pour Copilot
   use_reranker: true
   
-  # Base Heuristic Logic
   heuristic_reranking:
     weights:
       technical_term_boost: 0.7
       pattern_density: 0.4
       diversity_penalty: 0.9
 
-  # Oriented Logic (The Pilot)
   oriented_reranking:
     weights:
-      keyword_match: 1.5  # Boost per general keyword (def, show)
-      term_match: 2.0     # Boost per technical term (StockEvol)
+      keyword_match: 1.5          # Boost mots-clés généraux
+      term_match: 2.0             # Boost termes techniques
+```
+
+### Modèles d'Embedding Disponibles
+
+| Modèle | Dim | MTEB | Vitesse |
+|--------|-----|------|---------|
+| `all-MiniLM-L6-v2` | 384 | ~55% | Très rapide |
+| `BAAI/bge-base-en-v1.5` | 768 | ~63% | 2x plus lent |
+| `intfloat/multilingual-e5-base` | 768 | ~61% | Multilingue |
+| `qwen/text-embedding-v4` (API) | 1024 | ~68% | Cloud |
+
+---
+
+## 🏗️ Architecture
+
+```
+code_rag/
+├── index.py              # CLI entry point
+├── utils.py              # Helpers
+├── config.yaml           # Configuration
+├── chunkers/             # 🔪 Découpage du code
+│   └── graph_chunker.py  # Enrichi par contexte graphe
+├── vector_engines/       # 🏭 Moteurs d'embedding
+│   ├── base.py           # Interface abstraite
+│   └── sentence_transformers.py
+├── rerankers/            # 🧠 Stratégies de reranking
+│   ├── oriented_reranker.py   # Pour Copilot (pilotable)
+│   ├── heuristic_reranker.py  # Règles domaine
+│   └── sentence_reranker.py   # ML (cross-encoder)
+└── benchmark/            # 📊 Évaluation
+```
+
+### Pipeline de Retrieval
+
+```
+Query → Embedding → Vector Search (Recall) → Reranker (Precision) → Top-K
 ```
 
 ---
 
-## 📁 Project Structure
+## 💡 Concepts Clés
+
+### Graph-Aware Chunking
+
+Chaque chunk est **enrichi avec son contexte structurel** :
 
 ```
-code_rag/
-├── vector_engines/       # 🏭 ENGINE FACTORY
-│   ├── ...
-├── rerankers/            # 🧠 RERANKING STRAT
-│   ├── oriented_reranker.py  # <-- The Pilot
-│   ├── heuristic_reranker.py # Custom Domain Logic
-│   └── sentence_reranker.py  # ML Wrappers
-├── benchmark/            # 📊 MEASUREMENT
-├── chunkers/             # 🔪 PREPROCESSING
-├── index.py              # CLI Entry Point
-└── config.yaml           # Configuration
+[Script: PathSchemas | Node: /1. utilities/PathSchemas]
+[Imports: Global.ion]   ← Contexte du graphe
+[Defines: table Items, function StockEvol]
+
+const inputFolder = "/Clean/"
+read "{inputFolder}Items.ion" as Items...
 ```
+
+→ Rechercher "Items.ion consumer" trouve naturellement ce script.
+
+### Rerankers
+
+| Type | Stratégie | Usage |
+|------|-----------|-------|
+| **`oriented`** | Heuristiques pilotables | **Copilot** (boost mots-clés injectés) |
+| `heuristic` | Règles métier | Recherche passive |
+| `cross-encoder` | Deep Learning | Q&A général |
+
+Le **Oriented Reranker** permet au Copilot d'injecter des mots-clés à booster :
+- Agent : "Je vois 'StockEvol' dans la query. Reranker, boost 'StockEvol' !"
+- Reranker : *Priorise les chunks contenant la définition de la fonction*
+
+---
+
+## 📁 Données
+
+**Input** : `datas/network/network.json` (généré par `envision_preprocess`)
+
+**Output** : `datas/code_rag/index/`
+```
+index/
+├── faiss.index    # Index vectoriel FAISS
+└── metadata.json  # Métadonnées des chunks
+```
+

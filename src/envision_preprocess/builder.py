@@ -539,16 +539,17 @@ class NetworkBuilder:
             folder_id = f"folder::scripts::{folder_path}"
             
             if folder_id not in self.network.nodes:
-                folder_name = Path(folder_path).name or '/'
+                folder_short_name = Path(folder_path).name or '/'
                 metadata = {"domain": TreeDomain.SCRIPTS.value}
                 # Extract execution_order from folder name
-                exec_order = self._extract_execution_order(folder_name)
+                exec_order = self._extract_execution_order(folder_short_name)
                 if exec_order is not None:
                     metadata["execution_order"] = exec_order
+                # Note: name=folder_path (full path) for easier identification in lite mode
                 folder_node = Node(
                     id=folder_id,
                     type=NodeType.FOLDER,
-                    name=folder_name,
+                    name=folder_path,
                     path=folder_path,
                     metadata=metadata
                 )
@@ -559,16 +560,17 @@ class NetworkBuilder:
             folder_id = f"folder::data::{folder_path}"
             
             if folder_id not in self.network.nodes:
-                folder_name = Path(folder_path).name or '/'
+                folder_short_name = Path(folder_path).name or '/'
                 metadata = {"domain": TreeDomain.DATA.value}
                 # Extract execution_order from folder name
-                exec_order = self._extract_execution_order(folder_name)
+                exec_order = self._extract_execution_order(folder_short_name)
                 if exec_order is not None:
                     metadata["execution_order"] = exec_order
+                # Note: name=folder_path (full path) for easier identification in lite mode
                 folder_node = Node(
                     id=folder_id,
                     type=NodeType.FOLDER,
-                    name=folder_name,
+                    name=folder_path,
                     path=folder_path,
                     metadata=metadata
                 )
@@ -727,10 +729,11 @@ class NetworkBuilder:
             metadata["execution_order"] = exec_order
         
         # Create Script Node with FULL CONTENT
+        # Note: name=logical_path (full path) for easier identification in lite mode
         script_node = Node(
             id=real_id, 
             type=NodeType.SCRIPT,
-            name=display_name,
+            name=logical_path,
             path=logical_path, 
             content=content, 
             metadata=metadata

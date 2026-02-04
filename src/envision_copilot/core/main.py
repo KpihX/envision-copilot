@@ -14,13 +14,8 @@ from envision_copilot.core.state import CopilotState
 
 from envision_preprocess.api import EnvisionGraphAPI
 
-from envision_copilot.tools.structural_search import StructuralSearch
-from envision_copilot.tools.semantic_search import SemanticSearch
-from envision_copilot.tools.code_reader import CodeReader
-from envision_copilot.tools.grep import Grep
+from envision_copilot.tools import GraphTool, ReaderTool, RagTool, GrepTool, BaseTool
 
-from envision_copilot.core.agents.starter import StarterAgent
-from envision_copilot.core.agents.thinker import ThinkerAgent
 from envision_copilot.core.agents.starter import StarterAgent
 from envision_copilot.core.agents.thinker import ThinkerAgent
 from envision_copilot.core.agents.synthesizer import SynthesizerAgent
@@ -32,6 +27,7 @@ class ErrorResult:
         self.msg = msg
         self.title = title
     def __str__(self): return f"Error: {self.msg}"
+    def to_dict(self): return {"error": self.msg, "title": self.title}
     def print(self): return Panel(self.msg, title=self.title, border_style="red")
 
 # --- The Brain ---
@@ -44,21 +40,16 @@ class EnvisionCopilot:
         
         self.prompts = PromptLoader(self.config)
         
-        # Tools
+        # Tools (using unified BaseTool pattern)
         # Init shared API once
         self.api = EnvisionGraphAPI()
         
-        self.structural = StructuralSearch(api=self.api, config=self.config)
-        self.semantic = SemanticSearch(self.config)
-        self.code_reader = CodeReader(api=self.api, config=self.config)
-        self.grep = Grep(self.config)
-        
-        # Tool Mapping (Centralized)
+        # Initialize all tools - they encapsulate their own dependencies
         self.tools_mapping = {
-            "semantic_search": self.semantic,
-            "structural_explorer": self.structural,
-            "read_file": self.code_reader,
-            "grep_search": self.grep
+            "graph": GraphTool(api=self.api, config=self.config),
+            "reader": ReaderTool(api=self.api, config=self.config),
+            "grep": GrepTool(api=self.api, config=self.config),
+            "rag": RagTool(api=self.api, config=self.config),
         }
         
         # LLM
@@ -205,37 +196,31 @@ class EnvisionCopilot:
                 tool_name = result_entry.get("tool", "unknown")
                 raw_result = result_entry.get("result", "")
                 
-                # Check if tool supports Granular Memory (e.g. Semantic Search)
-                # SemanticSearch.search returns list of chunks? 
-                # Let's check raw_result structure. SemanticSearch returns list of dicts usuallly?
-                # Actually semantic.search returns List[Dict].
+                # ToolResult has .data attribute with the actual result data
+                # For RAG tool, data contains {"results": [...], "stats": {...}}
                 
                 final_stored_result = raw_result # Default
                 compact_view = str(raw_result)
                 
-                # Granular Logic for Semantic Search
-                if tool_name == "semantic_search" and isinstance(raw_result, list):
-                    # Filter only requested chunks
-                    filtered_chunks = []
-                    # Logic: If [0] is in list and user meant "All", or if specific chunks requested
-                    # But prompt says [0] = All for standard tools. For Semantic, it means chunk 0.
-                    # Wait, if user wants ALL chunks from semantic search, they list all indices or we need a specific flag (-1?)
-                    # For now, let's assume specific indices mean specific chunks.
-                    
-                    for chunk_idx in chunk_indices:
-                        if 0 <= chunk_idx < len(raw_result):
-                            filtered_chunks.append(raw_result[chunk_idx])
-                            
-                    if filtered_chunks:
-                        final_stored_result = filtered_chunks
-                        compact_view = json.dumps(final_stored_result, indent=2, ensure_ascii=False)
-                    else:
-                        # Fallback if indices invalid: Store nothing or All? Store Nothing to be safe (garbage in, garbage out)
-                        continue 
+                # Granular Logic for RAG results (filter specific result indices)
+                if tool_name == "rag" and hasattr(raw_result, 'data'):
+                    rag_data = raw_result.data
+                    if isinstance(rag_data, dict) and "results" in rag_data:
+                        results_list = rag_data["results"]
+                        filtered_chunks = []
+                        
+                        for chunk_idx in chunk_indices:
+                            if 0 <= chunk_idx < len(results_list):
+                                filtered_chunks.append(results_list[chunk_idx])
+                                
+                        if filtered_chunks:
+                            # Create filtered version
+                            final_stored_result = {"results": filtered_chunks, "stats": rag_data.get("stats", {})}
+                            compact_view = json.dumps(final_stored_result, indent=2, ensure_ascii=False)
+                        else:
+                            continue 
                 
-                # For standard objects (CodeReader, Structural), raw_result is usually an Object or Dict
-                # Chunk indices [0] just means "Add this object".
-                # If they passed specific indices for a non-list result, we ignore indices and add object.
+                # For other tools, ToolResult wraps data - chunk indices [0] means "Add this result"
 
                 self.memory.add_observation(
                     tool_name=tool_name,
@@ -245,8 +230,8 @@ class EnvisionCopilot:
                 )
         
         # RICH UI: Display updated memory
-        if self.verbose or self.debug:
-            self.console.print(self.memory.print())
+        # if self.verbose or self.debug:
+        #     self.console.print(self.memory.print())
 
         # Check stop conditions
         at_max_depth = self.planner.current_depth >= self.planner.max_depth
@@ -260,7 +245,8 @@ class EnvisionCopilot:
                 "should_stop": True, 
                 "stop_reason": stop_reason, 
                 "last_layer_results": [],
-                "plan_thought": response_json.get("thought_process", "") # Capture final thought
+                "plan_thought": response_json.get("thought_process", ""), # Capture final thought
+                "last_thought_process": response_json.get("thought_process", "") # For next iteration
             }
 
         # Propose new layer
@@ -273,7 +259,8 @@ class EnvisionCopilot:
         
         return {
             "last_layer_results": [], # Reset for new layer
-            "plan_thought": response_json.get("thought_process", "") # Capture thought for this step
+            "plan_thought": response_json.get("thought_process", ""), # Capture thought for this step
+            "last_thought_process": response_json.get("thought_process", "") # For next iteration
         }
 
     def act_node(self, state: CopilotState) -> Dict:
@@ -356,24 +343,24 @@ class EnvisionCopilot:
     # --- Helpers ---
     
     def _execute_tool(self, name: str, args: Dict) -> Any:
+        """Execute a tool by name with given arguments.
+        
+        All tools use unified execute(**kwargs) -> ToolResult interface.
+        """
         try:
-            if name == "semantic_search": 
-                return self.semantic.search(**args)
-            if name == "structural_explorer": 
-                return self.structural.explore(**args)
-            if name == "read_file":
-                 # Map arguments correctly to CodeReader.read_section signature
-                 # (script_id, start_line, end_line)
-                 return self.code_reader.read_section(
-                    script_id=args.get("script_id") or args.get("path") or args.get("file_path"),
-                    start_line=args.get("start_line", 1),
-                    end_line=args.get("end_line", 100)
-                )
-            if name == "grep_search": 
-                return self.grep.search(**args)
+            tool = self.tools_mapping.get(name)
             
-            return ErrorResult(f"Unknown tool {name}", title="❌ System Error")
-
+            if tool is None:
+                # Provide helpful hints for common mistakes
+                available = list(self.tools_mapping.keys())
+                hint = ""
+                if name in ("tree", "node", "neighbors", "edges", "search"):
+                    hint = f" HINT: '{name}' is an ACTION of the 'graph' tool. Use: {{\"tool\": \"graph\", \"args\": {{\"action\": \"{name}\", ...}}}}"
+                return ErrorResult(f"Unknown tool: {name}. Available: {available}.{hint}", title="❌ System Error")
+            
+            # Execute with unified interface
+            return tool.execute(**args)
+            
         except Exception as e:
             return ErrorResult(f"Tool Execution Error: {e}", title="❌ Execution Exception")
 

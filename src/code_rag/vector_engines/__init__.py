@@ -3,10 +3,12 @@ Vector Engine - Modular vector store and retrieval implementations.
 
 Architecture:
 - base.py: Abstract base class for all engines
-- sentence_engine.py: Unified implementation for sentence-transformers models
+- sentence_engine.py: SentenceTransformers/BERT embeddings
+- qwen_engine.py: Qwen text-embedding-v4 via Dashscope API
 
 Available Engine Types:
-- sentence-transformers: FAISS index with SentenceBERT models (Standard)
+- sentence-transformers: FAISS + SentenceBERT models (local)
+- qwen: FAISS + Qwen embedding API (cloud)
 
 Usage:
     from code_rag.vector_engines import get_retriever, get_embedder
@@ -21,15 +23,18 @@ Usage:
 from typing import Dict, Any, Optional
 from .base import BaseEmbedder, BaseRetriever
 from .sentence_engine import SentenceEmbedder, SentenceRetriever
+from .qwen_engine import QwenEmbedder, QwenRetriever
 from ..utils import ConfigLoader
 
 # Registry of available engines
 EMBEDDERS = {
-    "sentence-transformers": SentenceEmbedder
+    "sentence-transformers": SentenceEmbedder,
+    "qwen": QwenEmbedder,
 }
 
 RETRIEVERS = {
-    "sentence-transformers": SentenceRetriever
+    "sentence-transformers": SentenceRetriever,
+    "qwen": QwenRetriever,
 }
 
 def get_embedder(config: Dict[str, Any] = None) -> BaseEmbedder:
@@ -78,6 +83,8 @@ __all__ = [
     "BaseRetriever",
     "SentenceEmbedder", 
     "SentenceRetriever",
+    "QwenEmbedder",
+    "QwenRetriever",
     "get_embedder",
     "get_retriever",
     "EMBEDDERS",

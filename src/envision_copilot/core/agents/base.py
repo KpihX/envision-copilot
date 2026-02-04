@@ -95,11 +95,14 @@ class BaseAgent:
         return re.sub(r'(?<=: ")(.*?)(?=")', replace_newlines, text, flags=re.DOTALL)
 
     def _extract_json(self, text: str) -> Optional[Dict]:
-        """Robus JSON extraction (Regex -> Raw -> Flexible -> Sanitized)."""
+        """Robust JSON extraction (Strip Think Tags -> Regex -> Raw -> Flexible -> Sanitized)."""
         
         def try_parse(content):
             try: return json.loads(content)
             except: return None
+
+        # 0. Strip <think>...</think> tags (Qwen3/QwQ reasoning blocks)
+        text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL | re.IGNORECASE).strip()
 
         # 1. Regex Markdown
         match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)

@@ -1,18 +1,62 @@
+# =============================================================================
+# ENVISION PREPROCESS - Configuration du Parsing & API
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Parsing - Extraction des scripts Envision
+# -----------------------------------------------------------------------------
 parsing:
+  # Dossier contenant les scripts .nvn à parser
   script_dir: "scripts"
+  
+  # Extension des fichiers scripts
   script_ext: "nvn"
+  
+  # Extensions considérées comme fichiers de données (créent des data_file nodes)
   data_extensions: ["ion"]
+  
+  # Fichier de mapping ID → nom (optionnel)
   mapping_file: "src/envision_preprocess/mapping.txt"
+  
+  # Limite de récursion pour la résolution des placeholders
   recursion_limit: 10
-  normalize_brackets: true    # Normalize [ 1 ], [1], [  1  ] to [ X ] format
+  
+  # Normaliser les brackets: [ 1 ], [1], [  1  ] → [ X ]
+  normalize_brackets: true
 
+# -----------------------------------------------------------------------------
+# API - Configuration des réponses de l'API
+# -----------------------------------------------------------------------------
+api:
+  # Mode de réponse par défaut
+  # Valeurs: "lite" (optimisé tokens LLM), "full" (toutes métadonnées)
+  # lite: -80% tokens sur get_tree, -73% sur get_neighbors
+  mode: "lite"
+
+# -----------------------------------------------------------------------------
+# Search - Paramètres de recherche
+# -----------------------------------------------------------------------------
 search:
-  top_k: 20                   # Default limit for search results
+  # Nombre max de résultats retournés par search()
+  top_k: 20
 
+# -----------------------------------------------------------------------------
+# Grep - Recherche par pattern
+# -----------------------------------------------------------------------------
 grep:
+  # Types de nœuds à rechercher par défaut
+  # Valeurs possibles: script, function, table, data_file, folder
   default_node_types: ["script", "function"]
 
+# -----------------------------------------------------------------------------
+# Output - Fichiers générés
+# -----------------------------------------------------------------------------
 output:
+  # Graphe de dépendances (nodes + edges)
   network_file: "datas/network/network.json"
+  
+  # Métadonnées de génération (stats, timestamp)
   metadata_file: "datas/network/metadata.json"
+  
+  # Lignes de contexte affichées dans les previews grep
   snippet_lines: 10

@@ -1,6 +1,5 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # EMBEDDING MODELS
-# All models are free from Hugging Face
 # ══════════════════════════════════════════════════════════════════════════════
 # ┌─────────────────────────────────────────┬──────┬──────────┬──────────────┐
 # │ Model                                   │ Dim  │ MTEB (%) │ Speed        │
@@ -11,18 +10,26 @@
 # │ intfloat/multilingual-e5-base           │ 768  │ ~61%     │ Multilingual │
 # │ BAAI/bge-large-en-v1.5                  │ 1024 │ ~65%     │ 4x slower    │
 # │ intfloat/e5-large-v2                    │ 1024 │ ~64%     │ 4x slower    │
+# │ qwen/text-embedding-v4 (API)            │ 1024 │ ~68%     │ Fast (cloud) │
 # └─────────────────────────────────────────┴──────┴──────────┴──────────────┘
 
 indexing:
   # Chunker type: "graph" (default, uses dependency context)
   chunker_type: "graph"
 
-  # Vector Engine type: sentence-transformers (default)
+  # Vector Engine type: sentence-transformers (local) or qwen (API)
   engine_type: "sentence-transformers"
 
-  # Embedding model (sentence-transformers compatible)
-  # Options: see table above
+  # Embedding model
+  # For sentence-transformers: use HF model name
+  # For qwen: text-embedding-v4 (default), text-embedding-v3, etc.
   engine_name: "sentence-transformers/all-MiniLM-L6-v2"
+  
+  # Qwen region: singapore, us, china
+  qwen_region: "singapore"
+  
+  # Batch size for API calls (max 10 for Qwen)
+  batch_size: 10
 
   # Chunk parameters
   chunk_size: 350 # Max tokens per chunk (approx)

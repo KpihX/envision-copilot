@@ -26,7 +26,7 @@ class PromptLoader:
             guidelines=self.generic.get("guidelines", "")
         )
 
-    def get_think_prompt(self, question, memory, history, last_results, current_depth: int = 0) -> str:
+    def get_think_prompt(self, question, memory, history, last_results, current_depth: int = 0, last_thought_process: str = "") -> str:
         """Assembles: Identity + Envision Doc + Tools + Thinker (Objective/Workflow/Instr)."""
         # 1. Load config values
         max_depth = self.config.get("agent", {}).get("constraints", {}).get("max_depth", 7)
@@ -50,6 +50,7 @@ class PromptLoader:
             history=history,
             memory=memory,
             last_results=last_results,
+            last_thought_process=last_thought_process if last_thought_process else "(No previous reasoning yet)",
             guidelines=self.generic.get("guidelines", "")
         )
 

@@ -1,8 +1,27 @@
+# =============================================================================
+# ENVISION BENCHMARK - Configuration de l'Évaluation
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Judge - LLM utilisé pour évaluer les réponses
+# -----------------------------------------------------------------------------
 judge:
+  # Provider LLM pour scorer les réponses
+  # Valeurs: mistral, gemini, groq, qwen (voir llms/config.yaml)
   model: "mistral"
 
+# -----------------------------------------------------------------------------
+# Input - Fichiers d'entrée
+# -----------------------------------------------------------------------------
 input:
+  # Dataset de questions avec réponses attendues
+  # Format: {"answered": [...], "unanswered": [...]}
   questions_file: "src/envision_benchmark/questions.json"
 
+# -----------------------------------------------------------------------------
+# Output - Fichiers générés
+# -----------------------------------------------------------------------------
 output:
+  # Dossier pour les rapports JSON
+  # Format: {timestamp}_{hash}.json
   report_dir: "datas/benchmark"

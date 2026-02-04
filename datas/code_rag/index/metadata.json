@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-01-22T22:01:19.877078",
+  "generated_at": "2026-02-04T02:44:55.568722",
   "engine_name": "sentence-transformers/all-MiniLM-L6-v2",
   "count": 490,
   "chunks": [
@@ -880,9 +880,9 @@
       "id": "82278_0_17",
       "source_id": "82278",
       "source": "/1. utilities/Modules/PathSchemas",
-      "text": "[Script (82278): PathSchemas | Path: /1. utilities/Modules/PathSchemas]\n[Export: *.ion]\n\n\n\n///# Long Term Planning\nexport schema '/Clean/LongTermPlanning/Parametrisation/Category_\\{Category}.ion' with\n  Category: number\n  SubCategory: number\n  GrowthCat: number\n  GrowthSub: number\n  IsForcedCat: boolean\n  IsForcedSub: boolean\n  CommentCat: text\n\nexport schema '/Clean/LongTermPlanning/Trigger/Category_\\{Category}.ion' with\n  Category : number\n  GrowthChange : boolean\n  ForcedChanged : boolean\n  ForcedHighLevelChanged : boolean",
+      "text": "[Script (82278): PathSchemas | Path: /1. utilities/Modules/PathSchemas]\n\n\n\n///# Long Term Planning\nexport schema '/Clean/LongTermPlanning/Parametrisation/Category_\\{Category}.ion' with\n  Category: number\n  SubCategory: number\n  GrowthCat: number\n  GrowthSub: number\n  IsForcedCat: boolean\n  IsForcedSub: boolean\n  CommentCat: text\n\nexport schema '/Clean/LongTermPlanning/Trigger/Category_\\{Category}.ion' with\n  Category : number\n  GrowthChange : boolean\n  ForcedChanged : boolean\n  ForcedHighLevelChanged : boolean",
       "content": "\n\n///# Long Term Planning\nexport schema '/Clean/LongTermPlanning/Parametrisation/Category_\\{Category}.ion' with\n  Category: number\n  SubCategory: number\n  GrowthCat: number\n  GrowthSub: number\n  IsForcedCat: boolean\n  IsForcedSub: boolean\n  CommentCat: text\n\nexport schema '/Clean/LongTermPlanning/Trigger/Category_\\{Category}.ion' with\n  Category : number\n  GrowthChange : boolean\n  ForcedChanged : boolean\n  ForcedHighLevelChanged : boolean",
-      "context": "[Script (82278): PathSchemas | Path: /1. utilities/Modules/PathSchemas]\n[Export: *.ion]",
+      "context": "[Script (82278): PathSchemas | Path: /1. utilities/Modules/PathSchemas]",
       "lines": "1-17"
     },
     {
