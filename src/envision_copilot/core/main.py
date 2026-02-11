@@ -116,20 +116,20 @@ class EnvisionCopilot:
             "final_answer": ""
         }
         
-        starter_updates = self.starter_agent.run(initial_state)
+        # starter_updates = self.starter_agent.run(initial_state)
         
         # Merge updates into state
-        initial_state.update(starter_updates)
+        # initial_state.update(starter_updates)
         
         # 2. DECISION: Stop or Go?
-        if initial_state.get("should_stop"):
+        # if initial_state.get("should_stop"):
             # Irrelevant query (Greeting, etc.)
             # We return output IMMEDIATELY. No memory, no planner, no appendix.
-            answer = initial_state.get("final_answer") or starter_updates.get("direct_response") or "Conversation ended."
-            return {
-                "answer": answer,
-                "appendix": None # Explicitly None as requested
-            }
+        #     answer = initial_state.get("final_answer") or starter_updates.get("direct_response") or "Conversation ended."
+        #     return {
+        #         "answer": answer,
+        #         "appendix": None # Explicitly None as requested
+        #    }
             
         # 3. INITIALIZE WORKFLOW RESOURCES (Only if relevant)
         self.memory = Memory(self.config)
@@ -167,6 +167,24 @@ class EnvisionCopilot:
         if not response_json:
             return {"should_stop": True, "stop_reason": "llm_error"}
 
+        # Store results_digest in the nodes of the PREVIOUS layer (the one just executed)
+        # This allows future layers to see summaries in PLAN HISTORY
+        results_digest = response_json.get("results_digest", {})
+        last_results = state.get("last_layer_results", [])
+        
+        if results_digest and len(self.planner.layers) > 1:
+            # Previous layer = layers[-1] (current layer that was just executed)
+            previous_layer = self.planner.layers[-1]
+            for idx_str, digest_lines in results_digest.items():
+                try:
+                    idx = int(idx_str)
+                    if 0 <= idx < len(previous_layer):
+                        # Store summary as list of factual lines
+                        if isinstance(digest_lines, list):
+                            previous_layer[idx].summary = digest_lines
+                except (ValueError, IndexError):
+                    continue
+
         # Handle Memory Updates Logic
         # 1. Remove items requested by LLM
         remove_indices = response_json.get("memory_remove_indices", [])
@@ -175,7 +193,6 @@ class EnvisionCopilot:
 
         # 2. Add new items requested by LLM (by index in last_results)
         add_result_indices = response_json.get("add_result_indices", [])
-        last_results = state.get("last_layer_results", [])
         
         # Normalize to Map: { int_idx: [chunk_list] }
         # Legacy support: List[int] -> { i: [0] } (Keep All)
@@ -314,13 +331,17 @@ class EnvisionCopilot:
         # Pass compact memory text as appendix for Synthesis (Trusted Facts)
         appendix = str(self.memory)
         
+        # Get full exploration history with digests for context
+        exploration_history = self.planner.get_visible_history(plan_history_depth=-1)
+        
         updates = self.synthesizer_agent.run(
             state, 
             appendix=appendix, 
             max_depth=self.planner.max_depth,
             original_question=state.get("original_question"),
             reformulated_question=state.get("question"), # This is the reformulated one
-            plan_thought=state.get("plan_thought") # Inject Thinker's logic
+            plan_thought=state.get("plan_thought"), # Inject Thinker's logic
+            exploration_history=exploration_history
         )
         return updates
     

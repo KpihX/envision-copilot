@@ -42,6 +42,7 @@ Explore the Envision codebase structure through the dependency graph.
 ### ⚠️ RECOMMENDED FIRST STEP
 
 **Always start your exploration with a `tree` action on the `scripts` domain** to understand the project structure before using other tools. This provides essential context about the workflow organization.
+**And after using `tree` action, always save its result in memory to always have the project structure in mind when using other tools.**
 
 ```json
 {"action": "tree", "domain": "scripts"}

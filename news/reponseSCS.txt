@@ -1,0 +1,26 @@
+Question 13 : en effet je vais voir cette info dans les runflows : /1. utilities/0. sequences/Full Refresh et je vois que c'est lancé une fois par semaine.
+ 
+Question 26 un peu plus détaillée : Où le client peut paramétrer le taux de complétude cible, qui sert à fixer un niveau de service souhaité ?
+ 
+Dans le script /1. utilities/Manufacturing/Operations , je peux apercevoir 
+ 
+"read form with
+  target : number
+  overwrite : boolean
+ 
+show form "Taux Complétude cible (70 - 100)" d8e9 {formButton: "Run"} with
+  target as "Cible"
+  overwrite as "Prendre entrées manuelles"
+"
+ 
+Question 29 : 
+ 
+Dans le script /4. Optimization workflow/07 Standard Dispatch Suggestion New, je peux apercevoir :
+ 
+"read form with
+  FRTarget : number
+ 
+show form "Target for downstream warehouses" a3b4  with
+  FRTarget as "FR Target (%)"
+ 
+Question 31 : je pense que cette question dépasse les limites de l'exercice car j'ai du ouvrir la table des ventes pour avoir l'info...

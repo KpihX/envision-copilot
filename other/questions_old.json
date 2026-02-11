@@ -4,8 +4,9 @@
             "id": 1,
             "question": "Combien de scripts lisent /Clean/Items.ion ?",
             "deterministic": true,
-            "answers": [28],
-            "comments": "Pattern grep: `read \"/Clean/Items.ion\"`. Chaque script utilisant ce fichier contient une instruction read explicite. Exemples: `/4. Optimization workflow/03.b. Forecasting` L33, `/4. Optimization workflow/02 Suppliers` L46.",
+            "answers": [
+                28
+            ],
             "appendix": [
                 "/1. utilities/1. populating dataset/03 - Manual Inputs",
                 "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff",
@@ -71,15 +72,15 @@
                 "/4. Optimization workflow/French/07 Recommandations de Dispatch (clone)",
                 "/8. Old/PurchaseOptimization"
             ],
-            "comments": "Pattern grep: `read \"/Clean/Items.ion\"`. Exemples: `/4. Optimization workflow/03.b. Forecasting` L33: `read \"/Clean/Items.ion\" as Items[Id unsafe] with`, `/4. Optimization workflow/02 Suppliers` L46: `read \"/Clean/Items.ion\" as Catalog with`.",
             "appendix": []
         },
         {
             "id": 3,
             "question": "Combien de scripts lisent /Clean/Forecast/Periodic/FcItems.ion?",
             "deterministic": true,
-            "answers": [3],
-            "comments": "Pattern grep: `read \"/Clean/Forecast/Periodic/FcItems.ion\"`. Trouvé dans `/3. Inspectors/1 - Item Inspector` L78: `read \"/Clean/Forecast/Periodic/FcItems.ion\" as FcItems expect[Sku] with`.",
+            "answers": [
+                3
+            ],
             "appendix": [
                 "/3. Inspectors/1 - Item Inspector",
                 "/4. Optimization workflow/03.b. Forecasting",
@@ -95,24 +96,27 @@
                 "/4. Optimization workflow/03.b. Forecasting",
                 "/4. Optimization workflow/French/03 Forecasting"
             ],
-            "comments": "Pattern grep: `read \"/Clean/Forecast/Periodic/FcItems.ion\"`. Ce fichier contient les prévisions calculées par l'autodiff et est consommé par les inspecteurs et dashboards de forecasting.",
             "appendix": []
         },
         {
             "id": 5,
             "question": "Quels scripts écrivent /Clean/Forecast/Periodic/FcItems.ion?",
             "deterministic": true,
-            "answers": ["/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff"],
-            "comments": "Pattern grep: `write:.*FcItems.ion`. Trouvé dans `/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff` L961: `show table \"Export Output Parameters\" a4e4 write:\"{testStorage}Clean/Forecast/Periodic/FcItems.ion\" with`. C'est le seul script qui écrit ce fichier.",
+            "answers": [
+                "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff"
+            ],
             "appendix": []
         },
         {
             "id": 6,
             "question": "Combien de scripts écrivent dans /Clean/Forecast/Periodic/FcItems.ion ?",
             "deterministic": true,
-            "answers": [1],
-            "comments": "Pattern grep: `write:.*FcItems`. Un seul match: `/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff`. Ce fichier est le point de sortie unique du moteur de prévision autodiff.",
-            "appendix": ["/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff"]
+            "answers": [
+                1
+            ],
+            "appendix": [
+                "/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff"
+            ]
         },
         {
             "id": 7,
@@ -124,7 +128,6 @@
                 "/4. Optimization workflow/03.b. Forecasting",
                 "/4. Optimization workflow/French/03 Forecasting"
             ],
-            "comments": "Union des scripts qui lisent (read) et écrivent (write) ce fichier. Le Forecast Autodiff le produit, les autres le consomment.",
             "appendix": []
         },
         {
@@ -137,15 +140,15 @@
                 "/1. utilities/Modules/PathSchemas",
                 "/1. utilities/Modules/Colors"
             ],
-            "comments": "Pattern grep: `import \".*\" as`. Exemples: `/3. Inspectors/5 - Supplier Inspector` L6: `import \"/1. utilities/Modules/Global Parameters\" as GP with`, `/5. Long Term Planning Module/Category Vision` L3-5: imports de Functions, Colors, PathSchemas.",
             "appendix": []
         },
         {
             "id": 9,
             "question": "Où sont calculés les meilleurs vendeurs ?",
             "deterministic": true,
-            "answers": ["/3. Inspectors/4 - Stores Analysis"],
-            "comments": "Script `/3. Inspectors/4 - Stores Analysis`. Code L211: `RefCatalog.BestSellerRank = rankrev () by RefCatalog.Id scan RefCatalog.SalesWeight`. Affichage L214: `show table \"Last 365 days Best Sellers\" c7e9 slices:slice with`. Le classement est fait par localisation.",
+            "answers": [
+                "/3. Inspectors/4 - Stores Analysis"
+            ],
             "appendix": []
         },
         {
@@ -157,183 +160,212 @@
                 "Analyses & diagnostics",
                 "Préparation des forecasts"
             ],
-            "comments": "Déduit de la structure des dossiers: /1. utilities/2. preprocess/ = Nettoyage, /2. Data sanity/ + /3. Inspectors/ = Analyses, /1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff + /4. Optimization workflow/03.b. Forecasting = Prévisions. Architecture documentée dans `/7. Documentation/0 General Organization`.",
             "appendix": []
         },
         {
             "id": 11,
             "question": "Le client veut ajouter une nouvelle localisation pour le dispatch. Où paramétrer le champ ReDispatchCycle propre à cette localisation ?",
             "deterministic": true,
-            "answers": ["/1. utilities/2. preprocess/[2] - Business Preprocessing"],
-            "comments": "Script `/1. utilities/2. preprocess/[2] - Business Preprocessing`. Contient une instruction `match Catalog.Loc` qui attribue ReDispatchCycle selon la localisation (ex: 28 jours pour EDB, 21 pour LON). L111-124: lecture des overrides avec ReDispatchCycle. L'ajout d'une nouvelle localisation se fait dans ce bloc match.",
+            "answers": [
+                "/1. utilities/2. preprocess/[2] - Business Preprocessing"
+            ],
             "appendix": []
         },
         {
             "id": 12,
             "question": "Existe-t-il une fonction pour calculer l'évolution du stock dans le temps en tenant compte des arrivages et de la demande ?",
             "deterministic": true,
-            "answers": ["Oui"],
-            "comments": "Script `/1. utilities/Modules/Functions`. L5-47: `export def process StockEvol(demand:number, desiredStockLvl:number, reorderCycle:number, leadtime:number, startStockonhand:number)`. Gère stock on hand, stock on order, arrivées avec lag, et points de commande.",
-            "appendix": ["la fonction StockEvol, définie dans /1. utilities/Modules/Functions"]
+            "answers": [
+                "Oui"
+            ],
+            "appendix": [
+                "la fonction stockEvol, définie dans /1. utilities/Modules/Functions"
+            ]
         },
         {
             "id": 13,
             "question": "À quelle fréquence les preprocess sont-ils rafraîchis ?",
             "deterministic": false,
-            "answers": ["Tous les dimanches via une séquence automatique"],
-            "comments": "⚠️ RATIONALE NON VÉRIFIABLE DANS LE CODE. `/7. Documentation/0 General Organization` mentionne 'daily data update' et `/2. Data sanity/1 - Data Integrity Check` conseille 'Set to 1 for daily uploads'. La fréquence dominicale relève de la configuration externe du scheduler Lokad, non documentée dans les scripts.",
+            "answers": [
+                "Tous les dimanches via une séquence automatique"
+            ],
             "appendix": []
         },
         {
             "id": 14,
             "question": "Je vais recevoir une nouvelle colonne FuturSellPrice dans ma table catalogue. Dans quel script effectuer des checks de cohérence sur les valeurs observées ?",
             "deterministic": true,
-            "answers": ["/1. utilities/2. preprocess/[2] - Business Preprocessing"],
-            "comments": "Script `/1. utilities/2. preprocess/[2] - Business Preprocessing`. Section L139+ '[ DEFINE AND CHECK INPUT RULES ]'. Exemple existant: `Catalog.IsValidSellPrice = Catalog.SellPrice > 0 and Catalog.SellPrice > Catalog.BuyPrice`. Résultat agrégé dans Catalog.IsClean et Catalog.HealthLog pour filtrage.",
+            "answers": [
+                "/1. utilities/2. preprocess/[2] - Business Preprocessing"
+            ],
             "appendix": []
         },
         {
             "id": 15,
             "question": "Combien de profils de saisonnalité sont appris pour créer le moteur de prévision ?",
             "deterministic": true,
-            "answers": [10],
-            "comments": "Script `/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff`. L218-227: params Items.Affinity1 à Items.Affinity10. L233-242: params SeasonYW.Profile1 à SeasonYW.Profile10. L258-267: `YearWeek.SeasonalityModel = SeasonYW.Profile1 * Items.Affinity1 + ... + SeasonYW.Profile10 * Items.Affinity10`. 10 profils distincts avec affinités par produit.",
-            "appendix": ["10 profils de saisonnalité appris via autodiff avec affinités par produit"]
+            "answers": [
+                10
+            ],
+            "appendix": [
+                "10 profils de saisonnalité"
+            ]
         },
         {
             "id": 16,
             "question": "Existe-t-il un endroit où retrouver des informations condensées pour analyser les différents fournisseurs ?",
             "deterministic": true,
-            "answers": ["Oui"],
-            "comments": "Script `/3. Inspectors/5 - Supplier Inspector`. Contient: table récapitulative avec PO-Amount365, PO-Volume365, Ranking (étoiles selon retards). Analyse par fournisseur: First Order, Lateness Tendency, distribution LeadTimes, historique PO.",
-            "appendix": ["/3. Inspectors/5 - Supplier Inspector"]
+            "answers": [
+                "oui"
+            ],
+            "appendix": [
+                "/3. Inspectors/5 - Supplier Inspector"
+            ]
         },
         {
             "id": 17,
             "question": "Où paramétrer des changements globaux sur les prix de vente afin d'observer leur impact sur la prévision des ventes ?",
             "deterministic": true,
-            "answers": ["/6. Rule Based Pricing/Pricing Rules"],
-            "comments": "Script `/6. Rule Based Pricing/Pricing Rules`. Lit PerimetreCategoryUpload avec PricePercentChange. Calcule NewSellPrice = SellPrice * (1+CategoryPricePercentChange). Modèle d'élasticité: `Items.PriceElasticity = SellPriceComparison/2`. Prévision ajustée: `ItemsWeek.NewForecast = (1+Items.PriceElasticity) * ItemsWeek.InitialForecast`.",
+            "answers": [
+                "/6. Rule Based Pricing/Pricing Rules"
+            ],
             "appendix": []
         },
         {
             "id": 18,
             "question": "Quelle fenêtre temporelle est prise en compte pour l'apprentissage de la prévision des ventes ?",
             "deterministic": false,
-            "answers": ["Les 4 dernières années de ventes"],
-            "comments": "Script `/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff`. L147-150: ItemLifeWeight basé sur date relative à lastDate. Le modèle utilise IsItemLife (LaunchDate à min(EndDate, lastDate)). La fenêtre de 4 ans est un paramétrage implicite du modèle, pas une constante explicite dans le code.",
+            "answers": [
+                "Les 4 dernières années de ventes"
+            ],
             "appendix": []
         },
         {
             "id": 19,
             "question": "Le produit CT-110-DC est-il traité de façon spécifique dans les scripts ?",
             "deterministic": true,
-            "answers": ["Oui"],
-            "comments": "Script `/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff` L159: `ItemsWeek.IsCensoredPeriod = Items.Id == \"CT-110-DC\" and (Week.monday >= date(2020,06,01) and Week.monday < date(2020,08,31))`. L163: `not ItemsWeek.IsCensoredPeriod` exclut cette période de l'apprentissage (probablement anomalie COVID).",
-            "appendix": ["Période juin-août 2020 censurée pour l'apprentissage du forecast de cet article"]
+            "answers": [
+                "Oui"
+            ],
+            "appendix": [
+                "Certaines dates ne sont pas prises en compte dans l'apprentissage du forecast"
+            ]
         },
         {
             "id": 20,
             "question": "Comment sont définies les cibles de fill rate à respecter selon les produits du catalogue ?",
             "deterministic": false,
-            "answers": ["Items.CategoryFRTarget = (86 + Items.AgressivenessFactor * 12) / 100"],
-            "comments": "Scripts `/4. Optimization workflow/01 Inventory Optimization Overview` L354 et `/4. Optimization workflow/04 Economic Parameters` L491: `Items.CategoryFRTarget = (86 + Items.AgressivenessFactor * 12) / 100`. Formule paramétrique: base 86% + bonus selon agressivité (0-1) × 12%. Plage résultante: 86%-98%.",
+            "answers": [
+                "Items.CategoryFRTarget = (86 + Items.AgressivenessFactor * 12) / 100"
+            ],
             "appendix": []
         },
         {
             "id": 21,
             "question": "Où paramétrer le champ ReDispatchCycle propre à cette localisation ?",
             "deterministic": true,
-            "answers": ["Dans /1. utilities/2. preprocess/[ 2 ] - Business Preprocessing"],
-            "comments": "Script `/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing`. Bloc match Catalog.Loc définit les valeurs par défaut. L124: `Catalog.ReDispatchCycle = single(OverrideItems.ReDispatchCycle) by OverrideItems.Sku at Catalog.Sku default Catalog.ReDispatchCycle` permet surcharges manuelles. Question identique à Q11.",
+            "answers": [
+                "Dans /1. utilities/2. preprocess/[ 2 ] - Business Preprocessing"
+            ],
             "appendix": []
         },
         {
             "id": 22,
             "question": "Comment et où est définie la croissance annuelle pour chaque produit ?",
             "deterministic": true,
-            "answers": ["Définie dans /1. utilities/1. populating dataset/01 - Catalog and Orders History Creation"],
-            "comments": "Script `/1. utilities/1. populating dataset/01 - Catalog and Orders History Creation`. Formule: `Catalog.AnnualGrowth = if Catalog.IsTopItem then 0.05 else 0.025`. Les top items ont 5% de croissance annuelle, les autres 2.5%. IsTopItem est fourni par le client (voir Q23).",
+            "answers": [
+                "La croissance annuelle est définie dans le script /1. utilities/1. populating dataset/01 - Catalog and Orders History Creation via la formule : Catalog.AnnualGrowth = if Catalog.IsTopItem then 0.05 else 0.025"
+            ],
             "appendix": []
         },
         {
             "id": 23,
-            "question": "Comment définit-on le fait qu'une ref soit une top ref ?",
+            "question": "Comment définit-on le fait qu’une ref soit une top ref ?",
             "deterministic": true,
-            "answers": ["C'est une donnée fournie par le client via un fichier d'import ; ce n'est pas calculé par Lokad."],
-            "comments": "Script `/1. utilities/2. preprocess/[2] - Business Preprocessing` L16: `IsTopItem : boolean` lu depuis Catalog.ion. Script `/4. Optimization workflow/French/05.Recommandations d'Achats` L303: `Items.IsTopItem = any(TopItemsParameters.*)` - provient d'un fichier upload client (TopItemsParameters). Pas de calcul Lokad, juste mapping.",
+            "answers": [
+                "C’est une donnée fournie par le client via un fichier d’import ; ce n’est pas calculé par Lokad."
+            ],
             "appendix": []
         },
         {
             "id": 24,
             "question": "Est-ce que je peux prendre en compte des ventes retour (quantités négatives) dans mes calculs de KPIs ?",
             "deterministic": true,
-            "answers": ["Non : les ventes avec des quantités nulles ou négatives sont filtrées."],
-            "comments": "Script `/2. Data sanity/2 - Low Level Data Health` L86: `keep where Orders.Quantity > 0`. Ce filtre exclut les quantités ≤ 0 des calculs. Commentaire dans le code: 'THIS IS FAKE. PLEASE REMOVE THIS IN A REAL ACCOUNT!' - mais le pattern est standard.",
+            "answers": [
+                "Non : les ventes avec des quantités nulles ou négatives sont filtrées."
+            ],
             "appendix": []
         },
         {
             "id": 25,
-            "question": "Est-ce qu'on pondère l'apprentissage des ventes selon leurs dates pour déterminer une prévision future des ventes ?",
+            "question": "Est-ce qu’on pondère l’apprentissage des ventes selon leurs dates pour déterminer une prévision future des ventes ?",
             "deterministic": true,
-            "answers": ["Oui : pondération temporelle dans le modèle autodiff."],
-            "comments": "Script `/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff` L147-150: `ItemsWeek.ItemLifeWeight = if (ItemsWeek.Monday >= lastDate - 180 - backtrack) and (ItemsWeek.Monday < lastDate - backtrack) ... then 10 else 1`. Les 6 derniers mois pèsent 10× plus. L275: `Week.Coeff = ItemsWeek.ItemLifeWeight * ItemsWeek.Cache`.",
+            "answers": [
+                "Oui : le lissage donne plus de poids aux semaines récentes. Défini dans /1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff."
+            ],
             "appendix": []
         },
         {
             "id": 26,
             "question": "Où le client peut paramétrer le taux de complétude cible ?",
             "deterministic": true,
-            "answers": ["Dans /1. utilities/Manufacturing/Operations"],
-            "comments": "⚠️ CHEMIN NON TROUVÉ DANS LA CODEBASE ACTUELLE. Le dossier /1. utilities/Manufacturing/ n'existe pas dans l'arborescence du compte. Cette réponse pourrait référencer une ancienne structure ou un compte différent.",
+            "answers": [
+                "Dans /1. utilities/Manufacturing/Operations"
+            ],
             "appendix": []
         },
         {
             "id": 27,
-            "question": "Pour le web, est-ce que le coefficient d'agressivité est capé d'une manière ou d'une autre ?",
+            "question": "Pour le web, est-ce que le coefficient d’agressivité est capé d’une manière ou d’une autre ?",
             "deterministic": true,
-            "answers": ["Oui : sa valeur minimale est 0.2"],
-            "comments": "⚠️ CHEMIN NON TROUVÉ. '/1. utilities/website/' n'existe pas dans l'arborescence actuelle. Dans `/4. Optimization workflow/08. Dispatch ROP definition` L239: `Skus.AgressivenessFactor = if Skus.Loc == \"DC\" then 2*Skus.AgressivenessFactor else Skus.AgressivenessFactor` - mais pas de cap à 0.2 visible.",
+            "answers": [
+                "Oui : sa valeur minimale est 0.2, dans /1. utilities/website/01 Inventory Optimization Overview (web)."
+            ],
             "appendix": []
         },
         {
             "id": 28,
-            "question": "Comment modélise-t-on le coût de posséder une unité d'un produit en stock ?",
+            "question": "Comment modélise-t-on le coût de posséder une unité d’un produit en stock ?",
             "deterministic": true,
-            "answers": ["Avec un taux annuel carryingCost appliqué au prix d'achat, proratisé sur 7 jours."],
-            "comments": "Script `/4. Optimization workflow/05. Standard Purchase Suggestions` L408-409: `carryingCost = 0.2` et `Items.C = carryingCost * Items.BuyPrice * 7 / 365`. Taux annuel 20% × BuyPrice × 7/365 pour coût hebdomadaire. Formule documentée dans `/7. Documentation/3.1 Action Reward Example` L456.",
+            "answers": [
+                "Avec un taux annuel de carryingCost = 0.3 appliqué au prix d’achat, proratisé sur 7 jours. Défini dans /1. utilities/website/01 Inventory Optimization Overview (web)."
+            ],
             "appendix": []
         },
         {
             "id": 29,
-            "question": "Est-ce que le client a l'autonomie de paramétrer lui-même la cible de taux de satisfaction de la demande (fill rate) ?",
+            "question": "Est-ce que le client a l’autonomie de paramétrer lui-même la cible de taux de satisfaction de la demande (fill rate) ?",
             "deterministic": true,
-            "answers": ["Oui, via les dashboards d'optimisation."],
-            "comments": "⚠️ CHEMIN SPÉCIFIQUE NON TROUVÉ. Les scripts de dispatch (`/4. Optimization workflow/07 Standard Dispatch Suggestion New`, `/4. Optimization workflow/08. Dispatch ROP definition`) permettent de paramétrer FRTarget via des formulaires `read form`. Le path '/1. utilities/website/' n'existe pas dans l'arborescence actuelle.",
+            "answers": [
+                "Oui, directement via le dashboard /1. utilities/website/07 Standard Dispatch Suggestion New (clone)."
+            ],
             "appendix": []
         },
         {
             "id": 30,
-            "question": "Le client aimerait suivre l'évolution des ruptures de stock : est-ce qu'un dashboard existe déjà qui pourrait être utile ?",
+            "question": "Le client aimerait suivre l’évolution des ruptures de stock : est-ce qu’un dashboard existe déjà qui pourrait être utile ?",
             "deterministic": true,
-            "answers": ["Oui : /3. Inspectors/7 - Global Business Cockpit."],
-            "comments": "Script `/3. Inspectors/7 - Global Business Cockpit`. L168: `show scalar \"Stock Out Ratio\" h3 ... with 0.062 as \"\" {numbers: percent}`. Section L259+: calcul Overstock avec Items.Overstock, Items.OverstockValue. Tableau L272: 'Overstocked Items'. Suivi stock/ruptures intégré.",
+            "answers": [
+                "Oui : /3. Inspectors/7 - Global Business Cockpit."
+            ],
             "appendix": []
         },
         {
             "id": 31,
             "question": "De quand datent les premières ventes observables dans la table des ventes ?",
             "deterministic": true,
-            "answers": ["2015."],
-            "comments": "⚠️ RATIONALE NON VÉRIFIABLE DANS LE CODE. Cette information dépend des données client chargées, pas du code Envision. Aucune constante `date(2015,...)` comme date minimale trouvée dans les scripts. Réponse basée sur connaissance externe du dataset.",
+            "answers": [
+                "2015."
+            ],
             "appendix": []
         },
         {
             "id": 32,
             "question": "Quel type de demande moyenne affiche-t-on au client sur le compte?",
             "deterministic": true,
-            "answers": ["On distingue Demande Moyenne approvisionnement, Demande Moyenne couverture, Demande Moyenne totale."],
-            "comments": "Script `/4. Optimization workflow/FR/05. Suggestions d'achat` L269-273 (documentation inline): 'Demande Moyenne approvisionnement: prévue sur le prochain délai d'approvisionnement', 'Demande Moyenne Couverture: sur la prochaine fenêtre de responsabilité (FR)', 'Demande Moyenne Totale: sur délai + fenêtre FR'. L543-545: colonnes correspondantes dans le tableau.",
+            "answers": [
+                "On distingue Demande Moyenne approvisionnement, Demande Moyenne couverture, Demande Moyenne totale. Défini dans /4. Optimization workflow/FR/05. Suggestions d achat."
+            ],
             "appendix": []
         }
     ],

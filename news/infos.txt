@@ -1,0 +1,11 @@
+Bonjour,
+
+Vous trouverez en pièce jointe:
+les réponses du SCS sur les questions que vous m'avez envoyées, on peut oublier la 13 et la 31 pour le moment, on peut les remplacer par deux autres questions sur les données dont je parle sur le point suivant.
+
+Je vous rajoute un peu de données liées à la question 13 qui pourraient aussi vous aider pour les autres questions. Comme je vous l'avais expliqué, nous avons un système de scheduler de scripts qui nous permet de jouer des séquences de script. Vous avez dans mapping l'id de la séquence et son nom. Ensuite, un fichier nommé avec l'id de la séquence et dans ces fichiers, une ligne pour une étape de la séquence. Si la ligne commence par pf, il s'agit d'un script et on a son id. Si la ligne commence par rf, il s'agit d'une autre séquence et on a son id.
+
+
+Si le LLM a du mal avec certains termes comme "taux de complétude", "niveau de service",  on peut penser à créer un petit lexique peut-être.
+
+N'hésitez pas si ce n'est pas encore assez clair.

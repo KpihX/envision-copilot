@@ -13,7 +13,7 @@ parsing:
   script_ext: "nvn"
   
   # Extensions considérées comme fichiers de données (créent des data_file nodes)
-  data_extensions: ["ion"]
+  data_extensions: ["ion", "csv"]
   
   # Fichier de mapping ID → nom (optionnel)
   mapping_file: "src/envision_preprocess/mapping.txt"

@@ -12,7 +12,7 @@ class SynthesizerAgent(BaseAgent):
         super().__init__(config, llm, console, prompt_loader, verbose=verbose, debug=debug)
         self.prompt_loader = prompt_loader
 
-    def run(self, state: CopilotState, appendix: str, max_depth: int, original_question: str = None, reformulated_question: str = None, plan_thought: str = None) -> Dict:
+    def run(self, state: CopilotState, appendix: str, max_depth: int, original_question: str = None, reformulated_question: str = None, plan_thought: str = None, exploration_history: str = None) -> Dict:
         """
         Executes the Synthesis.
         """
@@ -29,7 +29,8 @@ class SynthesizerAgent(BaseAgent):
             stop_reason=stop_reason,
             original_question=original_question or "Unknown",
             reformulated_question=reformulated_question or "Unknown",
-            plan_thought=plan_thought or "None"
+            plan_thought=plan_thought or "None",
+            exploration_history=exploration_history or ""
         )
         
         # Query LLM (Synthesis usually doesn't output JSON, so direct generate)

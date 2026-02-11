@@ -28,7 +28,7 @@ class ThinkerAgent(BaseAgent):
 
         # Context
         memory_text = str(memory)
-        plan_text = str(planner)
+        plan_text = planner.get_visible_history()  # Use truncated history based on plan_history_depth
         results_text = result_formatter(last_results)
         last_thought = state.get("last_thought_process", "")
         
@@ -68,7 +68,7 @@ class ThinkerAgent(BaseAgent):
         Validation specific to Thinker Agent.
         Ensures all critical decision fields are present and correctly typed.
         """
-        required_fields = ["thought_process", "should_stop", "memory_remove_indices", "add_result_indices"]
+        required_fields = ["thought_process", "should_stop", "memory_remove_indices", "add_result_indices", "results_digest"]
         
         # 1. Check presence of required keys
         if not all(k in data for k in required_fields):
@@ -79,24 +79,25 @@ class ThinkerAgent(BaseAgent):
         if not isinstance(data["should_stop"], bool): return False
         if not isinstance(data["memory_remove_indices"], list): return False
         
-        # 3. Check Conditional Logic (Next Steps vs Stop)
-        # If NOT stopping, we usually expect next_steps, but empty next_steps is allowed if just memory update (though rare).
-        # But if next_steps is present, it must be a list of dicts with 'tool' and 'args'.
+        # 3. Validate results_digest: Dict[str, List[str]]
+        results_digest = data.get("results_digest")
+        if results_digest is not None:
+            if not isinstance(results_digest, dict):
+                return False
+            for k, v in results_digest.items():
+                if not isinstance(v, list):
+                    return False
+                # Each item in the list should be a string (factual summary line)
+        
+        # 4. Check add_result_indices
         add = data.get("add_result_indices")
         if add is not None:
              if not isinstance(add, (list, dict)):
-                 return False #, f"'add_result_indices' must be a List or Dict, got {type(add)}"
+                 return False
              if isinstance(add, list) and not all(isinstance(x, int) for x in add):
-                 return False #, "All items in 'add_result_indices' list must be integers"
-             # Dict validation is looser: keys are result indices (str/int), values are list of ints
+                 return False
         
-        # The original code had this check here, which is now handled by the 'add' block above.
-        # if not isinstance(data["add_result_indices"], list): return False
-        
-        # 3. Check Conditional Logic (Next Steps vs Stop)
-        # If NOT stopping, we usually expect next_steps, but empty next_steps is allowed if just memory update (though rare).
-        # But if next_steps is present, it must be a list of dicts with 'tool' and 'args'.
-        
+        # 5. Check Conditional Logic (Next Steps vs Stop)
         if "next_steps" in data:
             if not isinstance(data["next_steps"], list): return False
             for step in data["next_steps"]:

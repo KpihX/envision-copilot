@@ -1,0 +1,26 @@
+[
+    {
+        "id": 13,
+        "question": "À quelle fréquence les preprocess sont-ils rafraîchis ?",
+        "deterministic": false,
+        "answers": ["Tous les dimanches via une séquence automatique"]
+    },
+    {
+        "id": 26,
+        "question": "Où le client peut paramétrer le taux de complétude cible ?",
+        "deterministic": true,
+        "answers": ["Dans /1. utilities/Manufacturing/Operations"]
+    },
+    {
+        "id": 29,
+        "question": "Est-ce que le client a l'autonomie de paramétrer lui-même la cible de taux de satisfaction de la demande (fill rate) ?",
+        "deterministic": true,
+        "answers": ["Oui, via les dashboards d'optimisation."]
+    },
+    {
+        "id": 31,
+        "question": "De quand datent les premières ventes observables dans la table des ventes ?",
+        "deterministic": true,
+        "answers": ["2015."]
+    }
+]

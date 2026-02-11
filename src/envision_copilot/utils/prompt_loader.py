@@ -16,6 +16,10 @@ class PromptLoader:
         """Get the generic guardrails retry prompt."""
         return self.generic.get("guardrails_retry", "")
 
+    def get_guardrails_tool_format_error_template(self) -> str:
+        """Get the guardrails template for tool-call format errors."""
+        return self.generic.get("guardrails_tool_format_error", "")
+
     def get_starter_prompt(self, user_input: str) -> str:
         """Assembles: Generic Identity + Generic Envision Doc + Starter Specific."""
         template = self.agents.get("starter", "")
@@ -29,8 +33,13 @@ class PromptLoader:
     def get_think_prompt(self, question, memory, history, last_results, current_depth: int = 0, last_thought_process: str = "") -> str:
         """Assembles: Identity + Envision Doc + Tools + Thinker (Objective/Workflow/Instr)."""
         # 1. Load config values
-        max_depth = self.config.get("agent", {}).get("constraints", {}).get("max_depth", 7)
-        max_branches = self.config.get("agent", {}).get("constraints", {}).get("max_branches", 2)
+        constraints = self.config.get("agent", {}).get("constraints", {})
+        presentation = self.config.get("presentation", {})
+        
+        max_depth = constraints.get("max_depth", 7)
+        max_branches = constraints.get("max_branches", 2)
+        max_lines = presentation.get("max_lines", 200)
+        plan_history_depth = constraints.get("plan_history_depth", 1)
         
         # 2. Get Thinker Template (Specialized)
         thinker_template = self.agents.get("thinker", "")
@@ -47,6 +56,8 @@ class PromptLoader:
             current_depth=current_depth,
             max_depth=max_depth,
             max_branches=max_branches,
+            max_lines=max_lines,
+            plan_history_depth=plan_history_depth,
             history=history,
             memory=memory,
             last_results=last_results,
@@ -54,7 +65,7 @@ class PromptLoader:
             guidelines=self.generic.get("guidelines", "")
         )
 
-    def get_synthesizer_prompt(self, appendix: str, max_depth: int, user_language: str, stop_reason: str, original_question: str, reformulated_question: str, plan_thought: str) -> str:
+    def get_synthesizer_prompt(self, appendix: str, max_depth: int, user_language: str, stop_reason: str, original_question: str, reformulated_question: str, plan_thought: str, exploration_history: str = "") -> str:
         """Assembles: Identity + Envision Doc + Synthesizer (Unified)."""
         synthesizer_template = self.agents.get("synthesizer", "")
         
@@ -68,6 +79,7 @@ class PromptLoader:
             original_question=original_question,
             reformulated_question=reformulated_question,
             plan_thought=plan_thought,
+            exploration_history=exploration_history or "(No exploration history)",
             guidelines=self.generic.get("guidelines", "")
         )
 

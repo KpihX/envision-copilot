@@ -62,13 +62,13 @@ indexing:
 # └──────────────┴──────────────────────────────────────┴─────────────────────────────────────────┘
 
 retrieval:
-  # Reranker type: heuristic, cross-encoder, bge, mxbai, answerai
-  # - heuristic: Fast domain-specific heuristics (no ML model, recommended)
-  # - oriented: Fast domain-specific heuristics (no ML model, recommended)
+  # Reranker type: heuristic, oriented, cross-encoder, bge, mxbai, answerai
+  # - heuristic: Fast domain-specific heuristics (no ML model)
+  # - oriented: Heuristic + keyword/term boosting from Copilot (RECOMMENDED)
   # - cross-encoder: MS-MARCO cross-encoder (general purpose)
   # - bge: BAAI/bge-reranker (robust for technical terms)
   # - mxbai/answerai: Require HuggingFace authentication
-  reranker_type: "heuristic"
+  reranker_type: "oriented"
   # Optional: override default model for ML rerankers
   # reranker_name: "BAAI/bge-reranker-base"
   top_k_recall: 50

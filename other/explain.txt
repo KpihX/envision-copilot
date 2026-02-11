@@ -1,0 +1,240 @@
+idem ici : {
+"id": 13,
+"question": "À quelle fréquence les preprocess sont-ils rafraîchis ?",
+"deterministic": false,
+"answers": [
+"Tous les dimanches via une séquence automatique"
+],
+"appendix": []
+},
+
+D'après les sources fournies, il semble y avoir une contradiction entre la réponse attendue ("Tous les dimanches") et les informations contenues dans les scripts et la documentation.
+Les sources indiquent explicitement que les processus sont conçus pour une fréquence quotidienne :
+1. Documentation du projet : Le script 68030.txt (/7. Documentation/0 General Organization) stipule clairement dans la description de la "Phase I" que l'objectif est la création d'un pipeline de données automatisé pour une mise à jour quotidienne des données ("automated data pipeline for a daily data update").
+2. Contrôle d'intégrité : Le script 68004.txt (/2. Data sanity/1 - Data Integrity Check), qui surveille la fraîcheur des données, conseille de régler la tolérance sur 1 jour pour les chargements quotidiens ("Set to 1 for daily uploads").
+Rien dans les scripts fournis ne mentionne spécifiquement une exécution "tous les dimanches". Si une telle fréquence est appliquée, elle relève de la configuration du planificateur de tâches (externe au code Envision) ou d'une spécificité non documentée dans ces fichiers. Les scripts d'agrégation (comme 68019.txt) travaillent souvent à la maille hebdomadaire (WeeklyFC), mais cela concerne la granularité des prévisions, non la fréquence d'exécution du preprocessing.
+Comment fonctionne l'algorithme Autodiff pour apprendre la saisonnalité des produits ?
+Quels sont les rôles des tables Catalog et Orders dans Envision ?
+Expliquez les différences entre les types de demandes moyennes dans l'optimisation.
+{
+"id": 9,
+"question": "Où sont calculés les meilleurs vendeurs ?",
+"deterministic": true,
+"answers": [
+"/3. Inspectors/4 - Stores Analysis"
+],
+"appendix": []
+},
+
+
+essaie de comprendre pourquoi la réponse est celle donnée
+
+La réponse est le fichier 68012.txt (qui correspond au chemin /3. Inspectors/4 - Stores Analysis dans le mapping.txt) car ce script contient la logique spécifique pour calculer et classer les "Meilleurs Vendeurs" (Best Sellers) au niveau de chaque magasin/localisation.
+Voici les éléments précis du code qui justifient cette réponse :
+1. Le Calcul du Rang (Best Seller Rank) : Le script calcule d'abord le poids des ventes de chaque article par rapport au chiffre d'affaires total du magasin (SalesWeight), puis utilise la fonction rankrev pour établir le classement.
+    ◦ Code : RefCatalog.BestSellerRank = rankrev () by RefCatalog.Id scan RefCatalog.SalesWeight.
+    ◦ L'instruction by RefCatalog.Id est cruciale ici : elle indique que le classement est effectué indépendamment pour chaque localisation (Id = Loc), ce qui est le but de l'analyse "Stores Analysis".
+2. L'Affichage Explicite : Le script génère ensuite un tableau dont le titre est littéralement "Meilleurs vendeurs des 365 derniers jours".
+    ◦ Code : show table "Last 365 days Best Sellers" c7e9 slices:slice with.
+    ◦ Ce tableau affiche le rang (Rank), la référence, le nom, et les ventes (quantité et valeur) sur la période.
+3. Contextualisation : Contrairement à d'autres scripts (comme le Sales Analysis 68010.txt qui fait un classement global), celui-ci isole la performance des produits par point de vente géographique, permettant d'identifier les "stars" locales de chaque magasin.
+Comment le classement des meilleurs vendeurs varie-t-il par magasin ?
+Quels indicateurs déterminent la croissance annuelle par produit ?
+Où sont définies les trois catégories de demande moyenne ?
+idem pour ceci : {
+"id": 10,
+"question": "Que fait-on dans ce compte ?",
+"deterministic": false,
+"answers": [
+"Nettoyage des données",
+"Analyses & diagnostics",
+"Préparation des forecasts"
+],
+"appendix": []
+},
+
+La réponse "Nettoyage des données, Analyses & diagnostics, Préparation des forecasts" résume les trois piliers fonctionnels structurant ce compte Envision. Cette classification repose sur l'organisation explicite des dossiers (visible dans le fichier mapping.txt) et la logique interne des scripts fournis.
+Voici les éléments du code qui justifient chacune de ces activités :
+1. Nettoyage des données
+Cette activité est centralisée dans le dossier /1. utilities/ et /2. Data sanity/. Les scripts transforment les données brutes en données exploitables ("propres").
+• Pre-traitement métier : Le script 68001.txt (/1. utilities/2. preprocess/[ 2 ] - Business Preprocessing) est explicitement dédié au nettoyage. Il définit des règles de validation (ex: IsValidSellPrice), marque les lignes invalides (Catalog.IsClean = ...) et crée des alertes de santé des données (Catalog.HealthLog).
+• Contrôle d'intégrité : Le script 68004.txt (/2. Data sanity/1 - Data Integrity Check) vérifie la fraîcheur et la présence des fichiers.
+• Santé des données : Le script 68005.txt (/2. Data sanity/2 - Low Level Data Health) fournit une évaluation de la qualité des données non nettoyées, identifiant les doublons de clés ou les références manquantes.
+2. Analyses & diagnostics
+Cette activité est couverte par le dossier /3. Inspectors/ et certains scripts de /2. Data sanity/, qui fournissent des tableaux de bord pour auditer la performance historique et l'état actuel de la supply chain.
+• Inspecteurs spécialisés : Le compte contient des outils d'analyse dédiés par axe métier :
+    ◦ Ventes : 68010.txt (/3. Inspectors/2 - Sales Analysis) analyse l'historique des ventes et classe les articles.
+    ◦ Stock : 68011.txt (/3. Inspectors/3 - Stock Inspector) diagnostique les niveaux de stock, les ruptures et le sur-stock.
+    ◦ Magasins : 68012.txt (/3. Inspectors/4 - Stores Analysis) analyse la performance par point de vente.
+    ◦ Fournisseurs : 68013.txt (/3. Inspectors/5 - Supplier Inspector) évalue la ponctualité et la qualité des fournisseurs.
+• Alertes de haut niveau : Le script 68006.txt (/2. Data sanity/3 - High Level Data Health) détecte des anomalies métier comme des marges suspectes ou des prix de vente incohérents avec l'historique.
+3. Préparation des forecasts
+Cette activité se déroule dans les dossiers /1. utilities/2. preprocess/ et /4. Optimization workflow/. Elle consiste à calculer, ajuster et valider les prévisions de la demande.
+• Calcul des modèles : Le script 68002.draft.txt (/1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff) utilise la différentiation automatique pour calculer la saisonnalité, les tendances et les distributions de demande (Weekly demand distribution).
+• Validation et Ajustement : Le script 68019.txt (/4. Optimization workflow/03.b. Forecasting) (ou sa version française 78069.txt) présente ces prévisions à l'utilisateur ("Forecast Validation") et permet des surcharges manuelles (Overrule Quantities) pour affiner le plan de demande avant l'optimisation des stocks.
+En résumé, l'architecture du compte suit un flux logique : les données sont d'abord nettoyées (Scripts 68000-68005), puis analysées pour comprendre le contexte (Scripts 68009-68013), et enfin utilisées pour préparer les prévisions (Scripts 68002, 68019) qui alimenteront les décisions d'achat et de dispatch.
+Comment le script Forecast Autodiff modélise-t-il spécifiquement la saisonnalité ?
+Quels indicateurs le Global Business Cockpit utilise-t-il pour l'overstock ?
+Expliquez la logique du calcul de gain de Fill Rate.
+idem ici : {
+"id": 11,
+"question": "Le client veut ajouter une nouvelle localisation pour le dispatch. Où paramétrer le champ ReDispatchCycle propre à cette localisation ?",
+"deterministic": true,
+"answers": [
+"/1. utilities/2. preprocess/[2] - Business Preprocessing"
+],
+"appendix": []
+},
+
+La réponse est le fichier 68001.txt, qui correspond au chemin /1. utilities/2. preprocess/[ 2 ] - Business Preprocessing.
+C'est dans ce script que la logique par défaut du cycle de re-dispatch est définie en fonction du code de la localisation.
+Voici les éléments du code qui justifient cette réponse :
+1. Définition structurelle par localisation : Le script contient une instruction match explicite qui attribue une valeur de ReDispatchCycle selon le code du lieu (Catalog.Loc). C'est ici qu'il faut ajouter la nouvelle localisation et sa valeur associée.
+    ◦ Code :
+2. ,
+3. Mécanisme de surcharge (Override) : Ce script gère également l'application des surcharges manuelles. Si une valeur spécifique a été saisie manuellement pour un article donné (via le script de saisie manuelle Manual Inputs 67984.txt), elle remplacera la valeur par défaut définie ci-dessus.
+    ◦ Code : Catalog.ReDispatchCycle = single(OverrideItems.ReDispatchCycle) by OverrideItems.Sku at Catalog.Sku default Catalog.ReDispatchCycle
+C'est donc bien dans le Business Preprocessing que réside la règle métier principale reliant la localisation à son cycle de dispatch.
+Comment fonctionne le calcul du taux de couverture suggéré ?
+Quels paramètres définissent l'investissement total dans les suggestions d'achat ?
+Où sont configurés les délais d'approvisionnement des fournisseurs ?
+idem ici : {
+"id": 14,
+"question": "Je vais recevoir une nouvelle colonne FuturSellPrice dans ma table catalogue. Dans quel script effectuer des checks de cohérence sur les valeurs observées ?",
+"deterministic": true,
+"answers": [
+"/1. utilities/2. preprocess/[2] - Business Preprocessing"
+],
+"appendix": []
+},
+
+La réponse est le fichier 68001.txt, qui correspond au chemin /1. utilities/2. preprocess/[ 2 ] - Business Preprocessing.
+C'est dans ce script que sont centralisées les règles de validation métier et le nettoyage des données pour garantir qu'elles sont exploitables ("Clean") par les étapes suivantes.
+Voici les éléments du code qui justifient cette réponse :
+1. Section dédiée aux règles de validation : Le script contient une section explicitement nommée ///------------------------------ [ DEFINE AND CHECK INPUT RULES ] ---------------------------------. C'est ici que sont définies les règles logiques pour accepter ou rejeter une valeur.
+2. Exemple existant sur les prix : Le script effectue déjà des vérifications de cohérence sur les prix de vente actuels. Vous pouvez calquer votre logique pour FuturSellPrice sur la variable IsValidSellPrice existante.
+    ◦ Code : Catalog.IsValidSellPrice = Catalog.SellPrice > 0 and Catalog.SellPrice > Catalog.BuyPrice.
+    ◦ Cette ligne vérifie que le prix est positif et supérieur au prix d'achat (check de cohérence).
+3. Filtrage des données (IsClean) : Les résultats de ces checks sont utilisés pour déterminer si la ligne est valide (IsClean). Si votre FuturSellPrice est incohérent, vous pouvez ainsi exclure l'article ou lever une alerte dans la colonne HealthLog.
+    ◦ Code : Catalog.IsClean = ... and Catalog.IsValidSellPrice.
+Note : Avant de pouvoir effectuer ces checks dans le script 68001.txt, assurez-vous d'avoir déclaré la lecture de la nouvelle colonne FuturSellPrice dans le script précédent, 68000.txt (/1. utilities/2. preprocess/[ 1 ] - Technical PreProcessing), qui gère l'importation brute des fichiers.
+Comment fonctionne la formule du prix de vente futur ?
+Quels sont les paramètres de croissance annuelle par défaut ?
+Comment modifier manuellement les cycles de réapprovisionnement par produit ?
+idem ici : {
+"id": 16,
+"question": "Existe-t-il un endroit où retrouver des informations condensées pour analyser les différents fournisseurs ?",
+"deterministic": true,
+"answers": [
+"oui"
+],
+"appendix": [
+"/3. Inspectors/5 - Supplier Inspector"
+]
+},
+
+La réponse est oui, et l'endroit spécifique est le fichier 68013.txt, qui correspond au chemin /3. Inspectors/5 - Supplier Inspector dans la structure du projet (comme indiqué dans le fichier mapping.txt).
+Ce script génère un tableau de bord complet dédié à l'analyse de la performance des fournisseurs. Voici les éléments précis du code qui justifient cette réponse :
+1. Une vue d'ensemble condensée ("Supplier List") Le script crée une table récapitulative listant tous les fournisseurs avec leurs indicateurs clés de performance sur les 365 derniers jours.
+• Code : show table "\{focusGroup} List" a8b10 with ... Focus.FocusBuyValue365 as "PO-Amount365" ... Focus.FocusQuantity365 as "PO-Volume365" ... Focus.Ranking.
+• Cette table permet de comparer rapidement les fournisseurs en fonction du montant acheté (PO-Amount365), du volume (PO-Volume365) et d'un classement de ponctualité (Ranking).
+2. Un classement de performance (Ranking) Le script calcule automatiquement une notation (sous forme d'étoiles) basée sur le taux de retard des commandes.
+• Code :
+3. Une analyse détaillée par fournisseur En plus de la liste globale, le tableau de bord permet de cliquer sur un fournisseur pour afficher un résumé spécifique ("Supplier summary") incluant :
+• La date de la première commande (First Order).
+• La tendance des retards (Lateness Tendency) : stable, en hausse ou en baisse,.
+• La distribution des délais de livraison (LeadTimes).
+• L'historique complet des lignes de commande d'achat.
+C'est donc bien dans ce fichier que l'on retrouve les informations condensées et structurées nécessaires à l'analyse des différents fournisseurs.
+Comment fonctionne le calcul du taux de retard fournisseur ?
+Quels indicateurs définissent un fournisseur trois étoiles ?
+Où voir la tendance d'évolution des retards de livraison ?
+idem ici " {
+"id": 17,
+"question": "Où paramétrer des changements globaux sur les prix de vente afin d'observer leur impact sur la prévision des ventes ?",
+"deterministic": true,
+"answers": [
+"/6. Rule Based Pricing/Pricing Rules"
+],
+"appendix": []
+},"
+
+La réponse est le fichier 83121.txt, qui correspond au chemin /6. Rule Based Pricing/Pricing Rules dans le fichier de mapping.
+Ce script est spécifiquement conçu pour simuler des stratégies de prix ("Pricing Management") et visualiser leur impact direct sur les prévisions de ventes via un modèle d'élasticité simple.
+Voici les éléments du code qui justifient cette réponse :
+1. Paramétrage des changements de prix (globaux ou par catégorie) Le script permet à l'utilisateur de définir des règles de changement de prix via des fichiers chargés (read upload), notamment au niveau des catégories pour des changements globaux.
+• Code : Le script lit la table PerimetreCategoryUpload qui contient les colonnes SelectedCategory et PricePercentChange (pourcentage de changement de prix).
+• Interface : Une table éditable "Pricing Management By Category" permet à l'utilisateur d'activer ces changements et de saisir le pourcentage d'évolution.
+2. Calcul du nouveau prix de vente Le script calcule un nouveau prix de vente théorique (NewSellPrice) en appliquant le pourcentage de changement défini par l'utilisateur au prix actuel.
+• Code : Items.NewSellPriceIfCategorySelected = ... Items.SellPrice * (1+Items.CategoryPricePercentChange).
+3. Observation de l'impact sur la prévision (Modèle d'élasticité) C'est le point clé de la question : le script calcule explicitement l'impact de ce changement de prix sur la prévision des ventes en utilisant une élasticité-prix (fixée arbitrairement à 0.5 dans le code via la division par 2).
+• Calcul de l'élasticité : Items.PriceElasticity = if Items.NewSellPrice != Items.SellPrice then Items.SellPriceComparison/2 else 0.
+• Ajustement de la prévision : Le script génère une nouvelle courbe de prévision (NewForecast) basée sur cette élasticité.
+    ◦ Code : ItemsWeek.NewForecast = (1+Items.PriceElasticity) * ItemsWeek.InitialForecast.
+4. Visualisation comparative Enfin, le script affiche un graphique comparant les ventes passées, la prévision initiale et la nouvelle prévision impactée par le changement de prix, permettant l'observation demandée.
+• Code : show linechart "Weekly Sales and Future Forecast" ... sum(ItemsWeek.InitialForecast) ... sum(ItemsWeek.NewForecast).
+Comment l'élasticité-prix est-elle calibrée pour simuler les ventes ?
+Quels indicateurs financiers valident la rentabilité des nouveaux prix ?
+Peut-on automatiser les changements de prix selon les stocks ?
+idem ici : {
+"id": 19,
+"question": "Le produit CT-110-DC est-il traité de façon spécifique dans les scripts ?",
+"deterministic": true,
+"answers": [
+"Oui"
+],
+"appendix": [
+"Certaines dates ne sont pas prises en compte dans l'apprentissage du forecast"
+]
+},
+
+La réponse est Oui, le produit CT-110-DC est traité spécifiquement pour exclure une période de données de l'apprentissage des prévisions.
+Cette logique se trouve dans le script 68002.draft.txt (qui correspond au chemin /1. utilities/2. preprocess/[ 3 ] - Forecast Autodiff).
+Voici les éléments du code qui justifient cette réponse :
+1. Définition d'une période censurée (IsCensoredPeriod) : Le script identifie explicitement l'article "CT-110-DC" et définit une période (du 1er juin 2020 au 31 août 2020) durant laquelle les données doivent être ignorées (probablement dû à une anomalie comme le COVID-19).
+    ◦ Code : ItemsWeek.IsCensoredPeriod = Items.Id == "CT-110-DC" and (Week.monday >= date(2020,06,01) and Week.monday < date(2020,08,31)).
+2. Exclusion de l'apprentissage (Cache) : Cette variable booléenne est ensuite utilisée pour calculer la variable Cache. Si la période est censurée, Cache vaut 0 (faux).
+    ◦ Code : ItemsWeek.IsCache = ItemsWeek.IsItemLife and not ItemsWeek.IsCensoredPeriod.
+3. Impact sur le moteur de prévision (autodiff) : Dans le bloc d'optimisation autodiff, la variable Cache sert de coefficient de pondération. Lorsqu'elle vaut 0, l'erreur (DeltaSquare) pour cette semaine n'est pas comptabilisée dans la somme globale (Sum), ce qui signifie que le modèle "n'apprend pas" sur ces dates spécifiques pour cet article.
+    ◦ Code : Week.Coeff = ItemsWeek.ItemLifeWeight * ItemsWeek.Cache.
+    ◦ Code : Sum = sum(Week.Coeff * Week.DeltaSquare) / 10000.
+Comment la période COVID est-elle censurée pour l'article CT-110-DC ?
+Quels paramètres de saisonnalité sont exportés dans FcItems.ion ?
+Comment le modèle Autodiff utilise-t-il les coefficients de tendance ?
+idem ici : {
+"id": 21,
+"question": "Où paramétrer le champ ReDispatchCycle propre à cette localisation ?",
+"deterministic": true,
+"answers": [
+"Dans /1. utilities/2. preprocess/[ 2 ] - Business Preprocessing"
+],
+"appendix": []
+},
+
+La réponse est le fichier 68001.txt, qui correspond au chemin /1. utilities/2. preprocess/[ 2 ] - Business Preprocessing dans le fichier de mapping.
+C'est dans ce script que la logique par défaut du cycle de re-dispatch est définie structurellement en fonction du code de la localisation.
+Voici les éléments du code qui justifient cette réponse :
+1. Définition par défaut selon la localisation : Le script contient une instruction match explicite qui attribue une valeur de ReDispatchCycle selon le code du lieu (Catalog.Loc). C'est ici qu'il faut ajouter une nouvelle localisation et sa valeur associée pour qu'elle soit prise en compte par défaut.
+    ◦ Code :
+2. Gestion des surcharges (Overrides) : Bien que ce script permette aussi d'appliquer des surcharges manuelles définies par article (via OverrideItems), la règle "propre à la localisation" (structurelle) se trouve dans le bloc match cité ci-dessus.
+    ◦ Code : Catalog.ReDispatchCycle = single(OverrideItems.ReDispatchCycle) by OverrideItems.Sku at Catalog.Sku default Catalog.ReDispatchCycle.
+Comment l'apprentissage du forecast exclut-il les données de CT-110-DC ?
+Quels paramètres du Business Preprocessing contrôlent la validité des prix ?
+Comment le ReDispatchCycle varie-t-il selon les localisations comme LON ?
+idem ici : {
+"id": 21,
+"question": "Où paramétrer le champ ReDispatchCycle propre à cette localisation ?",
+"deterministic": true,
+"answers": [
+"Dans /1. utilities/2. preprocess/[ 2 ] - Business Preprocessing"
+],
+"appendix": []
+},
+
+La réponse est le fichier 68001.txt, qui correspond au chemin /1. utilities/2. preprocess/[ 2 ] - Business Preprocessing selon le fichier de mapping.
+C'est dans ce script que la logique structurelle définissant le cycle de re-dispatch (ReDispatchCycle) est codée spécifiquement en fonction de la localisation (Catalog.Loc).
+Voici les éléments du code qui justifient cette réponse :
+1. Définition par défaut selon la localisation : Le script contient une instruction match explicite qui attribue une valeur de ReDispatchCycle selon le code du lieu. C'est l'endroit où l'on définit les règles "propres à cette localisation" (par exemple, 28 jours pour EDB, 21 jours pour LON).
+    ◦ Code :
+2. Gestion des surcharges (Overrides) : Ce script gère également l'application des surcharges manuelles. Si une valeur spécifique a été saisie manuellement pour un article donné (via le tableau de bord Manual Inputs), elle remplacera la valeur par défaut définie ci-dessus.
+    ◦ Code : Catalog.ReDispatchCycle = single(OverrideItems.ReDispatchCycle) by OverrideItems.Sku at Catalog.Sku default Catalog.ReDispatchCycle.

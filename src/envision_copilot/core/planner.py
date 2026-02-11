@@ -26,6 +26,9 @@ class Node:
     reasoning: str = ""
     result: str = ""
     depth: int = 0
+    
+    # LLM-generated summary of this tool's results (factual, stats-focused)
+    summary: List[str] = field(default_factory=list)
 
     def to_dict(self):
         return {
@@ -140,6 +143,55 @@ class Planner:
     def mark_cancelled(self, node: Node, reasoning: str = ""):
         node.status = NodeStatus.CANCELLED
         node.reasoning = reasoning
+
+    def get_visible_history(self, plan_history_depth: int = None) -> str:
+        """
+        Returns truncated history based on plan_history_depth config.
+        If plan_history_depth is -1, returns ALL history.
+        Includes LLM-generated summaries for each tool to preserve key insights.
+        """
+        if plan_history_depth is None:
+            plan_history_depth = self.config.get("agent", {}).get("constraints", {}).get("plan_history_depth", -1)
+        
+        # Layers to show: all except layer 0 (root) and last layer (in last_results)
+        # We want to show plan_history_depth layers before the last one
+        displayable_layers = self.layers[1:-1] if len(self.layers) > 1 else []  # Exclude root and last
+        
+        if not displayable_layers:
+            return "(No previous layers yet)"
+        
+        # -1 means show ALL history
+        if plan_history_depth == -1:
+            omitted_count = 0
+            visible_layers = displayable_layers
+            start_idx = 1
+        elif plan_history_depth > 0 and len(displayable_layers) > plan_history_depth:
+            omitted_count = len(displayable_layers) - plan_history_depth
+            visible_layers = displayable_layers[-plan_history_depth:]
+            start_idx = len(self.layers) - plan_history_depth - 1  # Adjust index for display
+        else:
+            omitted_count = 0
+            visible_layers = displayable_layers
+            start_idx = 1
+        
+        buffer = []
+        if omitted_count > 0:
+            buffer.append(f"... [{omitted_count} earlier layer(s) omitted]")
+        
+        for i, layer in enumerate(visible_layers):
+            layer_num = start_idx + i
+            buffer.append(f"\n**Layer {layer_num}:**")
+            for node in layer:
+                icon = "✅" if node.status == NodeStatus.DONE else "❌" if node.status == NodeStatus.FAILED else "⏳"
+                buffer.append(f"  {icon} {node.goal} [{node.tool_name}]")
+                
+                # Include summaries if available (key insights from this tool's results)
+                if node.summary:
+                    buffer.append("    📝 Digest:")
+                    for line in node.summary:
+                        buffer.append(f"      - {line}")
+        
+        return "\n".join(buffer) if buffer else "(No previous layers yet)"
 
     def __str__(self) -> str:
         """

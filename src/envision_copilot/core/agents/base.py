@@ -19,13 +19,15 @@ class BaseAgent:
         self.debug = debug
         self.retry_limit = config.get("agent", {}).get("constraints", {}).get("retry_limit", 2)
         
-        # Load Retry Prompt Template via Loader or Fallback
+        # Load Retry Prompt Templates via Loader or Fallback
         if self.prompt_loader:
             self.retry_template = self.prompt_loader.get_guardrails_retry_template()
+            self.tool_format_error_template = self.prompt_loader.get_guardrails_tool_format_error_template()
         else:
             prompts = config.get("prompts", {})
             generic = prompts.get("generic", {})
             self.retry_template = generic.get("guardrails_retry", "")
+            self.tool_format_error_template = generic.get("guardrails_tool_format_error", "")
 
     def query_llm_robust(self, prompt: str, schema_validation: Optional[Callable[[Dict], bool]] = None) -> Optional[Dict]:
         """
@@ -48,6 +50,22 @@ class BaseAgent:
             try:
                 raw_response = self._generate_with_logs(current_prompt)
             except Exception as e:
+                error_str = str(e)
+                
+                # Check if it's a recoverable tool_use_failed error (model tried to call a tool)
+                if "tool_use_failed" in error_str or "failed_generation" in error_str:
+                    self._log_error(f"Tool Format Error (Attempt {attempt+1}/{self.retry_limit + 1}): Model generated tool-call format")
+                    
+                    if attempt < self.retry_limit:
+                        # Prepare vigilance prompt for tool format error
+                        if self.tool_format_error_template:
+                            vigilance_msg = self.tool_format_error_template.replace(
+                                "{failed_generation}", error_str
+                            )
+                            current_prompt = f"{prompt}\n\n{vigilance_msg}"
+                            continue  # Retry with corrected prompt
+                
+                # Non-recoverable error (rate limit, auth, network, etc.)
                 self._log_error(f"LLM Generation Error: {e}")
                 return None
 
