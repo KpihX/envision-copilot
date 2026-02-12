@@ -23,3 +23,13 @@ class CopilotState(TypedDict):
     
     # 5. Output
     final_answer: str           # Final response in user_language
+
+    # 6. Interactive Mode
+    interactive_mode: bool      # Whether the copilot is in interactive mode
+    
+    # 7. Depth Tracking (Live Mode)
+    turn_start_depth: int       # Depth at the start of the current interaction
+    max_depth: int              # Maximum depth for this session
+    
+    # 8. Persistence
+    last_thought_process: Optional[str] # The thought process from the previous Think step

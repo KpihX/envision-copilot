@@ -27,12 +27,11 @@ from typing import List, Dict, Any
 # TOOL DEFINITIONS
 # =============================================================================
 
-TOOLS: List[Dict[str, Any]] = [
+TOOLS: Dict[str, Dict[str, Any]] = {
     # -------------------------------------------------------------------------
     # NAVIGATION DOMAIN: Graph exploration and folder hierarchy
     # -------------------------------------------------------------------------
-    {
-        "name": "graph",
+    "graph": {
         "description": "Navigate and explore the Envision dependency graph (folders, scripts, data, relationships)",
         "documentation": """
 ## Graph Tool
@@ -128,6 +127,7 @@ Use this to navigate workflow sequence: to find next script, look for neighbor (
 {"action": "search", "query": "Forecast", "node_types": ["script"]}
 ```
         """,
+        "usage_hint": "HINT: 'tree' to see folders, 'node' for details, 'neighbors' for deps, 'search' for files. Args: {\"action\": \"tree\", \"path\": \"/\"}",
         "parameters": {
             "type": "object",
             "properties": {
@@ -180,8 +180,7 @@ Use this to navigate workflow sequence: to find next script, look for neighbor (
     # -------------------------------------------------------------------------
     # CONTENT DOMAIN: Read file contents
     # -------------------------------------------------------------------------
-    {
-        "name": "reader",
+    "reader": {
         "description": "Read Envision script or function content by ID with optional line range",
         "documentation": """
 ## Reader Tool
@@ -233,6 +232,7 @@ Returns content with metadata:
 {"node_id": "68006", "start_line": 100, "end_line": 150}
 ```
         """,
+        "usage_hint": "HINT: Read file content. Use NUMERIC ID from graph (e.g., '68006'). Args: {\"node_id\": \"68006\"}",
         "parameters": {
             "type": "object",
             "properties": {
@@ -256,8 +256,7 @@ Returns content with metadata:
     # -------------------------------------------------------------------------
     # SEARCH DOMAIN: RAG semantic search
     # -------------------------------------------------------------------------
-    {
-        "name": "rag",
+    "rag": {
         "description": "Semantic search over Envision codebase using embeddings (for conceptual queries)",
         "documentation": """
 ## RAG Tool (Semantic Search)
@@ -320,6 +319,7 @@ or `terms` (domain identifiers). Use these to guide results:
 {"query": "how is lead time computed", "keywords": ["def"], "terms": ["LeadTime"], "horizon": true}
 ```
         """,
+        "usage_hint": "HINT: Semantic search for concepts/logic. Args: {\"query\": \"how is stock calculated?\"}",
         "parameters": {
             "type": "object",
             "properties": {
@@ -353,8 +353,7 @@ or `terms` (domain identifiers). Use these to guide results:
     # -------------------------------------------------------------------------
     # SEARCH DOMAIN: Grep pattern search
     # -------------------------------------------------------------------------
-    {
-        "name": "grep",
+    "grep": {
         "description": "Regex pattern search in script contents (for exact text matching)",
         "documentation": """
 ## Grep Tool (Pattern Search)
@@ -385,6 +384,7 @@ Find exact text patterns using regex.
 {"pattern": "read.*\\.ion"}
 ```
         """,
+        "usage_hint": "HINT: Exact regex search for identifiers. Args: {\"pattern\": \"Items\\\\.Stock\"}",
         "parameters": {
             "type": "object",
             "properties": {
@@ -401,7 +401,7 @@ Find exact text patterns using regex.
             "required": ["pattern"]
         }
     }
-]
+}
 
 
 # =============================================================================
@@ -410,20 +410,20 @@ Find exact text patterns using regex.
 
 def get_tool_definitions() -> List[Dict[str, Any]]:
     """Return all tool definitions for LLM prompts."""
-    return TOOLS
+    return [dict(v, name=k) for k, v in TOOLS.items()]
 
 
 def get_tool_by_name(name: str) -> Dict[str, Any] | None:
     """Get a specific tool definition by name."""
-    for tool in TOOLS:
-        if tool["name"] == name:
-            return tool
+    tool = TOOLS.get(name)
+    if tool:
+        return dict(tool, name=name)
     return None
 
 
 def get_tools_summary() -> str:
     """Generate a compact summary of available tools."""
     lines = ["Available Tools:"]
-    for tool in TOOLS:
-        lines.append(f"  - {tool['name']}: {tool['description']}")
+    for name, tool in TOOLS.items():
+        lines.append(f"  - {name}: {tool['description']}")
     return "\n".join(lines)

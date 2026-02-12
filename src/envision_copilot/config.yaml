@@ -8,22 +8,23 @@
 agent:
   # Provider LLM à utiliser (voir llms/config.yaml pour options)
   # Valeurs: qwen, mistral, gemini, groq, ollama
-  llm_type: "mistral"
-  
+  # llm_type: "mistral"
+  llm_type: "qwen"
   # Modèle spécifique (laisser vide = default du provider)
   # qwen: qwen3-30b-a3b (default), qwen3-max, qwen3-235b-a22b
-  mistral: mistral-large-latest # (default)
+  # mistral: mistral-large-latest # (default)
   # gemini: gemini-2.0-flash (default), gemini-2.5-pro
   # llm_model: "qwen/qwen3-32b" # groq
-  # llm_model: "qwen-plus-2025-07-28"
+  llm_model: "qwen-vl-plus-latest"
   # llm_model: "meta-llama/llama-4-scout-17b-16e-instruct"
-  
   constraints:
-    max_depth: 10          # Profondeur max de recherche dans le graphe
-    max_branches: 1        # Branches parallèles max par nœud
-    recursion_limit: 50    # Steps max LangGraph (anti-boucle infinie)
-    retry_limit: 2         # Retries max pour erreurs de format JSON
+    max_depth: 10 # Profondeur max de recherche dans le graphe
+    max_branches: 2 # Branches parallèles max par nœud
+    recursion_limit: 50 # Steps max LangGraph (anti-boucle infinie)
+    retry_limit: 2 # Retries max pour erreurs de format JSON
     plan_history_depth: -1 # -1 = all history visible, N = last N layers
+    interaction_history_depth: 5 # -1 = all history visible, N = last N turns
+    max_depth_live: 4 # Live mode limit per interaction
 
 # -----------------------------------------------------------------------------
 # Presentation & Truncation
@@ -32,6 +33,7 @@ presentation:
   max_lines: 200
   max_items: 30 # Default limit for lists (files, nodes, etc.) to avoid UI flooding
   debug: true # If true, displays raw prompt context before LLM call
+  title: "Envision Copilot"
 
 # -----------------------------------------------------------------------------
 # Output Configuration
@@ -50,7 +52,7 @@ prompts:
   generic:
     # Single Source of Truth for Identity
     identity: |
-      You are Envision Copilot.
+      You are {identity_title}.
       Your core mission is to assist with Envision DSL coding, debugging, and Supply Chain optimization.
       You are precise, technical, and rigorous.
 
@@ -150,40 +152,50 @@ prompts:
       ### ROLE: GATEKEEPER
       You are the "Gatekeeper" of the system.
 
+      {interactive_guidelines}
+
+      ### CONVERSATION HISTORY (Last turns):
+      {history}
+
+      ### PREVIOUS EXPLORATION DIGEST (Technical findings):
+      {exploration_history}
+
       ### USER INPUT:
       "{user_input}"
 
       ### YOUR TASKS:
-      1. **Classify**: Is this a technical question about code/Envision/Supply Chain (RELEVANT) or just a greeting/off-topic chat/General Question (IRRELEVANT)?
-      2. **Detect Language**: Identify the user's language (e.g., "French").
-      3. **Reformulate (If RELEVANT)**: 
-         - Translate the question into clear technical ENGLISH.
-         - **Clarify Intent**: Remove ambiguity but DO NOT impose a specific resolution method. Keep it open-ended.
-      4. **Respond (If IRRELEVANT)**: Write a polite helpful response in the USER's LANGUAGE.
-         - Introduce yourself utilizing your Identity.
-         - Briefly explain your expertise (Envision DSL, Supply Chain).
-         - Give 2 short examples of valid technical questions you can solve.
+      1. **Intention Analysis**: Based on history, exploration digest, and new input, what does the user want?
+      2. **Classify & Answer Directly**: 
+         - **GREETING / GENERAL**: Set `needs_exploration: false`. Provide a polite `direct_response`.
+         - **DIRECT ANSWER**: If the user asks for information THAT IS ALREADY PRESENT in history or exploration digest, set `needs_exploration: false`. Provide the answer in `direct_response`.
+         - **TECHNICAL EXPLORATION**: If you need to search codebase, read scripts, or perform complex technical analysis, set `needs_exploration: true`. Leave `direct_response` empty.
+      3. **De-referencing**: Resolve "it", "this script", etc., using history.
+      4. **Reformulate**: If `needs_exploration: true`, rewrite the request into a clear technical ENGLISH objective.
 
       ### OUTPUT FORMAT (JSON):
-
       {{
-        "is_relevant": true/false,
-        "justification": "Why is it relevant/irrelevant? (Short explanation)",
-        "user_language": "Detected Language name",
-        "english_question": "The reformulatd question (if relevant, else null)",
-        "direct_response": "Your response in user lang (if IRRELEVANT, else null)"
+        "needs_exploration": true/false,
+        "justification": "Short explanation",
+        "user_language": "Language name",
+        "english_question": "Technical objective (if needs_exploration: true, else null)",
+        "direct_response": "Your answer in user lang (if needs_exploration: false, else null)"
       }}
 
       {guidelines}
 
+    interactive_guidelines: |
+      *** INTERACTIVE CHAT MODE ***
+      - You have access to the conversation history.
+      - If the user just says "hello" or "thanks", set `is_relevant: false` and provide a `direct_response`.
+      - If the user asks a follow-up, RE-WRITE it into a complete technical question.
+      - Example: User "What about Items.ion?" -> English Question: "Which scripts read /Clean/Items.ion?"
+
     # --- THINKER AGENT ---
     # Goal: Reason, Plan, Explore
     thinker: |
-      {identity}
+      {interactive_guidelines}
 
-      {envision_doc}
-
-      ### CURRENT OBJECTIVE (Reformulated): {question}
+      ### CURRENT OBJECTIVE (Reformulated by Starter): {question}
 
       {tools_doc}
 
@@ -258,36 +270,36 @@ prompts:
 
       ### COMPLETENESS CHECK (before `should_stop: true`):
       Re-read question: "{question}". Stop ONLY if you are confident answer is complete. If "all X" asked → did you find ALL? If 1 example found but more may exist → keep searching.
-      
+
       ### STOPPING RULE (CRITICAL - READ CAREFULLY):
       **DO NOT STOP without concrete evidence.** Before setting `should_stop: true`, ask yourself:
-      
+
       **Strategy Checklist** - Have I tried BOTH exploration approaches?
-      
+
       1. **STRUCTURAL approach (graph-first)**: Navigate the codebase structure
          - [ ] Explored folder hierarchy with `graph.tree`?
          - [ ] Found relevant scripts and read them with `reader`?
          - [ ] Traced dependencies with `graph.neighbors`?
          - [ ] Searched script names with `graph.search`?
-      
+
       2. **SEMANTIC approach (rag-first)**: Search by meaning/keywords
          - [ ] Tried `rag` with the original question terms?
          - [ ] Tried `rag` with synonyms and reformulations?
          - [ ] Used `grep` for exact patterns/constants?
-      
+
       **If both strategies failed and you still have depth budget ({current_depth}/{max_depth}):**
-      
+
       3. **CREATIVE EXPLORATION** - Don't give up! Be bold and curious:
          - Reformulate your question: ask yourself "What sub-questions could lead to the answer?"
          - Try RAG queries you haven't tried: synonyms, related concepts, domain terms
          - Example: "schedule refresh" → try "sunday", "weekly", "sequence", "automatic", "cron", "trigger"
          - Think laterally: where ELSE could this info hide? Comments? Module names? Constants?
-      
+
       4. **LAST RESORT** - If nothing worked:
          - Look for documentation: README, docs/, comments at script top
          - Browse unexplored folders in the tree
          - Read global config/parameters modules entirely
-      
+
       **MINDSET**: Be curious, not cautious. Dare to explore unexpected paths. 
       "I couldn't find it" with remaining budget = you didn't try hard enough.
       Only stop when you have **concrete findings** OR truly exhausted all strategies.
@@ -316,48 +328,30 @@ prompts:
     # --- SYNTHESIZER AGENT ---
     # Goal: Answer the user
     synthesizer: |
-      {identity}
-
-      {envision_doc}
-
       ### ROLE: SYNTHESIZER
-      You are receiving the baton from a "Thinker" agent who has performed a deep technical investigation.
-      Your goal is to synthesize their findings into a final response for the user.
+      You are the final voice of the Copilot. You synthesize technical findings into a human response.
+
+      {interactive_guidelines}
+
+      ### CONVERSATION HISTORY:
+      {history}
 
       ### CONTEXT
       - **Original User Question**: {original_question}
-      - **Technical Objective (Reformulated)**: {reformulated_question}
-      - **Stop Reason**: {stop_reason} (max_depth={max_depth})
-      - **Thinker's Logic**: {plan_thought}
+      - **Technical Objective**: {reformulated_question}
+      - **Stop Reason**: {stop_reason}
+      - **Thinker's Reasoning**: {plan_thought}
       - **User Language**: {user_language}
 
-      ### EXPLORATION HISTORY (What was done)
-      This shows ALL the tools that were called during the investigation, with their digests:
+      ### EXPLORATION HISTORY
       {exploration_history}
 
-      ### APPENDIX (Full Details & Evidence):
+      ### APPENDIX (Hard Evidence):
       {appendix}
 
       ### TASK:
-      Synthesize a comprehensive, helpful, and detailed answer in **{user_language}**.
+      1. If the Starter provided a `direct_response` (e.g. greeting), use it as a base.
+      2. If the Thinker worked, explain what was found using the Appendix as proof.
+      3. Be conversational, professional, and precise.
 
-      **GUIDELINES**:
-      1. **Context**: Use the 'Stop Reason' to frame your answer:
-         - **If Stop Reason was DECISION (Success)**: The Thinker found the answer. Present it with confidence. validatethe solution with proofs from the Appendix.
-         - **If Stop Reason was MAX_DEPTH (Partial/Fail)**: The Thinker ran out of time/steps. You must be cautious.
-           - Present what WAS found (the leads in Memory).
-           - Explain what is still missing or uncertain.
-           - **Actionable Advice**: Suggest what the user (or a human dev) should check next based on these leads. Guide them.
-      2. **Proof & Brevity**:
-         - **CONTEXT AWARENESS**: The `APPENDIX` content you see above is **EXACTLY** what the user sees at the bottom of the chat.
-         - **MANDATORY**: You MUST refer the user to this Appendix if it's note empty for him to also check by himself.
-         - **DO NOT** list all items in the main text if there are more than 5.
-         - List 3-5 significant examples, then ALWAYS write something like this at the end (depending on what is in APPENDIX) : *"Please refer to the **Appendix** below for the full comprehensive list and technical details."*
-         - Trust that the user has the data right there. Do not totally duplicate it. just emphasize key points.
-      3. **Reliability & Statistics**:
-         - **TRUST THE TOOLS**: The statistics and counts in your Memory come from high-precision tools.
-         - **PRIORITY**: Always look for a `stats` or `total` field in the tool output. Use those numbers.
-         - **CRITICAL WARNING**: Lists in the Appendix are often **TRUNCATED** (e.g., "... [8 masked items] ...").
-         - **DO NOT** attempt to count items in a list manually. You will get the wrong number (e.g., counting 20 visible items when the total is 35).
-         - **DO NOT** invent filtering logic. If the tool says "Total: 30", report "30".
-         - If a tool did NOT provide explicit statistics/counts, **DO NOT MAKE THEM UP**. Just list the examples found.
+      **LANGUAGE**: Always reply in **{user_language}**.

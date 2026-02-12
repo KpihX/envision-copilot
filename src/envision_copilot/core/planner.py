@@ -144,6 +144,38 @@ class Planner:
         node.status = NodeStatus.CANCELLED
         node.reasoning = reasoning
 
+    def get_effective_depths(self, state: Dict) -> tuple[int, int]:
+        """
+        Calculates current and max depth, accounting for interactive mode relative tracking.
+        """
+        current_depth = self.current_depth
+        max_depth = self.max_depth
+        
+        if state.get("interactive_mode"):
+            start_depth = state.get("turn_start_depth", 0)
+            current_depth = self.current_depth - start_depth
+            max_depth = state.get("max_depth", self.max_depth)
+            
+        return current_depth, max_depth
+
+    def mark_interaction_boundary(self, user_message: str):
+        """
+        Inserts a virtual 'boundary' node in the history to visually separate
+        user turns in the interactive session plan.
+        """
+        boundary_node = Node(
+            id=f"USER-{self._node_counter}",
+            goal=f"User Interaction: {user_message}",
+            tool_name="USER",
+            status=NodeStatus.DONE,
+            depth=self.current_depth
+        )
+        self._node_counter += 1
+        
+        # New interaction starts a new layer effectively
+        self.layers.append([boundary_node])
+        self.current_depth += 1
+
     def get_visible_history(self, plan_history_depth: int = None) -> str:
         """
         Returns truncated history based on plan_history_depth config.

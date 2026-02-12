@@ -4,6 +4,8 @@ from rich.panel import Panel
 from rich.markdown import Markdown
 from .base import BaseAgent
 from ..state import CopilotState
+from ..planner import Planner
+from ..memory import Memory
 
 class ThinkerAgent(BaseAgent):
     """
@@ -14,16 +16,19 @@ class ThinkerAgent(BaseAgent):
         super().__init__(config, llm, console, prompt_loader, verbose=verbose, debug=debug)
         self.prompt_loader = prompt_loader
 
-    def run(self, state: CopilotState, planner: Any, memory: Any, result_formatter: Any) -> Dict:
+    def run(self, state: CopilotState, planner: Planner, memory: Memory, result_formatter: Any) -> Dict:
         """
         Executes the Think Phase.
         """
+        # Calculate Relative Depth for Interactive Mode
+        current_depth, max_depth = planner.get_effective_depths(state)
+        
         question = state["question"]
         last_results = state.get("last_layer_results", [])
-        
+
         # UI Header
         if self.verbose or self.debug: 
-            depth_info = f"Depth: {planner.current_depth}/{planner.max_depth}"
+            depth_info = f"Depth: {current_depth}/{max_depth}"
             self.console.print(Panel(f"[bold]{question}[/bold]", title=f"🧠 Think Phase ({depth_info})", border_style="purple"))
 
         # Context
@@ -38,8 +43,10 @@ class ThinkerAgent(BaseAgent):
             memory=memory_text,
             history=plan_text, 
             last_results=results_text,
-            current_depth=planner.current_depth,
-            last_thought_process=last_thought
+            current_depth=current_depth,
+            max_depth=max_depth,
+            last_thought_process=last_thought,
+            interactive_mode=state.get("interactive_mode", False)
         )
         
         # Query LLM

@@ -12,7 +12,7 @@ class StarterAgent(BaseAgent):
         super().__init__(config, llm, console, prompt_loader, verbose=verbose, debug=debug)
         self.prompt_loader = prompt_loader
 
-    def run(self, state: CopilotState) -> Dict:
+    def run(self, state: CopilotState, history: str = "", interactive_mode: bool = False, exploration_history: str = "") -> Dict:
         """
         Executes the starter logic.
         Updates state with detected language and translated question.
@@ -20,7 +20,12 @@ class StarterAgent(BaseAgent):
         user_input = state["original_question"]
         
         # Build prompt using loader
-        prompt = self.prompt_loader.get_starter_prompt(user_input=user_input)
+        prompt = self.prompt_loader.get_starter_prompt(
+            user_input=user_input, 
+            history=history,
+            interactive_mode=interactive_mode,
+            exploration_history=exploration_history
+        )
         
         # Query LLM with specific validation
         result = self.query_llm_robust(prompt, schema_validation=self._validate_schema)
@@ -37,8 +42,8 @@ class StarterAgent(BaseAgent):
         updates = {
             "user_language": result.get("user_language", "English"),
             "question": result.get("english_question") or user_input,
-            "should_stop": not result.get("is_relevant", False),
-            "stop_reason": "irrelevant" if not result.get("is_relevant") else "",
+            "should_stop": not result.get("needs_exploration", False),
+            "stop_reason": "direct_answer" if not result.get("needs_exploration") else "",
             "final_answer": result.get("direct_response", "")
         }
         
@@ -46,11 +51,11 @@ class StarterAgent(BaseAgent):
 
     def _validate_schema(self, data: Dict) -> bool:
         """Validation specific to Starter Agent output."""
-        required = ["is_relevant", "user_language"]
+        required = ["needs_exploration", "user_language"]
         if not all(k in data for k in required):
             return False
             
-        if not isinstance(data["is_relevant"], bool): return False
+        if not isinstance(data["needs_exploration"], bool): return False
         if not isinstance(data["user_language"], str): return False
         
         return True

@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import json
 from envision_copilot.tools.definitions import TOOLS
 
@@ -20,36 +20,51 @@ class PromptLoader:
         """Get the guardrails template for tool-call format errors."""
         return self.generic.get("guardrails_tool_format_error", "")
 
-    def get_starter_prompt(self, user_input: str) -> str:
+    def get_starter_prompt(self, user_input: str, history: str = "", interactive_mode: bool = False, exploration_history: str = "") -> str:
         """Assembles: Generic Identity + Generic Envision Doc + Starter Specific."""
         template = self.agents.get("starter", "")
+        interactive_guidelines = self.agents.get("interactive_guidelines", "") if interactive_mode else ""
+        identity_title = self.config.get("presentation", {}).get("title", "Envision Copilot")
+        
+        # Pre-format identity with its own placeholders
+        identity_str = self.generic.get("identity", "").format(identity_title=identity_title)
+        
         return template.format(
-            identity=self.generic.get("identity", ""),
+            identity=identity_str,
             envision_doc=self.generic.get("envision_doc", ""),
             user_input=user_input,
+            history=history,
+            exploration_history=exploration_history,
+            interactive_guidelines=interactive_guidelines,
             guidelines=self.generic.get("guidelines", "")
         )
 
-    def get_think_prompt(self, question, memory, history, last_results, current_depth: int = 0, last_thought_process: str = "") -> str:
+    def get_think_prompt(self, question, memory, history, last_results, current_depth: int = 0, max_depth: Optional[int] = None, last_thought_process: str = "", interactive_mode: bool = False) -> str:
         """Assembles: Identity + Envision Doc + Tools + Thinker (Objective/Workflow/Instr)."""
         # 1. Load config values
         constraints = self.config.get("agent", {}).get("constraints", {})
         presentation = self.config.get("presentation", {})
         
-        max_depth = constraints.get("max_depth", 7)
+        if max_depth is None:
+            max_depth = constraints.get("max_depth", 7)
+            
         max_branches = constraints.get("max_branches", 2)
         max_lines = presentation.get("max_lines", 200)
         plan_history_depth = constraints.get("plan_history_depth", 1)
+        identity_title = presentation.get("title", "Envision Copilot")
         
         # 2. Get Thinker Template (Specialized)
         thinker_template = self.agents.get("thinker", "")
+        interactive_guidelines = self.agents.get("interactive_guidelines", "") if interactive_mode else ""
         
         # 3. Generate Dynamic Tools Doc
         tools_doc = self._generate_tools_doc()
         
-        # 4. Format Thinker specific parts using dictionary unpacking for clarity
+        # Pre-format identity
+        identity_str = self.generic.get("identity", "").format(identity_title=identity_title)
+        
         return thinker_template.format(
-            identity=self.generic.get("identity", ""),
+            identity=identity_str,
             envision_doc=self.generic.get("envision_doc", ""),
             tools_doc=tools_doc,
             question=question,
@@ -62,15 +77,21 @@ class PromptLoader:
             memory=memory,
             last_results=last_results,
             last_thought_process=last_thought_process if last_thought_process else "(No previous reasoning yet)",
+            interactive_guidelines=interactive_guidelines,
             guidelines=self.generic.get("guidelines", "")
         )
 
-    def get_synthesizer_prompt(self, appendix: str, max_depth: int, user_language: str, stop_reason: str, original_question: str, reformulated_question: str, plan_thought: str, exploration_history: str = "") -> str:
+    def get_synthesizer_prompt(self, appendix: str, max_depth: int, user_language: str, stop_reason: str, original_question: str, reformulated_question: str, plan_thought: str, exploration_history: str = "", history: str = "", interactive_mode: bool = False) -> str:
         """Assembles: Identity + Envision Doc + Synthesizer (Unified)."""
         synthesizer_template = self.agents.get("synthesizer", "")
+        interactive_guidelines = self.agents.get("interactive_guidelines", "") if interactive_mode else ""
+        identity_title = self.config.get("presentation", {}).get("title", "Envision Copilot")
+        
+        # Pre-format identity
+        identity_str = self.generic.get("identity", "").format(identity_title=identity_title)
         
         return synthesizer_template.format(
-            identity=self.generic.get("identity", ""),
+            identity=identity_str,
             envision_doc=self.generic.get("envision_doc", ""),
             appendix=appendix,
             max_depth=max_depth,
@@ -80,6 +101,8 @@ class PromptLoader:
             reformulated_question=reformulated_question,
             plan_thought=plan_thought,
             exploration_history=exploration_history or "(No exploration history)",
+            history=history,
+            interactive_guidelines=interactive_guidelines,
             guidelines=self.generic.get("guidelines", "")
         )
 
@@ -87,8 +110,7 @@ class PromptLoader:
         """Generates markdown documentation from TOOLS definitions."""
         buffer = ["### AVAILABLE TOOLS & DOCUMENTATION"]
         
-        for tool in TOOLS:
-            name = tool['name']
+        for name, tool in TOOLS.items():
             doc = tool.get("documentation", "").strip()
             
             buffer.append(f"\n#### Tool: `{name}`")

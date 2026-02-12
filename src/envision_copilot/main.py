@@ -26,7 +26,7 @@ def start(
     ] = None,
     interactive: Annotated[
         bool, 
-        typer.Option("--interactive", "-i", help="Interactive conversation mode (agent can ask clarifications)")
+        typer.Option("--interactive", "-i", "--live", help="Interactive conversation mode (agent can ask clarifications)")
     ] = False,
     verbose: Annotated[
         bool, 
@@ -45,27 +45,21 @@ def start(
     console.print(Panel("[bold cyan]Envision Copilot[/bold cyan] initialized.", border_style="cyan"))
     
     # Initialize Agent
-    copilot = EnvisionCopilot(verbose=verbose)
+    copilot = EnvisionCopilot(verbose=verbose, interactive=interactive)
     
     # Run
     try:
-        if query:
-            # Execute
+        if interactive:
+            # Interactive Mode (Self-Managed UI)
+            copilot.run()
+        
+        elif query:
+            # Execute (The agent handles its own standardized UI display)
             result = copilot.run(query)
-             
-            # Display Final Answer (Always, regardless of verbose)
-            console.print("\n")
-            console.print(Panel(
-                Markdown(result["answer"]),
-                title="✅ Final Answer",
-                border_style="green",
-                subtitle="Envision Copilot"
-            ))
                  
-            # Display Appendix (via Encapsulated UI)
-            if hasattr(copilot, 'memory') and copilot.memory:
-                console.print("\n")
-                console.print(copilot.memory.print(title="📎 Appendix (References)"))
+            # Display Appendix (via Encapsulated UI) if present
+            if result.get("appendix"):
+                console.print(result["appendix"])
 
     except KeyboardInterrupt:
         console.print("\n[red]Cancelled by User[/red]")
