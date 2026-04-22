@@ -58,8 +58,8 @@ def start(
             result = copilot.run(query)
                  
             # Display Appendix (via Encapsulated UI) if present
-            if result.get("appendix"):
-                console.print(result["appendix"])
+            # if result.get("appendix"):
+            #     console.print(result["appendix"])
 
     except KeyboardInterrupt:
         console.print("\n[red]Cancelled by User[/red]")

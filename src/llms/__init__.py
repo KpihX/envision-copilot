@@ -1,11 +1,6 @@
 from typing import Dict, Any, Optional
-
 from .base import LLM
-from .mistral import MistralLLM
-from .gemini import GeminiLLM
-from .groq import GroqLLM
-from .ollama import OllamaLLM
-from .qwen import QwenLLM
+# Specialized providers are imported dynamically in get_llm to reduce startup time and dependencies footprint
 from .utils import ConfigLoader
 
 def get_llm(llm_type: str = None, llm_model: str = None, config: Dict[str, Any] = None) -> LLM:
@@ -22,7 +17,7 @@ def get_llm(llm_type: str = None, llm_model: str = None, config: Dict[str, Any] 
     provider = llm_type or \
                external_config.get("agent", {}).get("llm_type") or \
                external_config.get("llm_type") or \
-               internal_config.get("defaults", {}).get("model", "mistral")
+               internal_config.get("defaults", {}).get("model", "deepseek")
     provider = provider.lower()
     
     # 3. Determine Model: Arg > External agent.llm_model > Internal providers.X.model_name
@@ -43,16 +38,24 @@ def get_llm(llm_type: str = None, llm_model: str = None, config: Dict[str, Any] 
         merged_config["defaults"]["max_tokens"] = external_config["agent"]["max_tokens"]
     
     if "mistral" in provider and "ollama" not in provider:
+        from .mistral import MistralLLM
         return MistralLLM(merged_config, model_name=model)
     elif "gemini" in provider:
+        from .gemini import GeminiLLM
         return GeminiLLM(merged_config, model_name=model)
     elif "groq" in provider:
+        from .groq import GroqLLM
         return GroqLLM(merged_config, model_name=model)
     elif provider == "qwen":
+        from .qwen import QwenLLM
         return QwenLLM(merged_config, model_name=model)
-    elif provider in ("ollama", "llama", "codellama", "deepseek"):
+    elif provider == "deepseek":
+        from .deepseek import DeepSeekLLM
+        return DeepSeekLLM(merged_config, model_name=model)
+    elif provider in ("ollama", "llama", "codellama"):
+        from .ollama import OllamaLLM
         return OllamaLLM(merged_config, model_name=model)
     else:
-        raise ValueError(f"Unknown LLM type: {provider}. Supported: mistral, gemini, groq, qwen, ollama/llama")
+        raise ValueError(f"Unknown LLM type: {provider}. Supported: mistral, gemini, groq, qwen, deepseek, ollama/llama")
 
-__all__ = ["LLM", "MistralLLM", "GeminiLLM", "GroqLLM", "OllamaLLM", "QwenLLM", "get_llm", "ConfigLoader"]
+__all__ = ["LLM", "get_llm", "ConfigLoader"]

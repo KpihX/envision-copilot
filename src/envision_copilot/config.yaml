@@ -9,16 +9,16 @@ agent:
   # Provider LLM à utiliser (voir llms/config.yaml pour options)
   # Valeurs: qwen, mistral, gemini, groq, ollama
   # llm_type: "mistral"
-  llm_type: "qwen"
+  llm_type: "deepseek"
   # Modèle spécifique (laisser vide = default du provider)
   # qwen: qwen3-30b-a3b (default), qwen3-max, qwen3-235b-a22b
   # mistral: mistral-large-latest # (default)
   # gemini: gemini-2.0-flash (default), gemini-2.5-pro
   # llm_model: "qwen/qwen3-32b" # groq
-  llm_model: "qwen-vl-plus-latest"
+  llm_model: "deepseek-chat"
   # llm_model: "meta-llama/llama-4-scout-17b-16e-instruct"
   constraints:
-    max_depth: 10 # Profondeur max de recherche dans le graphe
+    max_depth: 7 # Profondeur max de recherche dans le graphe
     max_branches: 2 # Branches parallèles max par nœud
     recursion_limit: 50 # Steps max LangGraph (anti-boucle infinie)
     retry_limit: 2 # Retries max pour erreurs de format JSON

@@ -7,8 +7,8 @@
 # -----------------------------------------------------------------------------
 defaults:
   # Provider par défaut à utiliser
-  # Valeurs possibles: mistral, gemini, groq, qwen, ollama
-  model: "mistral"
+  # Valeurs possibles: mistral, gemini, groq, qwen, ollama, deepseek
+  model: "deepseek"
   
   # Température de génération (0.0 = déterministe, 1.0 = créatif)
   temperature: 0.0
@@ -53,3 +53,10 @@ providers:
   groq:
     # Modèles: llama3-8b-8192, llama3-70b-8192, mixtral-8x7b-32768
     model_name: "llama3-70b-8192"
+
+  # DeepSeek AI - Excellent rapport qualité/prix
+  # API Key: DEEPSEEK_API_KEY
+  deepseek:
+    # Modèles: deepseek-chat (v3), deepseek-reasoner (r1)
+    model_name: "deepseek-chat"
+    api_base: "https://api.deepseek.com/v1"
