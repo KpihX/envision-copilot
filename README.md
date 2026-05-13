@@ -7,6 +7,8 @@
 
 > Hybrid and agentic knowledge-extraction system for Lokad's proprietary Envision DSL.
 
+⚠️ **Note on Documentation**: The `docs/` folder used for GitHub Pages is automatically generated. To edit the documentation, please modify the corresponding `.md` files at the root of the project (`README.md`, `agents/AGENTS.md`, etc.), then use `make sync-docs` or `make all` to compile them into `docs/`.
+
 ## Project links
 
 - Main repository: [github.com/ClementLokad/llm-DSL-info-extraction](https://github.com/ClementLokad/llm-DSL-info-extraction)
