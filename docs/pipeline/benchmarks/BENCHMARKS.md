@@ -1,1 +1,1 @@
-C:/Users/gaeta/Documents/GitHub/llm-DSL-info-extraction/pipeline/benchmarks/BENCHMARKS.md
+../../../pipeline/benchmarks/BENCHMARKS.md

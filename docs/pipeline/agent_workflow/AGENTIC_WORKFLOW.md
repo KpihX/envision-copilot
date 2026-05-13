@@ -1,1 +1,1 @@
-C:/Users/gaeta/Documents/GitHub/llm-DSL-info-extraction/pipeline/agent_workflow/AGENTIC_WORKFLOW.md
+../../../pipeline/agent_workflow/AGENTIC_WORKFLOW.md

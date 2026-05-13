@@ -1,1 +1,1 @@
-C:/Users/gaeta/Documents/GitHub/llm-DSL-info-extraction/rag/embedders/EMBEDDERS.md
+../../../rag/embedders/EMBEDDERS.md

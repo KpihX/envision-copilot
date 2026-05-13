@@ -1,1 +1,1 @@
-C:/Users/gaeta/Documents/GitHub/llm-DSL-info-extraction/pipeline/PIPELINE.md
+../../pipeline/PIPELINE.md
