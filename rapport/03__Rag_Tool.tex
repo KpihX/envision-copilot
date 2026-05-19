@@ -1,0 +1,57 @@
+\subsubsection{RAG tool: l'outil de recherche sémantique}
+
+L’implémentation initiale de notre système RAG reposait sur FAISS (Facebook AI Similarity Search), une solution efficace pour le prototypage rapide, mais fondamentalement limitée par son approche unidimensionnelle. Dans cette première version, la recherche s'effectuait exclusivement via des vecteurs denses (\textit{embeddings}) qui capturaient le sens sémantique global des requêtes, mais peinaient face au vocabulaire très spécifique d'une base de code (noms de variables exacts, UUIDs, ou acronymes métiers de Lokad/Envision). Pour pallier cette faiblesse et permettre à l'agent de cibler des fichiers spécifiques ou des mots-clés, nous avions mis en place un système de reclassement manuel codé en dur en Python. Après avoir récupéré les \textit{K} meilleurs résultats de FAISS, le script appliquait des multiplicateurs mathématiques artificiels : le score d'un chunk était augmenté de quelques pourcents s'il contenait un mot-clé demandé, ou pénalisé s'il ne correspondait pas à l'expression régulière (\textit{regex}) du chemin de fichier spécifié. Bien que fonctionnelle sur une petite échelle, cette méthode était algorithmiquement fragile. Elle obligeait le système à manipuler des scores post-recherche, ce qui signifiait que si FAISS ne remontait pas le bon fichier dans son top 30 initial, le système de pénalités Python ne pouvait tout simplement pas corriger le tir, la bonne réponse ayant déjà été éliminée de la sélection.\\
+
+Pour franchir un cap en termes de précision, nous avons migré la base vectorielle vers Qdrant, ce qui nous a permis de débloquer la puissance de la recherche hybride en combinant une base de données "Dense" (comme FAISS) et une base de données "Sparse" qui permet de faire des recherches par fréquence de tokens. Pour cette base de données sparse, nous utilisons BM25 (Best Matching 25) \cite{Robertson2009} qui est une fonction de classement fréquentielle estimant la pertinence d'un document $D$ par rapport à une requête $Q$. Le score de pertinence est calculé selon la formule suivante :
+
+\begin{equation}
+\text{Score}(D, Q) = \sum_{q \in Q} \text{IDF}(q) \cdot \frac{f(q, D) \cdot (k_1 + 1)}{f(q, D) + k_1 \cdot (1 - b + b \cdot \frac{|D|}{\text{avgdl}})}
+\end{equation}
+
+où $q\in Q$ sont les tokens compris dans $Q$. Pour bien appréhender la mécanique de cette formule, il convient de la décomposer en trois axes fondamentaux qui agissent de concert : \\
+
+\begin{itemize}
+    \item \textbf{Le poids intrinsèque du terme (La composante IDF) :} 
+    La partie $\text{IDF}(q)$ agit comme un filtre de rareté. Elle est classiquement calculée selon la formule suivante :
+    $$\text{IDF}(q) = \ln\left(\frac{N - n(q) + 0.5}{n(q) + 0.5} + 1\right)$$
+    où $N$ représente le nombre total de documents dans la collection (la base de code), et $n(q)$ est le nombre de documents contenant le terme $q$. 
+    Elle part du principe mathématique qu'un mot très commun dans la base de code (où $n(q)$ s'approche de $N$) verra son score s'effondrer vers zéro, car il apporte peu d'information discriminante. À l'inverse, un terme technique rare (où $n(q)$ est très petit) verra son score multiplié de façon significative.\\
+    
+    \item \textbf{La saturation de la fréquence (Le paramètre $k_1 \in [1.2, 2.0]$) :} 
+    La fraction centrale de l'équation gère la fréquence d'apparition du terme $f(q, D)$, c'est-à-dire le nombre de fois où le mot est trouvé dans le document. Sans le paramètre constant $k_1$, un document répétant 100 fois le même mot écraserait tous les autres résultats. Ce paramètre $k_1$ impose une courbe asymptotique : la première apparition d'un mot donne un score fort, la deuxième un peu moins, jusqu'à plafonner mathématiquement vers $(k_1 + 1)$. Cela traduit l'idée sémantique que "mentionner un sujet 5 fois prouve qu'on en parle, le mentionner 50 fois n'apporte plus de preuve supplémentaire".\\
+
+    \item \textbf{La normalisation par la longueur (Le paramètre $b \approx 0.75$) :} 
+    Le dénominateur intègre le ratio $\frac{|D|}{\text{avgdl}}$, qui compare la longueur du document évalué $|D|$ à la longueur moyenne des documents de la base \texttt{avgdl}. Par pure probabilité, un fichier de 3000 lignes a beaucoup plus de chances de contenir accidentellement les mots de la requête qu'un petit fichier de 50 lignes. Le paramètre constant $b$ (généralement fixé à $0.75$, mais obligatoirement compris entre $0$ et $1$) vient pondérer cette injustice statistique en pénalisant les documents excessivement longs, assurant ainsi que la concision et la densité de l'information sont récompensées.\\
+\end{itemize}
+
+Avec Qdrant, nous avons mis en place une architecture sophistiquée à 4 flux de recherche simultanés (2 flux \textit{denses} et 2 flux \textit{sparses}) qui se balancent mutuellement grâce au Reciprocal Rank Fusion (RRF) \cite{Cormack2009}, qui favorise les documents récupérés dans plusieurs flux différents :
+$$RRF(d)=\sum_{r\in R}\frac{1}{k+r(d)}$$
+où chaque élément $r\in R$ correspond à un flux et associe à chaque document $d$ son classement pour celui-ci, et $k$ est une constante qui est usuellement choisie égale à 60.
+
+Les deux premiers flux opèrent au niveau global sur toute la base de code : le flux \textit{Dense} cherche les concepts, tandis que le flux \textit{Sparse} (BM25) vérifie que les mots demandés sont présents. Les deux flux suivants sont conditionnels et dédiés au "Source Boosting" : si l'agent spécifie un chemin de fichier, Qdrant relance une recherche Dense et une recherche Sparse uniquement à l'intérieur de ces fichiers cibles. Cette architecture matricielle (cf. Table \ref{tab:matrice_flux}) garantit que peu importe si l'utilisateur pose une question large et conceptuelle ou s'il cherche l'usage exact d'une fonction spécifique dans un dossier précis, le système a mathématiquement la capacité de trouver le bon chunk sans nécessiter de calcul post-recherche.\\
+
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.5}
+\begin{tabularx}{\textwidth}{l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Portée / Méthode} & \textbf{Dense (Sémantique)} & \textbf{Sparse (Lexical / BM25)} \\ 
+\midrule
+\textbf{Global} & 
+\textbf{Flux 1 :} Capture les concepts, la logique métier et les intentions globales. & 
+\textbf{Flux 2 :} Capture la syntaxe exacte, les noms de variables et les identifiants techniques. \\ 
+\addlinespace
+\textbf{Filtré (Sources)} & 
+\textbf{Flux 3 (Boosté) :} Recherche conceptuelle limitée aux fichiers cibles. \newline \textit{Seuil : 0.3} & 
+\textbf{Flux 4 (Boosté) :} Recherche de mots-clés exacte limitée aux fichiers cibles. \newline \textit{Seuil : 2.0} \\ 
+\bottomrule
+\end{tabularx}
+\caption{Matrice de recherche hybride fusionnée via Reciprocal Rank Fusion (RRF).}
+\label{tab:matrice_flux}
+\end{table}
+
+Le principal défaut de cette architecture RAG est que le RRF est aveugle aux scores réels et ne fusionne que les classements (rangs). Si l'agent LLM hallucine et demande de chercher le mot-clé \texttt{forecasting} dans un fichier source qui n'a rien à voir (ex: \texttt{/1. utilities/Modules/Colors}), les flux 3 et 4 trouveraient quand même des résultats dans ce fichier, et le rang \#1 de ces flux obtiendrait un boost massif, enterrant la vraie réponse. Pour contrer partiellement cela, nous avons équipé Qdrant de seuils de score pour les flux de source boosting et nous les avons ajustés expérimentalement. Ainsi, si la meilleure correspondance dans le fichier cible n'atteint pas un seuil minimal de pertinence (cosine-similarity ou BM25), la recherche ciblée est purement et simplement avortée. Le système RRF retombe alors automatiquement sur les flux globaux (1 et 2), sauvant la recherche et garantissant que le boost de source n'est appliqué que lorsqu'il est factuellement mérité, offrant une meilleure résilience face aux hallucinations de l'agent. \\
+
+Enfin, nous avons ajouté une ultime couche de raffinement contextuel : le Reranking avec un Cross-Encoder (Jina AI). Qdrant agit comme un filet large et intelligent, remontant les 15 ou 30 meilleurs candidats, mais ces modèles utilisent la similarité cosinus, qui reste une comparaison mathématique relativement simple. Le modèle \texttt{jinaai/jina-reranker-v2-base-multilingual} prend le relais en utilisant un \textit{transformer} pour lire simultanément la question de l'utilisateur et le code récupéré. Nous avons choisi Jina spécifiquement pour son excellence dans un environnement bilingue, lui permettant de comprendre parfaitement le lien sémantique entre une question posée en français, des chemins de fichiers français (\texttt{/4. Optimization workflow/French/...}), et de la logique métier codée en anglais. Ce modèle ne fait pas que vérifier la présence des mots ; il comprend profondément le contexte technique et évalue si le chunk répond réellement à la question.\\
+
+Dans le but de maximiser l'efficacité du reranking, nous ne passons pas simplement le code brut au Cross-Encoder, nous concaténons le chemin du fichier au sommet du document (\texttt{Source: ...}), et nous structurons la requête en y intégrant explicitement les directives de l'agent (\texttt{Required keywords: ... Target source: ...}). Le transformeur Jina peut ainsi lier son attention directement entre le chemin demandé et la métadonnée du chunk. Les scores bruts (logits) générés par Jina sont ensuite normalisés via une fonction Sigmoïde pour obtenir un score normalisé entre 0.0 et 1.0. Cette architecture finale combine la vitesse et la couverture exhaustive de la base Qdrant avec l'analyse chirurgicale et sémantique d'un modèle neuronal lourd, garantissant que seuls les extraits de code les plus pertinents et exacts atterrissent dans la fenêtre de contexte de l'agent final.

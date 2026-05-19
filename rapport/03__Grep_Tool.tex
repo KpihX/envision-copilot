@@ -1,0 +1,149 @@
+\subsubsection{Grep tool : la recherche lexicale exacte guidée par la structure du code}
+
+Le \texttt{grep\_tool} répond à un besoin complémentaire du \textit{RAG}. Lorsqu'une question porte sur un identifiant précis, un chemin exact, un littéral ou une construction syntaxique bien déterminée, une recherche sémantique pure devient trop floue. Dans ce cas, nous préférons un outil de recherche textuelle exacte, piloté par expressions régulières.
+
+Cependant, notre \texttt{grep\_tool} n'est pas un simple appel à \texttt{rg} ou à \texttt{grep} sur des fichiers bruts. Il opère sur notre représentation déjà parsée du code Envision : les scripts sont d'abord découpés en blocs syntaxiques cohérents (\texttt{IMPORT}, \texttt{READ}, \texttt{WRITE}, \texttt{SHOW}, \texttt{EXPORT}, etc.), puis la recherche s'applique sur ces blocs. Cela permet de restreindre la recherche à certaines formes de code, ce qui est particulièrement utile pour répondre à des questions comme \textit{« où lit-on \code{/Clean/Items.ion} ? »} ou \textit{« dans quels inspecteurs apparaît un \texttt{show table} ? »}.
+
+\begin{figure}[H]
+\begin{center}
+\resizebox{0.97\textwidth}{!}{
+\begin{tikzpicture}[
+    >=Latex,
+    box/.style={
+        rectangle,
+        rounded corners,
+        draw=cyan!60!black,
+        fill=cyan!12,
+        align=center,
+        minimum height=1.35cm,
+        text width=3.8cm,
+        inner sep=6pt
+    },
+    box2/.style={
+        rectangle,
+        rounded corners,
+        draw=orange!70!black,
+        fill=orange!15,
+        align=center,
+        minimum height=1.35cm,
+        text width=4.2cm,
+        inner sep=6pt
+    },
+    box3/.style={
+        rectangle,
+        rounded corners,
+        draw=green!50!black,
+        fill=green!12,
+        align=center,
+        minimum height=1.35cm,
+        text width=4.0cm,
+        inner sep=6pt
+    },
+    line/.style={draw, thick, -Latex}
+]
+    \node[box] (scripts) at (0,0) {Scripts miroirs\\\code{env_scripts/*.nvn}};
+    \node[box2] (parser) at (4.9,0) {\texttt{EnvisionParser}\\blocs \texttt{IMPORT}, \texttt{READ}, \texttt{SHOW}, \dots};
+    \node[box2] (query) at (4.9,-2.5) {\texttt{grep\_tool}\\\texttt{pattern} + \texttt{sources} + \texttt{block\_type}};
+    \node[box3] (matches) at (9.8,-2.5) {Blocs correspondants\\et scripts sources};
+    \node[box3] (compact) at (14.7,-2.5) {Compaction contextuelle\\fenêtre de lignes utiles};
+
+    \draw[line] (scripts) -- (parser);
+    \draw[line] (parser) -- (query);
+    \draw[line] (query) -- (matches);
+    \draw[line] (matches) -- (compact);
+\end{tikzpicture}}
+\end{center}
+\caption{Chaîne de traitement du \texttt{grep\_tool} : la recherche ne s'effectue pas sur du texte brut, mais sur des blocs Envision parsés puis compactés avant renvoi au modèle.}
+\end{figure}
+
+\paragraph{Trois leviers de contrôle}
+L'outil est construit autour de trois paramètres simples mais très efficaces :
+\begin{itemize}
+    \item \texttt{pattern} : le motif recherché, généralement un identifiant, une chaîne ou une petite expression régulière.
+    \item \texttt{sources} : un filtre optionnel sur les chemins de scripts, pour restreindre la recherche à une zone du dépôt.
+    \item \texttt{block\_type} : une liste optionnelle de types de blocs Envision, permettant par exemple de ne chercher que dans les \texttt{READ} ou les \texttt{SHOW}.
+\end{itemize}
+
+Cette combinaison donne au planificateur un contrôle beaucoup plus fin qu'une recherche globale. Il peut d'abord cibler un dossier logique, puis resserrer encore la recherche au niveau d'une structure syntaxique particulière.
+
+\begin{figure}[H]
+\begin{center}
+\resizebox{0.96\textwidth}{!}{
+\begin{tikzpicture}[
+    >=Latex,
+    knob/.style={
+        rectangle,
+        rounded corners,
+        draw=blue!60!black,
+        fill=blue!10,
+        align=center,
+        minimum height=1.2cm,
+        text width=4cm,
+        inner sep=6pt
+    },
+    result/.style={
+        rectangle,
+        rounded corners,
+        draw=green!50!black,
+        fill=green!12,
+        align=center,
+        minimum height=1.25cm,
+        text width=5.2cm,
+        inner sep=6pt
+    },
+    line/.style={draw, thick, -Latex}
+]
+    \node[knob] (pattern) at (0,0) {\texttt{pattern}\\\code{StockEvol}\\ou \code{/Clean/Items.ion}};
+    \node[knob] (sources) at (5.2,0) {\texttt{sources}\\\code{/Modules/Functions}\\ou \code{/3. Inspectors/}};
+    \node[knob] (blocks) at (10.4,0) {\texttt{block\_type}\\\texttt{[READ, FORM\_READ]}\\ou \texttt{[SHOW]}};
+    \node[result] (target) at (5.2,-2.6) {Recherche exacte mais ciblée\\sur une zone et une structure précise du code};
+
+    \draw[line] (pattern) -- (target);
+    \draw[line] (sources) -- (target);
+    \draw[line] (blocks) -- (target);
+\end{tikzpicture}}
+\end{center}
+\caption{Les trois degrés de liberté du \texttt{grep\_tool}. Le planificateur peut jouer sur le motif, la zone du dépôt et le type syntaxique recherché.}
+\end{figure}
+
+Une difficulté majeure que nous avons dû surmonter concerne la définition itérative des noms de fichiers dans Envision. Le code utilise fréquemment des interpolations de chaînes de caractères pour définir les chemins d'importation, par exemple :
+\begin{verbatim}
+const testStorage = "/Data/"
+const inputPath = "\{testStorage}Clean/"
+read "\{inputPath}Items.ion" as Items
+\end{verbatim}
+Une recherche textuelle simple (Grep) sur la chaîne \texttt{"/Clean/Items.ion"} échoue ici, car le chemin complet n'est jamais écrit explicitement en une seule ligne.
+\\
+Nous avons donc dû ajuster l'outil Grep pour gérer cette complexité. L'outil effectue désormais une résolution récursive à la volée : il isole la dernière partie du chemin, vérifie si le préfixe correspond à une variable définie précédemment (comme \texttt{\{inputPath\}}), et remonte ainsi la chaîne de dépendances jusqu'à la racine. Bien que fonctionnelle, cette méthode est coûteuse en temps de calcul car elle s'exécute au moment de la requête (\textit{runtime}).
+
+\paragraph{Exemples réels sur le dépôt courant}
+Les requêtes ci-dessous ont été exécutées sur l'état actuel du dépôt.
+\begin{itemize}
+    \item La requête \code{pattern="StockEvol"} avec \code{sources="/Modules/Functions"} retourne un unique résultat, le module \code{/1. utilities/Modules/Functions.nvn}. Ce cas est typique d'une recherche d'identifiant précis.
+    \item La requête \code{pattern="show table"}, \code{sources="/3. Inspectors/"} et \code{block_type=[SHOW]} retourne 16 résultats, tous situés dans les inspecteurs. Ici, le filtre syntaxique évite de rechercher inutilement dans les blocs de calcul.
+    \item La requête \code{pattern="/Clean/Items.ion"} avec \code{block_type=[READ, FORM_READ]} retourne 31 résultats. Le \texttt{grep\_tool} identifie alors précisément les scripts qui lisent ce fichier, avant de compacter les extraits pertinents.
+\end{itemize}
+
+\begin{verbatim}
+read "/Clean/Items.ion" as Items[Id unsafe] with
+  "Sku" as Id : text
+  Name : text
+  Category : text
+  SellPrice : number
+  BuyPrice : number
+  StockOnHand : number
+  ...
+\end{verbatim}
+
+L'extrait ci-dessus illustre le format final transmis au modèle : le bloc est raccourci autour de la zone utile, avec une fenêtre de contexte ajustée automatiquement pour respecter un budget total de lignes.
+
+\paragraph{Apport pour l'agent}
+Le \texttt{grep\_tool} joue donc le rôle d'un instrument de \textbf{précision lexicale}. Là où le \textit{RAG} répond mieux aux formulations conceptuelles et où le \texttt{graph\_tool} fournit des relations structurelles, le \texttt{grep\_tool} excelle pour :
+\begin{itemize}
+    \item retrouver un identifiant exact ;
+    \item confirmer qu'un chemin ou un littéral apparaît réellement dans le code ;
+    \item restreindre une recherche à un dossier particulier ;
+    \item cibler une forme syntaxique précise, comme les \texttt{READ} ou les \texttt{SHOW}. \\
+\end{itemize}
+
+Cette complémentarité est importante dans notre architecture : elle permet au planificateur de choisir entre une recherche \textbf{sémantique}, \textbf{lexicale} ou \textbf{structurelle} selon la nature effective de la question.

@@ -1,0 +1,231 @@
+\subsection{Lokad et Envision : le terrain applicatif}
+
+Notre partenaire industriel, Lokad, ne se présente pas comme un simple éditeur d'outils analytiques, mais comme une plateforme logicielle spécialisée dans l'optimisation quantitative de la supply chain \cite{LokadEnvision}. Dans cette approche, les décisions opérationnelles ne sont pas paramétrées manuellement écran par écran : elles sont produites par des applications métiers spécialisées, écrites dans le DSL propriétaire Envision. Le site officiel met en avant une plateforme conçue pour couvrir des cas d'usage variés tels que la prévision, le réapprovisionnement, l'allocation ou encore la gestion opérationnelle de réseaux complexes.
+
+\subsubsection{Envision : un DSL « 3-en-1 » pour la supply chain}
+
+Envision ne se résume pas à « un SQL propriétaire ». La documentation officielle le présente plutôt comme un langage spécialisé de la supply chain, pensé pour manipuler des tables, orchestrer des traitements et produire directement des restitutions \cite{LokadEnvision}. On peut utilement le comprendre comme un compromis entre :
+\begin{itemize}
+    \item un \textbf{langage déclaratif tabulaire}, proche de SQL par son travail sur les tables, les colonnes, les agrégations et les relations de données ;
+    \item un \textbf{langage de processus contrôlé}, avec des mécanismes de flux et d'itération volontairement bornés, utilisés pour ordonner certains calculs ou scans séquentiels ;
+    \item un \textbf{langage de restitution intégré}, capable de produire les tableaux, indicateurs et vues de pilotage directement depuis les scripts eux-mêmes.
+\end{itemize}
+
+Autrement dit, Envision peut être présenté comme un mélange de SQL, d'un sous-ensemble procédural proche d'un script Python très contraint, et de primitives de dashboarding intégrées. Ce n'est donc ni un simple langage de requêtes, ni un pur langage de programmation généraliste, ni un simple langage de visualisation.
+
+\newcommand{\envkw}[1]{\textcolor{blue!65!black}{\textbf{\texttt{#1}}}}
+\newcommand{\envstr}[1]{\textcolor{green!35!black}{\texttt{#1}}}
+\newcommand{\envsnippet}[1]{%
+    \par\noindent\fcolorbox{black!15}{black!3}{%
+        \parbox{0.94\linewidth}{%
+            \vspace{3pt}{\small\ttfamily #1}\vspace{3pt}%
+        }%
+    }\par
+}
+
+Cette triple nature devient très visible dès qu'on lit quelques lignes réelles du corpus. On observe immédiatement : des \texttt{import} de modules, des \texttt{read} vers des fichiers de données, des \texttt{def process} exportés pour factoriser des calculs, des appels de fonctions sur des séries temporelles, puis des \texttt{write} et des \texttt{show table} qui matérialisent les sorties métier.
+
+Pour préparer plus concrètement la lecture des graphes introduits ensuite, on peut regarder quelques motifs récurrents du corpus. Chacun fait apparaître un type de relation structurelle que notre représentation cherche précisément à expliciter.
+
+\vspace{0.5cm}
+
+\begin{itemize}
+    \item \textbf{Un script peut importer un module puis lire plusieurs fichiers d'entrée.} C'est la forme la plus immédiate de dépendance : \emph{script} $\rightarrow$ \emph{module importé} et \emph{script} $\rightarrow$ \emph{fichiers lus}.
+\end{itemize}
+
+\vspace{0.5cm}
+
+\envsnippet{
+\envkw{import} \envstr{"/1. utilities/Modules/Global Parameters"} \envkw{as} GP \envkw{with}\\
+\hspace*{1.5em}DcUnit\\
+\hspace*{1.5em}LinkLocationItemInspector\\[0.3em]
+\envkw{read} \envstr{"/Clean/Items.ion"} \envkw{as} Items[Id unsafe] \envkw{with}\\
+\hspace*{1.5em}\envstr{"Sku"} \envkw{as} Id : text\\
+\hspace*{1.5em}Name : text\\
+\hspace*{1.5em}SellPrice : number\\[0.3em]
+\envkw{read} \envstr{"\{testStorage\}Clean/Orders.ion"} \envkw{as} Orders \envkw{expect} [Id, date] \envkw{with}\\
+\hspace*{1.5em}\envstr{"Sku"} \envkw{as} Id : text\\
+\hspace*{1.5em}\envstr{"OrderDate"} \envkw{as} date: date\\
+\hspace*{1.5em}Quantity : number
+}
+
+\vspace{0.5cm}
+
+\begin{itemize}
+    \item \textbf{Une logique métier peut être factorisée dans une fonction partagée.} Envision ne contient pas seulement des requêtes tabulaires : on y trouve aussi des calculs procéduraux bornés, exportés sous forme de fonctions. Le cas de \texttt{StockEvol} est typique.
+\end{itemize}
+
+\vspace{0.5cm}
+
+\envsnippet{
+\envkw{export def process} StockEvol(\\
+\hspace*{1.5em}demand:number,\\
+\hspace*{1.5em}desiredStockLvl: number,\\
+\hspace*{1.5em}reorderCycle:number,\\
+\hspace*{1.5em}leadtime:number,\\
+\hspace*{1.5em}startStockonhand: number) \envkw{with}\\
+\hspace*{1.5em}\envkw{keep} stockOnHand = 0\\
+\hspace*{1.5em}\envkw{keep} stockOnOrder = 0\\
+\hspace*{1.5em}...\\
+\hspace*{1.5em}\envkw{return} (stockOnHand, stockOnOrder, arrivingStockPreDay, newOrder)
+}
+
+\vspace{0.5cm}
+
+\begin{itemize}
+    \item \textbf{Cette fonction peut ensuite être réimportée dans un script métier.} On voit alors apparaître une autre dépendance importante : \emph{script} $\rightarrow$ \emph{fonction définie ailleurs}.
+\end{itemize}
+
+\vspace{0.5cm}
+
+\envsnippet{
+\envkw{import} \envstr{"/1. utilities/Modules/Functions"} \envkw{as} Functions \envkw{with}\\
+\hspace*{1.5em}StockEvol\\[0.3em]
+History.MyStockOnHand,\textbackslash\\
+History.MyStockOnOrder,\textbackslash\\
+History.MyStockArriving,\textbackslash\\
+History.MyNewOrder =\\[0.3em]
+StockEvol(History.WkQty,\\
+\hspace*{1.5em}ItemsWeek.IdealStock,\\
+\hspace*{1.5em}History.ReorderCycleWeeks,\\
+\hspace*{1.5em}History.SupplierLTWeeks,\\
+\hspace*{1.5em}Items.StartStock)\\
+\hspace*{1.5em}\envkw{by} History.Id\\
+\hspace*{1.5em}\envkw{scan} History.Mday
+}
+
+\vspace{0.5cm}
+
+\begin{itemize}
+    \item \textbf{Le même langage sert enfin à produire des sorties et des vues métier.} Les scripts ne calculent donc pas seulement des valeurs : ils matérialisent aussi directement les résultats exploités par les utilisateurs métier.
+\end{itemize}
+
+\vspace{0.5cm}
+
+\envsnippet{
+\envkw{write} Categories \envkw{as} \envstr{"Clean/PurchaseResults/EconomicParametersCategories.ion"} \envkw{with}\\
+\hspace*{1.5em}CategoryName = Categories.CategoryName\\
+\hspace*{1.5em}AgressivenessFactor = Categories.AgressivenessFactorIni\\[0.3em]
+\envkw{write} Scalar \envkw{as} \envstr{"Clean/PurchaseResults/TargetsPurchaseList.ion"} \envkw{with}\\
+\hspace*{1.5em}FRTarget = Scalar.FRTarget\\
+\hspace*{1.5em}budgetTarget = Scalar.budgetTarget\\[0.3em]
+\envkw{show table} \envstr{"Dispatch recommendations"} \envkw{with}\\
+\hspace*{1.5em}Skus.Sku\\
+\hspace*{1.5em}Skus.Ref\\
+\hspace*{1.5em}Skus.DispatchQuantity \envkw{as} \envstr{"Qty to Dispatch"}
+}
+
+
+
+\medskip
+Ces extraits suffisent déjà à faire émerger l'intuition qui sera centrale pour la suite du rapport : un script Envision n'est pas isolé. Il peut importer un module, réutiliser une fonction définie ailleurs, lire plusieurs fichiers d'entrée, produire des artefacts de sortie, puis exposer des résultats dans des vues métier. C'est précisément cette structure d'interdépendances que nous avons exploité dans nos divers outils.
+
+\begin{figure}[H]
+\begin{center}
+\resizebox{0.95\textwidth}{!}{
+\begin{tikzpicture}[
+    >=Latex,
+    box/.style={
+        rectangle,
+        rounded corners,
+        draw=cyan!60!black,
+        fill=cyan!10,
+        minimum height=1.2cm,
+        text width=4.1cm,
+        align=center,
+        inner sep=6pt
+    },
+    centerbox/.style={
+        rectangle,
+        rounded corners,
+        draw=orange!70!black,
+        fill=orange!14,
+        minimum height=1.5cm,
+        text width=4.6cm,
+        align=center,
+        inner sep=6pt
+    },
+    line/.style={draw, thick, -Latex}
+]
+    \node[centerbox] (env) at (0,0) {\textbf{Envision}\\DSL spécialisé pour la supply chain};
+    \node[box] (decl) at (-5.4,2.3) {\textbf{Couche déclarative tabulaire}\\tables, colonnes, agrégations, relations};
+    \node[box] (proc) at (0,2.3) {\textbf{Couche procédurale contrôlée}\\ordonnancement, scans, flux borné};
+    \node[box] (disp) at (5.4,2.3) {\textbf{Couche de restitution}\\tableaux, indicateurs, dashboards};
+
+    \draw[line] (decl) -- (env);
+    \draw[line] (proc) -- (env);
+    \draw[line] (disp) -- (env);
+\end{tikzpicture}}
+\end{center}
+\caption{Lecture synthétique d'Envision : un DSL qui combine manipulation tabulaire, processus de calcul et restitution métier dans un même langage.}
+\end{figure}
+
+\subsubsection{Une logique orientée batch, fichiers et décisions}
+
+La documentation officielle insiste aussi sur le caractère très concret et orienté exécution d'Envision : les scripts lisent des fichiers d'entrée, produisent des tables intermédiaires, sauvegardent des résultats et alimentent des vues de pilotage \cite{LokadEnvision}. Dans le corpus que nous avons étudié chez Lokad, cette logique se matérialise par deux arborescences fortement structurées :
+\begin{itemize}
+    \item une arborescence \textbf{scripts}, qui contient les traitements Envision ;
+    \item une arborescence \textbf{data}, qui contient les données d'entrée, les jeux nettoyés et certains artefacts manuels.
+\end{itemize}
+
+Le point important, pour notre PSC, est que l'ordre de lecture du projet devient en pratique presque visible dans les noms. Dans notre dépôt, les dossiers et fichiers préfixés par \texttt{1.}, \texttt{2.}, \texttt{3.}, etc. rendent immédiatement lisible une convention de progression : utilitaires et préparation des données, contrôles de qualité, inspecteurs analytiques, optimisation, planification long terme, documentation. Cette convention n'est pas une propriété intrinsèque du langage Envision ; c'est une propriété organisationnelle extrêmement utile du corpus réel que nous devons naviguer.
+
+\subsubsection{Du calcul à l'aide à la décision}
+
+Cette organisation n'est pas purement académique : elle sert à produire des décisions opérationnelles concrètes. Le site officiel Lokad met en avant des cas d'usage orientés prévision, réapprovisionnement, allocation, tarification et plus généralement pilotage quantitatif de la supply chain. Dans des secteurs à forte contrainte, cela signifie que les scripts Envision ne servent pas seulement à calculer des indicateurs, mais bien à préparer des décisions qui ont un impact direct sur l'approvisionnement, le stock ou la disponibilité opérationnelle.
+
+Dans un tel contexte, un projet client Envision ressemble moins à un « petit script » qu'à une application batch métier complète : ingestion de données, nettoyage, calculs tabulaires, optimisation, génération de tableaux de bord et restitution d'actions recommandées. Cette richesse fait la force de la plateforme, mais elle crée aussi la difficulté qui motive notre PSC : pour un humain comme pour un LLM, il devient vite coûteux de retrouver \textit{où} une métrique est calculée, \textit{quel} script lit un fichier donné, \textit{où} une suggestion d'approvisionnement est produite, ou \textit{quel} tableau de bord expose un résultat.
+
+\begin{figure}[H]
+\begin{center}
+\resizebox{0.96\textwidth}{!}{
+\begin{tikzpicture}[
+    >=Latex,
+    box/.style={
+        rectangle,
+        rounded corners,
+        draw=cyan!60!black,
+        fill=cyan!10,
+        minimum height=1.15cm,
+        text width=3.9cm,
+        align=center,
+        inner sep=5pt
+    },
+    out/.style={
+        rectangle,
+        rounded corners,
+        draw=green!50!black,
+        fill=green!12,
+        minimum height=1.15cm,
+        text width=3.9cm,
+        align=center,
+        inner sep=5pt
+    },
+    problem/.style={
+        rectangle,
+        rounded corners,
+        draw=orange!80!black,
+        fill=orange!14,
+        minimum height=1.25cm,
+        text width=4.7cm,
+        align=center,
+        inner sep=6pt
+    },
+    line/.style={draw, thick, -Latex}
+]
+    \node[box] (input) at (-6.1,0) {Données métier\\ERP, stocks, commandes, catalogues};
+    \node[box] (scripts) at (-1.9,0) {Chaîne de scripts Envision\\préparer, contrôler, analyser, optimiser};
+    \node[out] (outputs) at (2.3,0) {Résultats opérationnels\\fichiers nettoyés, scores, suggestions};
+    \node[out] (dashboards) at (6.5,0) {Restitution métier\\inspecteurs, cockpits, dashboards};
+    \node[problem] (need) at (2.3,-2.4) {Plus le corpus grossit, plus il devient difficile de se repérer rapidement dans les scripts, les dépendances et les sorties.};
+
+    \draw[line] (input) -- (scripts);
+    \draw[line] (scripts) -- (outputs);
+    \draw[line] (outputs) -- (dashboards);
+    \draw[line] (scripts) -- (need);
+\end{tikzpicture}}
+\end{center}
+\caption{Le problème adressé par notre PSC apparaît naturellement : quand les scripts Envision deviennent nombreux et fortement couplés aux données, l'exploration manuelle du corpus devient coûteuse.}
+\end{figure}
+
+Cette difficulté de navigation justifie directement notre objectif : construire un assistant capable de retrouver, relier et expliquer les éléments pertinents d'un projet Envision réel, sans donner au modèle un accès brut et illimité à l'ensemble du dépôt ni aux données confidentielles du client.

@@ -1,0 +1,18 @@
+\section{Introduction : Le Défi des DSLs Industriels}
+
+\subsection{Contexte : L'angle mort des Grands Modèles de Langage}
+
+L'avènement des modèles de langage massivement pré-entraînés (LLM) a bouleversé les pratiques de développement logiciel. Sur des langages populaires comme Python ou Javascript, des outils comme GitHub Copilot agissent désormais comme des assistants quasi-omniscients. La raison de ce succès est simple : ces langages constituent une part significative du corpus d'entraînement public sur lequel ces modèles ont appris.
+
+Cependant, la réalité industrielle est plus nuancée. De nombreuses entreprises, à l'instar de notre partenaire Lokad, fondent leur avantage compétitif sur des \textit{Domain Specific Languages} (DSL) propriétaires. Dans le cas de Lokad, il s'agit d'Envision \cite{LokadEnvision}, un langage proche du SQL dédié à l'optimisation de la Supply Chain. Ici réside une première partie de notre problématique : les LLM standards (GPT-4, Mistral, Claude) n'ont quasiment jamais "lu" de code Envision.
+
+La principale difficulté du projet repose ainsi sur la complexité réelle des architectures Envision mises à disposition : un
+compte typique est composé de plusieurs dizaines de scripts interconnectés, organisés en modules thématiques,
+et dont la documentation est partielle. Ces scripts réalisent des tâches variées allant du traitement de données
+à l’optimisation numérique.
+
+\subsection{Objectifs}
+
+Nous ne cherchons pas seulement à créer un moteur de recherche amélioré. Nous essayons de concevoir une \textbf{architecture agentique hybride}. Ce système doit être capable de décider de lui-même s'il doit effectuer une recherche sémantique (comprendre un concept) ou lexicale (trouver une variable exacte), et d'itérer sur sa propre réponse.
+
+Nous détaillerons comment nous sommes passés d'une pipeline linéaire à l'utilisation de graphes d'états (via \textit{LangGraph}), comment nous avons surmonté les limites du découpage de code (\textit{chunking}), et comment nous avons mis en place un protocole d'évaluation automatisé (\textit{LLM-as-a-Judge}) pour mesurer nos progrès de manière objective.

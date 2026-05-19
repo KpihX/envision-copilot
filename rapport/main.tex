@@ -1,0 +1,171 @@
+% pour des documents plus longs, vous pouvez utiliser 
+% book ou report
+
+\documentclass[a4paper]{article}
+
+% Vous pouvez changer les paramètres : voici les options disponibles :
+% - a4paper
+% - fancysections
+% - notitlepage ou titlepage
+% - oneside ou twoside selon si vous voulez l'imprimer en recto-verso ou en recto
+% - sectionmark
+% - chaptermark (pour les chapitres, si applicable)
+% - pagenumber
+% - en manque d'inspiration
+% En cas de doutes, pas de doutes, la documentation est sur :
+% https://gitlab.binets.fr/typographix/polytechnique/-/blob/master/source/polytechnique.pdf
+
+\usepackage[a4paper, fancysections, titlepage]{polytechnique}
+\usepackage[french]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{blindtext}
+\usepackage[hidelinks]{hyperref}
+\usepackage{amsmath, amssymb}
+% \usepackage{fancyhdr} % Pour personnaliser l'en-tête et le pied de page
+
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{booktabs} % Pour des lignes horizontales de qualité
+\usepackage{tabularx} % Pour des tableaux à largeur fixe et retour à la ligne
+\usepackage[table,xcdraw]{xcolor} % Pour colorer les cellules si besoin
+
+\usepackage[utf8]{inputenc}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+
+% \usepackage{svg} % Permet d'inclure des images SVG
+\usepackage{graphicx} % Permet de manipuler les dimensions des images
+% \usepackage[absolute,overlay]{textpos} %
+\usepackage{tikz}
+\usetikzlibrary{shapes.multipart, arrows.meta, positioning, shadows} % Ajout de librairies pour les schémas d'architecture
+\usepackage{wrapfig} % Permet d'aligner l'image avec le texte
+\usepackage{float} % Pour utiliser l'option H qui permet un positionnement des images en alignement avec le texte
+\usepackage{pdfpages}
+\usepackage{caption}
+\usepackage{xurl} % pour une meilleure gestion des urls
+
+\usepackage{listings}
+\usepackage{xcolor}
+\lstset{
+  basicstyle=\ttfamily\small, % Police style code
+  breaklines=true,            % Active le retour à la ligne automatique
+  columns=fullflexible,       % Gère mieux l'espacement
+  frame=single,               % Ajoute un cadre (optionnel)
+  backgroundcolor=\color{gray!10}, % Fond gris léger (optionnel)
+}
+
+
+% \setlength{\TPHorizModule}{1cm}
+% \setlength{\TPVertModule}{1cm}
+
+% Nous avons défini deux commandes :
+\newcommand{\code}[1]{%
+    \mbox{\ttfamily%
+        \detokenize{#1}%
+    }%
+}
+\newcommand{\resultat}[1]{%
+    \quad \rightsquigarrow \quad #1%
+}
+
+\title{Rapport Final PSC X24}
+\subtitle{Architecture Agentique et Hybride pour l'Extraction de Connaissances sur Code Propriétaire (Envision)}
+
+\author{
+    Dégot--Silvestre Gaétan \\
+    Dorchies Yoan \\
+    Kamdem Ivann \\
+    Thébault Guilhem \\
+    Guediche Adam
+}
+% ---------------------------------------------------
+
+%\date{\today}
+% Pour ajouter le logo de l'École polytechnique et celui de l'organisme d'accueil
+%\logo{lokad.pdf}
+% \renewcommand{\titlepagebottomline}{
+%     \begin{minipage}{5\largeurlogohori}
+%         \centering
+%         \raisebox{-0.5\height}{
+%             \includegraphics[height=1.1cm, keepaspectratio]{lokad}
+%         }
+%         \hspace{0.5\largeurlogohori}
+%         \raisebox{-0.5\height}{
+%             \includegraphics[width=2.2\largeurlogohori]{polytechnique-logohori}
+%         }
+%     \end{minipage}
+% }
+
+\begin{document}
+
+% \begin{tikzpicture}[remember picture, overlay]
+%         \node at (current page.north west) [anchor=north west, xshift=3cm, yshift=-2cm] {%
+%             \includegraphics[width=5cm, height=4cm]{images/auteuil.jpg} % Modifiez width/height
+%         };
+% \end{tikzpicture}
+
+\pagenumbering{gobble} % Pas de numérotation pour les pages avant l'introduction
+
+\maketitle 
+
+% \section*{Remerciements}
+
+% \begin{textblock*}{5cm}(22cm,16cm)
+%     \includegraphics[width=]{images/auteuil.jpg}
+% \end{textblock*}
+
+\newpage
+
+\tableofcontents
+
+\newpage
+
+\pagenumbering{arabic} % Commencer la numérotation des pages à partir de l'introduction
+\setcounter{page}{1} % Commencer la numérotation à 1
+
+% ---------------------------------------------------
+% STRUCTURE DU RAPPORT INTERMÉDIAIRE
+% ---------------------------------------------------
+
+% I. Introduction : Contexte industriel et Problématique
+\include{01_Introduction}
+\newpage
+
+\include{02__Lokad_Envision_Context}
+\newpage
+
+% II. État de l'art : Des LLM aux Agents Autonomes
+\include{02_Etat_Art}
+\newpage
+
+% III. Méthodologie et Architecture (Le cœur technique : Parsing, RAG Hybride, LangGraph)
+\include{03_Architecture_Technique}
+\newpage
+
+% IV Context Engineering
+\include{04_Context engineering}
+\newpage
+
+% V. Protocole d'Évaluation (Benchmarking et LLM-as-a-Judge)
+\include{05_Evaluation_Benchmark}
+\newpage
+
+% VI. Résultats
+\include{06_Resultats}
+\newpage
+
+% VIII. Gestion de projet et Perspectives
+\include{07_Gestion_Projet}
+\newpage
+
+% VI. Bibliographie
+\include{08_Bibliographie}
+
+% \newpage
+% \section{Conclusion}
+% La conclusion est intégrée dans la partie Gestion de Projet / Perspectives pour ce rapport intermédiaire.
+
+% Model inclusion other pdf
+% \includepdf[pages=-, pagecommand={\thispagestyle{plain}}]{document_annexe.pdf}
+    
+\end{document}
