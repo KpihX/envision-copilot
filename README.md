@@ -1,8 +1,18 @@
 # 🔬 Envision Agentic RAG System
 
-**Moteur d'extraction d'information et de raisonnement sur des codebases DSL.**
+**Moteur d'extraction d'information et de raisonnement sur des codebases DSL (Envision Copilot V0).**
 
 Un système agentique qui combine **analyse structurelle** (graphe de dépendances) et **recherche sémantique** (RAG) pour répondre à des questions complexes sur du code Envision.
+
+## 🔗 Project Links
+
+- **GitHub Repositories**:
+  - Sovereign Code: [github.com/KpihX/envision-copilot](https://github.com/KpihX/envision-copilot) (default branch: `graph`)
+  - Internship Report (Submodule): [github.com/KpihX/envision-copilot-rapport](https://github.com/KpihX/envision-copilot-rapport) (default branch: `main`)
+  - Upstream Reference: [github.com/ClementLokad/llm-DSL-info-extraction](https://github.com/ClementLokad/llm-DSL-info-extraction)
+- **GitLab Repositories** (Subgroup `kpihx-labs/ai/envision`):
+  - Sovereign Code: [gitlab.com/kpihx-labs/ai/envision/envision-copilot](https://gitlab.com/kpihx-labs/ai/envision/envision-copilot) (default branch: `graph`)
+  - Internship Report (Submodule): [gitlab.com/kpihx-labs/ai/envision/envision-copilot-rapport](https://gitlab.com/kpihx-labs/ai/envision/envision-copilot-rapport) (default branch: `main`)
 
 ---
 
@@ -16,9 +26,13 @@ Un système agentique qui combine **analyse structurelle** (graphe de dépendanc
 ### Installation
 
 ```bash
-# Cloner le projet
-git clone https://github.com/ClementLokad/llm-DSL-info-extraction.git
-cd llm-DSL-info-extraction
+# Cloner le projet avec ses sous-modules
+git clone --recurse-submodules git@github.com:KpihX/envision-copilot.git
+cd envision-copilot
+git checkout graph
+
+# Sync submodules
+make sync-submodules
 
 # Installer les dépendances (uv uniquement !)
 uv sync
