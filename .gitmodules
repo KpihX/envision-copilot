@@ -1,0 +1,3 @@
+[submodule "envision-copilot-rapport"]
+	path = envision-copilot-rapport
+	url = git@github.com:KpihX/envision-copilot-rapport.git
