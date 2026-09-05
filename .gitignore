@@ -14,9 +14,6 @@ __pycache__/
 # Project data (regenerable)
 datas/
 
-# Branch-specific submodule directory ignored on graph
-envision-copilot-presentation
-
 # Dev notes
 GEMINI.md
 pbs.txt
