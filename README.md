@@ -7,12 +7,23 @@
 
 > Hybrid and agentic knowledge-extraction system for Lokad's proprietary Envision DSL.
 
-⚠️ **Note on Documentation**: The `docs/` folder used for GitHub Pages is automatically generated. To edit the documentation, please modify the corresponding `.md` files at the root of the project (`README.md`, `agents/AGENTS.md`, etc.), then use `make sync-docs` or `make all` to compile them into `docs/`.
+> **Note on Architecture & Submodules**: This repository (`envision-copilot`) manages the core codebase and orchestrates documentation and report deliverables via Git submodules:
+> - **`envision-copilot-presentation/`** (Submodule) — Docsify public documentation site (`kpihx.github.io/envision-copilot-presentation/` & GitLab mirror). Use `make sync-docs` to sync markdown files from `README.md`, `agents/AGENTS.md`, `pipeline/`, `rag/` into the presentation submodule.
+> - **`envision-copilot-rapport/`** (Submodule) — LaTeX source & deliverables for the INF01 PSC internship report (`build/main.pdf`).
+> - Use `make sync-submodules` (`git submodule update --init --recursive`) to initialize all submodules on clone.
 
 ## Project links
 
-- Main repository: [github.com/ClementLokad/llm-DSL-info-extraction](https://github.com/ClementLokad/llm-DSL-info-extraction)
-- PSC public page: [kpihx.github.io/envision-copilot-presentation](https://kpihx.github.io/envision-copilot-presentation/)
+- **GitHub Repositories**:
+  - Sovereign Code: [github.com/KpihX/envision-copilot](https://github.com/KpihX/envision-copilot) (default branch: `graph`)
+  - Docs & Presentation: [github.com/KpihX/envision-copilot-presentation](https://github.com/KpihX/envision-copilot-presentation) (default branch: `main`)
+  - Internship Report: [github.com/KpihX/envision-copilot-rapport](https://github.com/KpihX/envision-copilot-rapport) (default branch: `main`)
+  - Upstream Reference: [github.com/ClementLokad/llm-DSL-info-extraction](https://github.com/ClementLokad/llm-DSL-info-extraction)
+- **GitLab Repositories** (Subgroup `kpihx-labs/ai/envision`):
+  - Sovereign Code: [gitlab.com/kpihx-labs/ai/envision/envision-copilot](https://gitlab.com/kpihx-labs/ai/envision/envision-copilot) (default branch: `graph`)
+  - Docs & Presentation: [gitlab.com/kpihx-labs/ai/envision/envision-copilot-presentation](https://gitlab.com/kpihx-labs/ai/envision/envision-copilot-presentation) (default branch: `main`)
+  - Internship Report: [gitlab.com/kpihx-labs/ai/envision/envision-copilot-rapport](https://gitlab.com/kpihx-labs/ai/envision/envision-copilot-rapport) (default branch: `main`)
+- **PSC Public Page**: [kpihx.github.io/envision-copilot-presentation](https://kpihx.github.io/envision-copilot-presentation/)
 
 ## Project overview
 
